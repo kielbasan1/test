@@ -13,6 +13,11 @@
     <div class="header-actions">
       <button id="btn-show-history" class="btn-link">Geçmiş Rüyalarım</button>
       <button id="btn-new-dream" class="btn-link hidden">Yeni Rüya Başlat</button>
+      {% if session.get("authed") %}
+      <form action="{{ url_for('logout') }}" method="POST" style="display:inline;">
+        <button type="submit" class="btn-link">Çıkış Yap</button>
+      </form>
+      {% endif %}
     </div>
   </header>
 

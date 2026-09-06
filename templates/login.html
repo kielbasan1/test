@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Giriş — Sembol Çarkı</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Sembol Çarkı</h1>
+    <p class="subtitle">Devam etmek için şifreni gir</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <form method="POST" class="row" style="flex-direction: column; align-items: stretch; gap: 12px;">
+        <input type="password" name="password" placeholder="Şifre" autofocus required
+               style="padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border, #ccc); font-size: 1rem;" />
+        {% if error %}
+          <p class="hint" style="color: #c0392b;">{{ error }}</p>
+        {% endif %}
+        <button type="submit" class="btn-primary">Giriş Yap</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

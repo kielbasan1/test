@@ -2,19 +2,62 @@ import json
 import os
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+from flask import (
+    Flask,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 load_dotenv(override=True)
 
 from services import duckduckgo_client, gemini_client, tavily_client  # noqa: E402
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "").strip() or os.urandom(24)
+app.permanent_session_lifetime = timedelta(days=30)
+
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "").strip()
 
 DREAMS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ruyalar")
 os.makedirs(DREAMS_DIR, exist_ok=True)
+
+
+@app.before_request
+def _require_login():
+    # APP_PASSWORD tanımlı değilse (örn. sadece kendi bilgisayarında, .env'de
+    # şifre girmeden çalıştırıyorsan) giriş ekranını tamamen devre dışı bırak.
+    if not APP_PASSWORD:
+        return None
+    if request.path == "/login" or request.path.startswith("/static/"):
+        return None
+    if session.get("authed"):
+        return None
+    return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = None
+    if request.method == "POST":
+        if request.form.get("password", "") == APP_PASSWORD:
+            session.permanent = True
+            session["authed"] = True
+            return redirect(url_for("index"))
+        error = "Yanlış şifre."
+    return render_template("login.html", error=error)
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
 
 
 def _friendly_error(exc: Exception) -> str:
