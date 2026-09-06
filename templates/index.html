@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sembol Çarkı — Jungiyen Rüya Analizi</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Sembol Çarkı</h1>
+    <p class="subtitle">Robert Johnson'ın "Inner Work" yöntemiyle rüya sembol amplifikasyonu</p>
+    <div class="header-actions">
+      <button id="btn-show-history" class="btn-link">Geçmiş Rüyalarım</button>
+      <button id="btn-new-dream" class="btn-link hidden">Yeni Rüya Başlat</button>
+    </div>
+  </header>
+
+  <div id="progress-bar" class="progress-bar hidden">
+    <div id="progress-fill" class="progress-fill"></div>
+  </div>
+  <p id="progress-label" class="progress-label hidden"></p>
+
+  <main>
+    <!-- GEÇMİŞ RÜYALAR -->
+    <section id="step-history" class="card hidden">
+      <h2>Geçmiş Rüyalarım</h2>
+      <p id="history-empty" class="hint hidden">Henüz kaydedilmiş bir rüya yok.</p>
+      <ul id="history-list" class="history-list"></ul>
+      <div id="history-detail" class="history-detail hidden">
+        <button id="btn-history-back" class="btn-secondary">← Listeye dön</button>
+        <div id="history-detail-content"></div>
+      </div>
+    </section>
+
+    <!-- ADIM 1: Rüya girişi -->
+    <section id="step-dream" class="card">
+      <h2>Rüyanı Yaz</h2>
+      <textarea id="dream-text" rows="8" placeholder="Rüyanı hatırladığın kadarıyla, detaylarıyla buraya yaz..."></textarea>
+      <label class="context-label">
+        Bu rüyayı neden bu gece görmüş olabilirsin? <span class="hint small">(opsiyonel — bugün/bu aralar yaşadığın bir şey, bir kaygı, bir karar)</span>
+        <textarea id="dream-context" rows="2" placeholder="Örn: yarın önemli bir karar vermem gerekiyor, gerginim..."></textarea>
+      </label>
+      <div class="row">
+        <button id="btn-extract" class="btn-primary">Sembolleri Çıkar</button>
+        <span id="extract-status" class="status"></span>
+      </div>
+    </section>
+
+    <!-- ADIM 2: Sembol listesi -->
+    <section id="step-symbols" class="card hidden">
+      <h2>Semboller</h2>
+      <p class="hint">Bir sembole tıklayıp çarkını aç, sonra kendi çağrışımlarını serbestçe ekle. AI bir sembolü atladıysa aşağıdan elle ekleyebilirsin.</p>
+      <p id="symbol-progress" class="hint small"></p>
+      <div class="row">
+        <button id="btn-start-symbols" class="btn-primary">Sembollerle Başla →</button>
+      </div>
+      <div id="symbol-chips" class="chip-row"></div>
+      <div class="add-association manual-symbol-row">
+        <input id="manual-symbol-input" type="text" placeholder="Atlanan bir sembol varsa buraya yaz (örn. saat)" />
+        <button id="btn-add-symbol" class="btn-secondary">Sembol Ekle</button>
+      </div>
+    </section>
+
+    <!-- ADIM 3: Çark çalışma alanı -->
+    <section id="step-wheel" class="card hidden">
+      <button id="btn-wheel-back" class="btn-link">← Tüm sembollere dön</button>
+      <h2 id="wheel-symbol-title">3. Sembol Çarkı</h2>
+      <p id="wheel-symbol-context" class="hint"></p>
+
+      <div class="wheel-layout">
+        <div class="wheel-svg-wrap">
+          <svg id="wheel-svg" viewBox="0 0 560 560" width="560" height="560"></svg>
+        </div>
+        <div class="wheel-side">
+          <div class="add-association">
+            <input id="assoc-input" type="text" placeholder="Bu sembol seni neye götürüyor? (çağrışımını yaz)" />
+            <button id="btn-add-assoc" class="btn-secondary">Ok Ekle</button>
+          </div>
+          <ul id="assoc-list" class="assoc-list"></ul>
+          <p class="hint small">İçinde en çok "cuk oturan" çağrışımı işaretlemek için üstüne tıkla — o ok renklenecek.</p>
+        </div>
+      </div>
+
+      <!-- ADIM 3b: 4 soru -->
+      <div id="four-questions" class="four-questions hidden">
+        <h3>Seçtiğin çağrışımı derinleştir</h3>
+        <label>Bu içimde hangi parçam?
+          <textarea data-q="q1" rows="2"></textarea>
+        </label>
+        <label>Hayatımdaki işlevi ne / nereyi yönetiyor?
+          <textarea data-q="q2" rows="2"></textarea>
+        </label>
+        <label>Kişiliğimin neresinde bunu görüyorum?
+          <textarea data-q="q3" rows="2"></textarea>
+        </label>
+        <label>Kim içimde böyle davranıyor?
+          <textarea data-q="q4" rows="2"></textarea>
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="btn-next-symbol" class="btn-primary hidden">Sonraki Sembol →</button>
+      </div>
+    </section>
+
+    <!-- ADIM 4: Sonuç -->
+    <section id="step-finalize" class="card hidden">
+      <h2>Amplifikasyon &amp; Yorum</h2>
+      <p class="hint">Tüm sembollerde bir çağrışım seçtiğinde bu adım aktif olur. Devam edersen her sembol için internetten mitolojik/sembolik amplifikasyon verisi toplanacak ve son bir Jungiyen yorum üretilecek.</p>
+      <div class="row">
+        <button id="btn-finalize" class="btn-primary" disabled>Amplifikasyon Verisini Getir &amp; Yorumu Oluştur</button>
+        <span id="finalize-status" class="status"></span>
+      </div>
+    </section>
+
+    <section id="step-result" class="card hidden">
+      <div class="row result-header">
+        <h2>Yorum</h2>
+        <button id="btn-copy-result" class="btn-secondary">Kopyala</button>
+      </div>
+      <div id="result-text" class="result-text"></div>
+      <div id="result-sources" class="result-sources"></div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/wheel.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

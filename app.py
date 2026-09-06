@@ -1,0 +1,135 @@
+import json
+import os
+import re
+import uuid
+from datetime import datetime
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify, render_template, request
+
+load_dotenv(override=True)
+
+from services import duckduckgo_client, gemini_client, tavily_client  # noqa: E402
+
+app = Flask(__name__)
+
+DREAMS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ruyalar")
+os.makedirs(DREAMS_DIR, exist_ok=True)
+
+
+def _friendly_error(exc: Exception) -> str:
+    """Gemini/Tavily'den gelen ham JSON hata bloklarını kullanıcının anlayacağı
+    kısa bir Türkçe mesaja çevirir; tanımadığımız hatalarda orijinal mesajı
+    olduğu gibi döndürür."""
+    text = str(exc)
+    if "RESOURCE_EXHAUSTED" in text or "429" in text:
+        return (
+            "Günlük Gemini kullanım kotan doldu. Yarın tekrar deneyebilir ya da "
+            ".env dosyasındaki GEMINI_MODEL değerini değiştirip farklı bir "
+            "modelle devam edebilirsin."
+        )
+    if "UNAVAILABLE" in text or "503" in text:
+        return "Gemini şu anda yoğun, birkaç saniye sonra tekrar dene."
+    if "API_KEY_INVALID" in text or "API key not valid" in text:
+        return "Gemini API anahtarı geçersiz görünüyor, .env dosyasını kontrol et."
+    return text
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/api/extract-symbols", methods=["POST"])
+def extract_symbols():
+    data = request.get_json(force=True)
+    dream_text = (data or {}).get("dream_text", "").strip()
+    if not dream_text:
+        return jsonify({"error": "Rüya metni boş olamaz."}), 400
+    try:
+        symbols = gemini_client.extract_symbols(dream_text)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": _friendly_error(exc)}), 500
+    return jsonify({"symbols": symbols})
+
+
+@app.route("/api/search-symbol", methods=["POST"])
+def search_symbol():
+    data = request.get_json(force=True)
+    symbol = (data or {}).get("symbol", "").strip()
+    context = (data or {}).get("context", "").strip()
+    symbol_en = (data or {}).get("symbol_en", "").strip()
+    if not symbol:
+        return jsonify({"error": "Sembol adı gerekli."}), 400
+    source = "tavily"
+    try:
+        results = tavily_client.search_symbol(symbol, context, symbol_en)
+    except Exception as tavily_exc:  # noqa: BLE001
+        # Tavily kotası bitmiş/başarısız olmuş olabilir; DuckDuckGo'yu (resmi
+        # olmayan, sadece yedek) dene. O da başarısız olursa asıl Tavily
+        # hatasını döndür.
+        try:
+            results = duckduckgo_client.search_symbol(symbol, context, symbol_en)
+            source = "duckduckgo"
+        except Exception:  # noqa: BLE001
+            return jsonify({"error": _friendly_error(tavily_exc)}), 500
+    return jsonify({"symbol": symbol, "results": results, "source": source})
+
+
+@app.route("/api/synthesize", methods=["POST"])
+def synthesize():
+    payload = request.get_json(force=True) or {}
+    if not payload.get("dream_text") or not payload.get("symbols"):
+        return jsonify({"error": "Eksik veri: rüya metni ve semboller gerekli."}), 400
+    try:
+        interpretation = gemini_client.synthesize_interpretation(payload)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": _friendly_error(exc)}), 500
+    return jsonify({"interpretation": interpretation})
+
+
+@app.route("/api/save-dream", methods=["POST"])
+def save_dream():
+    payload = request.get_json(force=True) or {}
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    slug = re.sub(r"[^a-zA-Z0-9_-]+", "", str(uuid.uuid4())[:8])
+    filename = f"{timestamp}_{slug}.json"
+    path = os.path.join(DREAMS_DIR, filename)
+    record = {"saved_at": datetime.now().isoformat(), **payload}
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(record, f, ensure_ascii=False, indent=2)
+    return jsonify({"saved_as": filename})
+
+
+@app.route("/api/dreams", methods=["GET"])
+def list_dreams():
+    files = sorted(os.listdir(DREAMS_DIR), reverse=True)
+    dreams = []
+    for fname in files:
+        if not fname.endswith(".json"):
+            continue
+        with open(os.path.join(DREAMS_DIR, fname), encoding="utf-8") as f:
+            record = json.load(f)
+        dreams.append(
+            {
+                "file": fname,
+                "saved_at": record.get("saved_at"),
+                "dream_text": record.get("dream_text", "")[:120],
+            }
+        )
+    return jsonify({"dreams": dreams})
+
+
+@app.route("/api/dreams/<fname>", methods=["GET"])
+def get_dream(fname):
+    safe_name = os.path.basename(fname)
+    path = os.path.join(DREAMS_DIR, safe_name)
+    if not os.path.isfile(path):
+        return jsonify({"error": "Kayıt bulunamadı."}), 404
+    with open(path, encoding="utf-8") as f:
+        record = json.load(f)
+    return jsonify(record)
+
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)
