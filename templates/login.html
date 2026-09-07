@@ -2,23 +2,32 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Giriş — Sembol Çarkı</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
 <body>
+  <svg xmlns="http://www.w3.org/2000/svg" class="hidden" aria-hidden="true">
+    <defs>
+      <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20 12.5A8.5 8.5 0 1 1 11.5 4a6.5 6.5 0 0 0 8.5 8.5Z"/></symbol>
+      <symbol id="icon-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    </defs>
+  </svg>
+
   <header class="app-header">
-    <h1>Sembol Çarkı</h1>
+    <h1 class="brand"><svg class="icon"><use href="#icon-moon"/></svg>Sembol Çarkı</h1>
     <p class="subtitle">Devam etmek için şifreni gir</p>
   </header>
 
   <main>
     <section class="card">
-      <form method="POST" class="row" style="flex-direction: column; align-items: stretch; gap: 12px;">
-        <input type="password" name="password" placeholder="Şifre" autofocus required
-               style="padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border, #ccc); font-size: 1rem;" />
+      <form method="POST" class="login-form">
+        <div class="login-input-row">
+          <svg class="icon"><use href="#icon-lock"/></svg>
+          <input type="password" name="password" placeholder="Şifre" autofocus required autocomplete="current-password" />
+        </div>
         {% if error %}
-          <p class="hint" style="color: #c0392b;">{{ error }}</p>
+          <p class="error-text">{{ error }}</p>
         {% endif %}
         <button type="submit" class="btn-primary">Giriş Yap</button>
       </form>

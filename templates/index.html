@@ -2,17 +2,35 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Sembol Çarkı — Jungiyen Rüya Analizi</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
 <body>
+  <svg xmlns="http://www.w3.org/2000/svg" class="hidden" aria-hidden="true">
+    <defs>
+      <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20 12.5A8.5 8.5 0 1 1 11.5 4a6.5 6.5 0 0 0 8.5 8.5Z"/></symbol>
+      <symbol id="icon-chevron-left" viewBox="0 0 24 24"><path d="M14 5l-7 7 7 7"/></symbol>
+      <symbol id="icon-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></symbol>
+      <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
+      <symbol id="icon-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3z"/></symbol>
+      <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></symbol>
+    </defs>
+  </svg>
+
   <header class="app-header">
-    <h1>Sembol Çarkı</h1>
+    <h1 class="brand"><svg class="icon"><use href="#icon-moon"/></svg>Sembol Çarkı</h1>
     <p class="subtitle">Robert Johnson'ın "Inner Work" yöntemiyle rüya sembol amplifikasyonu</p>
     <div class="header-actions">
-      <button id="btn-show-history" class="btn-link">Geçmiş Rüyalarım</button>
-      <button id="btn-new-dream" class="btn-link hidden">Yeni Rüya Başlat</button>
+      <button id="btn-show-history" class="btn-link">
+        <svg class="icon icon-sm"><use href="#icon-clock"/></svg>Geçmiş Rüyalarım
+      </button>
+      <button id="btn-new-dream" class="btn-link hidden">
+        <svg class="icon icon-sm"><use href="#icon-sparkle"/></svg>Yeni Rüya Başlat
+      </button>
       {% if session.get("authed") %}
       <form action="{{ url_for('logout') }}" method="POST" style="display:inline;">
         <button type="submit" class="btn-link">Çıkış Yap</button>
@@ -21,10 +39,12 @@
     </div>
   </header>
 
-  <div id="progress-bar" class="progress-bar hidden">
-    <div id="progress-fill" class="progress-fill"></div>
+  <div id="progress-wrap" class="progress-wrap hidden">
+    <div id="progress-bar" class="progress-bar">
+      <div id="progress-fill" class="progress-fill"></div>
+    </div>
+    <p id="progress-label" class="progress-label"></p>
   </div>
-  <p id="progress-label" class="progress-label hidden"></p>
 
   <main>
     <!-- GEÇMİŞ RÜYALAR -->
@@ -33,7 +53,9 @@
       <p id="history-empty" class="hint hidden">Henüz kaydedilmiş bir rüya yok.</p>
       <ul id="history-list" class="history-list"></ul>
       <div id="history-detail" class="history-detail hidden">
-        <button id="btn-history-back" class="btn-secondary">← Listeye dön</button>
+        <button id="btn-history-back" class="btn-secondary">
+          <svg class="icon icon-sm"><use href="#icon-chevron-left"/></svg>Listeye dön
+        </button>
         <div id="history-detail-content"></div>
       </div>
     </section>
@@ -47,7 +69,9 @@
         <textarea id="dream-context" rows="2" placeholder="Örn: yarın önemli bir karar vermem gerekiyor, gerginim..."></textarea>
       </label>
       <div class="row">
-        <button id="btn-extract" class="btn-primary">Sembolleri Çıkar</button>
+        <button id="btn-extract" class="btn-primary">
+          <svg class="icon icon-sm"><use href="#icon-sparkle"/></svg>Sembolleri Çıkar
+        </button>
         <span id="extract-status" class="status"></span>
       </div>
     </section>
@@ -63,14 +87,18 @@
       <div id="symbol-chips" class="chip-row"></div>
       <div class="add-association manual-symbol-row">
         <input id="manual-symbol-input" type="text" placeholder="Atlanan bir sembol varsa buraya yaz (örn. saat)" />
-        <button id="btn-add-symbol" class="btn-secondary">Sembol Ekle</button>
+        <button id="btn-add-symbol" class="btn-secondary">
+          <svg class="icon icon-sm"><use href="#icon-plus"/></svg>Sembol Ekle
+        </button>
       </div>
     </section>
 
     <!-- ADIM 3: Çark çalışma alanı -->
     <section id="step-wheel" class="card hidden">
-      <button id="btn-wheel-back" class="btn-link">← Tüm sembollere dön</button>
-      <h2 id="wheel-symbol-title">3. Sembol Çarkı</h2>
+      <button id="btn-wheel-back" class="btn-link">
+        <svg class="icon icon-sm"><use href="#icon-chevron-left"/></svg>Tüm sembollere dön
+      </button>
+      <h2 id="wheel-symbol-title">Sembol Çarkı</h2>
       <p id="wheel-symbol-context" class="hint"></p>
 
       <div class="wheel-layout">
@@ -80,7 +108,9 @@
         <div class="wheel-side">
           <div class="add-association">
             <input id="assoc-input" type="text" placeholder="Bu sembol seni neye götürüyor? (çağrışımını yaz)" />
-            <button id="btn-add-assoc" class="btn-secondary">Ok Ekle</button>
+            <button id="btn-add-assoc" class="btn-secondary">
+              <svg class="icon icon-sm"><use href="#icon-plus"/></svg>Ok Ekle
+            </button>
           </div>
           <ul id="assoc-list" class="assoc-list"></ul>
           <p class="hint small">İçinde en çok "cuk oturan" çağrışımı işaretlemek için üstüne tıkla — o ok renklenecek.</p>
@@ -114,7 +144,9 @@
       <h2>Amplifikasyon &amp; Yorum</h2>
       <p class="hint">Tüm sembollerde bir çağrışım seçtiğinde bu adım aktif olur. Devam edersen her sembol için internetten mitolojik/sembolik amplifikasyon verisi toplanacak ve son bir Jungiyen yorum üretilecek.</p>
       <div class="row">
-        <button id="btn-finalize" class="btn-primary" disabled>Amplifikasyon Verisini Getir &amp; Yorumu Oluştur</button>
+        <button id="btn-finalize" class="btn-primary" disabled>
+          <svg class="icon icon-sm"><use href="#icon-sparkle"/></svg>Amplifikasyon Verisini Getir &amp; Yorumu Oluştur
+        </button>
         <span id="finalize-status" class="status"></span>
       </div>
     </section>
@@ -122,14 +154,31 @@
     <section id="step-result" class="card hidden">
       <div class="row result-header">
         <h2>Yorum</h2>
-        <button id="btn-copy-result" class="btn-secondary">Kopyala</button>
+        <div class="result-header-actions">
+          <button id="btn-download-result" class="btn-secondary">
+            <svg class="icon icon-sm"><use href="#icon-download"/></svg>İndir (.txt)
+          </button>
+          <button id="btn-copy-result" class="btn-secondary">
+            <svg class="icon icon-sm"><use href="#icon-copy"/></svg>Kopyala
+          </button>
+        </div>
       </div>
+      <p class="hint small">Sunucudaki kayıt geçici olabilir (ücretsiz hosting'te silinebilir) — kalıcı bir kopya için indirmeni öneririm.</p>
+
+      <div class="symbol-map-card">
+        <h3>Sembol Haritası</h3>
+        <p class="hint small">Altın çağrışım düğümüne tıkla — 4 soruya verdiğin cevaplar da birer düğüm olarak açılır. Sürükleyerek kaydır, tekerlek/iki parmakla yakınlaştır.</p>
+        <div class="symbol-map-wrap">
+          <svg id="symbol-map-svg" viewBox="0 0 640 640" width="640" height="640"></svg>
+        </div>
+      </div>
+
       <div id="result-text" class="result-text"></div>
-      <div id="result-sources" class="result-sources"></div>
     </section>
   </main>
 
   <script src="{{ url_for('static', filename='js/wheel.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/symbolmap.js') }}"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

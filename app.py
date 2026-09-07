@@ -17,7 +17,7 @@ from flask import (
 
 load_dotenv(override=True)
 
-from services import duckduckgo_client, gemini_client, tavily_client  # noqa: E402
+from services import gemini_client  # noqa: E402
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "").strip() or os.urandom(24)
@@ -61,9 +61,9 @@ def logout():
 
 
 def _friendly_error(exc: Exception) -> str:
-    """Gemini/Tavily'den gelen ham JSON hata bloklarını kullanıcının anlayacağı
-    kısa bir Türkçe mesaja çevirir; tanımadığımız hatalarda orijinal mesajı
-    olduğu gibi döndürür."""
+    """Gemini'den gelen ham JSON hata bloklarını kullanıcının anlayacağı kısa
+    bir Türkçe mesaja çevirir; tanımadığımız hatalarda orijinal mesajı olduğu
+    gibi döndürür."""
     text = str(exc)
     if "RESOURCE_EXHAUSTED" in text or "429" in text:
         return (
@@ -94,29 +94,6 @@ def extract_symbols():
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": _friendly_error(exc)}), 500
     return jsonify({"symbols": symbols})
-
-
-@app.route("/api/search-symbol", methods=["POST"])
-def search_symbol():
-    data = request.get_json(force=True)
-    symbol = (data or {}).get("symbol", "").strip()
-    context = (data or {}).get("context", "").strip()
-    symbol_en = (data or {}).get("symbol_en", "").strip()
-    if not symbol:
-        return jsonify({"error": "Sembol adı gerekli."}), 400
-    source = "tavily"
-    try:
-        results = tavily_client.search_symbol(symbol, context, symbol_en)
-    except Exception as tavily_exc:  # noqa: BLE001
-        # Tavily kotası bitmiş/başarısız olmuş olabilir; DuckDuckGo'yu (resmi
-        # olmayan, sadece yedek) dene. O da başarısız olursa asıl Tavily
-        # hatasını döndür.
-        try:
-            results = duckduckgo_client.search_symbol(symbol, context, symbol_en)
-            source = "duckduckgo"
-        except Exception:  # noqa: BLE001
-            return jsonify({"error": _friendly_error(tavily_exc)}), 500
-    return jsonify({"symbol": symbol, "results": results, "source": source})
 
 
 @app.route("/api/synthesize", methods=["POST"])

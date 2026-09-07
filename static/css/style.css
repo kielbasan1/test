@@ -1,108 +1,228 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  --bg: #14121c;
-  --card-bg: #1e1b29;
-  --text: #ece7f5;
-  --muted: #a89bc2;
-  --accent: #7c5cff;
-  --gold: #e0a92e;
-  --ring: #3a3552;
-  --danger: #e0664f;
+  color-scheme: dark;
+
+  /* Yüzeyler — koyu erguvan/gece tonu, saf siyah değil (gözü daha az yorar,
+     "Dark Mode OLED" tarzından farklı olarak sıcak/mistik his verir). */
+  --bg: #120f1d;
+  --bg-elevated: #1c1730;
+  --bg-sunken: #14101f;
+  --card-bg: #1c1730;
+  --input-bg: #14101f;
+
+  /* Metin */
+  --text: #efeafb;
+  --muted: #ada2c9;
+  --muted-2: #756a91;
+
+  /* Marka */
+  --accent: #9b7bff;
+  --accent-strong: #b69cff;
+  --accent-soft: rgba(155, 123, 255, 0.14);
+  --gold: #e8b94a;
+  --gold-soft: rgba(232, 185, 74, 0.14);
+  --green: #4ade9c;
+
+  --ring: #362d52;
+  --ring-soft: #241d3a;
+  --danger: #f0705a;
+  --danger-soft: rgba(240, 112, 90, 0.14);
+
+  --font-heading: "Cormorant Garamond", Georgia, serif;
+  --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --icon-size: 20px;
 }
 
 * { box-sizing: border-box; }
 
-/* Genel görünürlük anahtarı — main.js her yerde classList.add/remove("hidden")
-   kullanıyor; eleman türüne özel .hidden kuralları unutulursa (örn. bir <p>
-   veya <ul> üzerinde) sessizce hiçbir şey gizlenmez, bu yüzden tek genel kural
-   burada tanımlı ve her elemana uygulanır. */
-.hidden { display: none; }
+/* main.js her yerde classList.add/remove("hidden") kullanıyor; eleman türüne
+   özel .hidden kuralları unutulursa sessizce hiçbir şey gizlenmez, bu yüzden
+   tek genel kural burada tanımlı ve her elemana uygulanır. */
+.hidden { display: none !important; }
 
 html {
   scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: "Segoe UI", system-ui, sans-serif;
-  line-height: 1.5;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
   -webkit-tap-highlight-color: transparent;
+  min-height: 100dvh;
 }
 
+h1, h2, h3 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+a { color: var(--accent-strong); }
+
+/* ---------- Odak durumu (klavye erişilebilirliği) ---------- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------- İkonlar ---------- */
+.icon {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -4px;
+}
+
+.icon-sm { --icon-size: 16px; }
+
 /* ---------- Hareket / geçiş sistemi ----------
-   Bir eleman .hidden'dan çıkıp (display:none -> block/flex) yeniden göründüğünde
-   tarayıcılar CSS animasyonunu otomatik olarak baştan oynatır — bu yüzden
-   "görünür ol" anını yakalamak için transition yerine keyframe animasyon
-   kullanıyoruz. Kullanıcı işletim sisteminden azaltılmış hareket istediyse
-   (prefers-reduced-motion) tüm bu animasyonları devre dışı bırakıyoruz. */
+   Bir eleman .hidden'dan çıkıp yeniden göründüğünde tarayıcı CSS animasyonunu
+   otomatik baştan oynatır — "görünür ol" anını yakalamak için transition
+   yerine keyframe kullanıyoruz. Çıkış animasyonu girişten daha kısa (160ms
+   vs 320ms) tutulur ki adım değişimi yapışkan değil çevik hissettirsin.
+   prefers-reduced-motion isteyen kullanıcıda main.js zaten showOnlyStep'i
+   anında (animasyonsuz) çalıştırıyor; bu blok o kullanıcılar için pasif. */
 @keyframes screenIn {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(16px) scale(0.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes stepOut {
+  to { opacity: 0; transform: translateY(-10px); }
 }
 
 @keyframes itemIn {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .card:not(.hidden) {
-    animation: screenIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: screenIn 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .card.step-leaving {
+    animation: stepOut 0.16s ease forwards;
   }
 
   .four-questions:not(.hidden),
   .history-detail:not(.hidden) {
-    animation: itemIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: itemIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .chip,
   .assoc-list li,
-  .history-list li {
-    animation: itemIn 0.2s ease-out;
+  .history-list li,
+  .map-qa-card {
+    animation: itemIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 40ms);
   }
 }
 
+/* ---------- Başlık ---------- */
 .app-header {
-  padding: 32px 24px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: 20px 20px 14px;
   text-align: center;
+  background: rgba(18, 15, 29, 0.86);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--ring-soft);
 }
 
-.app-header h1 {
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.01em;
+  font-size: 1.5rem;
+}
+
+.brand .icon {
+  color: var(--gold);
 }
 
 .subtitle {
   color: var(--muted);
   margin: 4px 0 0;
-  font-size: 0.95em;
+  font-size: 0.9em;
 }
 
 .header-actions {
   margin-top: 12px;
   display: flex;
   justify-content: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-/* İlerleme çubuğu — "adım adım tamamlama" görevini somutlaştıran dolum
-   çubuğu; her adım tamamlandığında genişliği yumuşakça artar (main.js
-   #progress-fill'in width'ini yüzde olarak set eder). */
+.btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.86em;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 7px 12px;
+  border-radius: 999px;
+  touch-action: manipulation;
+  transition: color 0.15s ease, background-color 0.15s ease, transform 0.12s ease;
+}
+
+.btn-link:hover {
+  color: var(--text);
+  background: var(--bg-sunken);
+}
+
+.btn-link:active {
+  transform: scale(0.96);
+}
+
+/* ---------- İlerleme ---------- */
+.progress-wrap {
+  position: sticky;
+  top: 65px;
+  z-index: 9;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 10px 20px 0;
+  background: var(--bg);
+}
+
 .progress-bar {
-  max-width: 560px;
-  margin: 4px auto 0;
-  padding: 0 20px;
   height: 6px;
-}
-
-.progress-bar.hidden {
-  display: none;
-}
-
-.progress-bar {
-  background: var(--ring);
+  background: var(--ring-soft);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -112,40 +232,21 @@ body {
   width: 0%;
   background: linear-gradient(90deg, var(--accent), var(--gold));
   border-radius: 999px;
-  transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .progress-label {
   text-align: center;
   color: var(--muted);
-  font-size: 0.82em;
-  margin: 6px 0 0;
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: 0.9em;
-  cursor: pointer;
-  padding: 6px 4px;
-  text-decoration: underline;
-  touch-action: manipulation;
-  transition: opacity 0.12s ease;
-}
-
-.btn-link:active {
-  opacity: 0.6;
-}
-
-.btn-link.hidden {
-  display: none;
+  font-size: 0.8em;
+  margin: 6px 0 10px;
+  letter-spacing: 0.01em;
 }
 
 main {
   max-width: 900px;
   margin: 0 auto;
-  padding: 0 20px 80px;
+  padding: 16px 20px calc(56px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -154,13 +255,20 @@ main {
 .card {
   background: var(--card-bg);
   border: 1px solid var(--ring);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   padding: 24px;
 }
 
 .card.hidden { display: none; }
 
-h2 { margin-top: 0; }
+h2 {
+  margin-top: 0;
+  font-size: 1.5rem;
+}
+
+h3 {
+  font-size: 1.15rem;
+}
 
 .hint {
   color: var(--muted);
@@ -169,62 +277,81 @@ h2 { margin-top: 0; }
 
 .hint.small { font-size: 0.82em; }
 
-textarea, input[type="text"] {
+textarea, input[type="text"], input[type="password"] {
   width: 100%;
-  background: #100e17;
+  background: var(--input-bg);
   border: 1px solid var(--ring);
   color: var(--text);
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
   font-family: inherit;
-  font-size: 0.95em;
+  font-size: 1rem;
   resize: vertical;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-textarea:focus, input[type="text"]:focus {
+textarea::placeholder, input::placeholder {
+  color: var(--muted-2);
+}
+
+textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   outline: none;
   border-color: var(--accent);
-  transition: border-color 0.15s ease;
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
 .btn-primary, .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: none;
-  border-radius: 8px;
-  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  padding: 11px 20px;
   min-height: 44px;
+  font: inherit;
   font-size: 0.95em;
   cursor: pointer;
   font-weight: 600;
   touch-action: manipulation;
-  transition: transform 0.12s ease, background-color 0.15s ease, opacity 0.15s ease;
+  transition: transform 0.12s ease, background-color 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
 }
 
-.btn-primary:active:not(:disabled), .btn-secondary:active {
-  transform: scale(0.96);
+.btn-primary:active:not(:disabled), .btn-secondary:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .btn-primary {
-  background: var(--accent);
-  color: white;
+  background: linear-gradient(135deg, var(--accent), #7c5cff);
+  color: #0f0c1a;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
 }
 
 .btn-primary:disabled {
-  background: #453f63;
-  color: var(--muted);
+  background: var(--ring);
+  color: var(--muted-2);
   cursor: not-allowed;
 }
 
 .btn-secondary {
   background: transparent;
   border: 1px solid var(--accent);
-  color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--accent-soft);
 }
 
 .status { color: var(--muted); font-size: 0.9em; }
@@ -263,34 +390,40 @@ textarea:focus, input[type="text"]:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin-top: 14px;
 }
 
 .chip {
-  padding: 8px 10px 8px 14px;
+  padding: 9px 10px 9px 16px;
   border-radius: 999px;
   border: 1px solid var(--ring);
-  background: #100e17;
+  background: var(--bg-sunken);
   cursor: pointer;
   font-size: 0.9em;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   touch-action: manipulation;
-  transition: border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.12s ease, background-color 0.15s ease;
+}
+
+.chip:hover {
+  border-color: var(--accent);
 }
 
 .chip:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
 .chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
-  color: var(--muted);
-  font-size: 1.1em;
-  line-height: 1;
+  color: var(--muted-2);
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 5px;
   border-radius: 50%;
   touch-action: manipulation;
   transition: color 0.15s ease, background-color 0.15s ease;
@@ -298,22 +431,22 @@ textarea:focus, input[type="text"]:focus {
 
 .chip-remove:hover {
   color: var(--danger);
-  background: rgba(224, 102, 79, 0.15);
+  background: var(--danger-soft);
 }
 
 .manual-symbol-row {
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
 .context-label {
   display: block;
-  margin-top: 16px;
+  margin-top: 18px;
   font-size: 0.9em;
   color: var(--muted);
 }
 
 .context-label textarea {
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .result-header {
@@ -324,9 +457,14 @@ textarea:focus, input[type="text"]:focus {
   margin: 0;
 }
 
+.result-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .history-list {
   list-style: none;
-  margin: 0;
+  margin: 14px 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -335,8 +473,8 @@ textarea:focus, input[type="text"]:focus {
 
 .history-list li {
   padding: 12px 14px;
-  border-radius: 8px;
-  background: #100e17;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
   border: 1px solid var(--ring);
   cursor: pointer;
   touch-action: manipulation;
@@ -375,11 +513,15 @@ textarea:focus, input[type="text"]:focus {
 
 .chip.active {
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
 }
 
-.chip.done::after {
-  content: " ✓";
+.chip.done {
+  border-color: var(--gold);
+}
+
+.chip.done .icon {
   color: var(--gold);
 }
 
@@ -388,6 +530,7 @@ textarea:focus, input[type="text"]:focus {
   gap: 24px;
   flex-wrap: wrap;
   align-items: flex-start;
+  margin-top: 8px;
 }
 
 .wheel-svg-wrap {
@@ -408,7 +551,7 @@ textarea:focus, input[type="text"]:focus {
   /* Etiketler SVG ile birlikte küçüldüğü için çok dar ekranlarda okunmaz hale
      gelmesin diye bir alt sınır koyup, altına düşen genişlikte yatay kaydırma
      bırakıyoruz (üstteki overflow-x: auto). */
-  min-width: 320px;
+  min-width: 300px;
   height: auto;
 }
 
@@ -433,33 +576,34 @@ textarea:focus, input[type="text"]:focus {
 }
 
 .assoc-list li {
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: #100e17;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
   border: 1px solid var(--ring);
   cursor: pointer;
-  font-size: 0.9em;
+  font-size: 0.92em;
   touch-action: manipulation;
-  transition: border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.12s ease, background-color 0.15s ease;
 }
 
 .assoc-list li:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
 .assoc-list li.selected {
   border-color: var(--gold);
   color: var(--gold);
+  background: var(--gold-soft);
   font-weight: 600;
 }
 
 .four-questions {
   margin-top: 24px;
   padding-top: 20px;
-  border-top: 1px solid var(--ring);
+  border-top: 1px solid var(--ring-soft);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
 .four-questions.hidden { display: none; }
@@ -474,22 +618,59 @@ textarea:focus, input[type="text"]:focus {
 
 .result-text {
   white-space: pre-wrap;
-  font-size: 1em;
-  line-height: 1.7;
+  font-size: 1.05em;
+  line-height: 1.75;
 }
 
-.result-sources {
-  margin-top: 20px;
-  font-size: 0.85em;
-  color: var(--muted);
+/* ---------- Çark çerçevesi (frame): kadran halkası + ortam parıltısı ----------
+   wheel.js'de sembolden bağımsız, bir kere kurulup hiç silinmeyen katman. */
+.wheel-glow-bg,
+.wheel-rim,
+.wheel-rim-inner,
+.wheel-tick {
+  pointer-events: none;
 }
 
-.result-sources details {
-  margin-bottom: 6px;
+.wheel-glow-bg {
+  fill: url(#wheelAmbientGrad);
 }
 
-.result-sources a {
-  color: var(--accent);
+.wheel-rim {
+  fill: none;
+  stroke: var(--ring);
+  stroke-width: 1.25;
+  stroke-dasharray: 2 7;
+  opacity: 0.75;
+}
+
+.wheel-rim-inner {
+  fill: none;
+  stroke: var(--ring-soft);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.wheel-tick {
+  stroke: var(--muted-2);
+  stroke-width: 1.5;
+  opacity: 0.55;
+}
+
+.wheel-center-halo {
+  fill: var(--accent);
+  opacity: 0.1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wheel-center-halo {
+    animation: haloBreathe 4.5s ease-in-out infinite;
+    transform-origin: 280px 280px;
+  }
+}
+
+@keyframes haloBreathe {
+  0%, 100% { opacity: 0.08; transform: scale(1); }
+  50% { opacity: 0.18; transform: scale(1.08); }
 }
 
 .wheel-arrow-hitarea {
@@ -524,41 +705,48 @@ textarea:focus, input[type="text"]:focus {
 }
 
 .wheel-arrow-line {
-  stroke: #55507a;
+  stroke: #5a5280;
   stroke-width: 2;
   cursor: pointer;
   touch-action: manipulation;
   /* Renk/kalınlık seçim geçişi + yeni ok eklenince açının kayması (x1/y1/x2/y2) */
   transition: stroke 0.2s ease, stroke-width 0.2s ease, x1 0.35s ease,
-    y1 0.35s ease, x2 0.35s ease, y2 0.35s ease;
+    y1 0.35s ease, x2 0.35s ease, y2 0.35s ease, filter 0.2s ease;
 }
 
 .wheel-arrow-line:hover {
-  stroke: var(--accent);
+  stroke: var(--accent-strong);
 }
 
 .wheel-arrow-line.selected {
   stroke: var(--gold);
-  stroke-width: 4;
+  stroke-width: 3;
+  filter: url(#wheelArrowGlow);
 }
 
 .wheel-arrow-tip {
-  fill: #55507a;
+  fill: #5a5280;
   cursor: pointer;
-  transition: fill 0.2s ease, r 0.2s ease, cx 0.35s ease, cy 0.35s ease;
+  transition: fill 0.2s ease, r 0.2s ease, cx 0.35s ease, cy 0.35s ease, filter 0.2s ease;
 }
 
 .wheel-arrow-tip.selected {
-  fill: var(--gold);
+  fill: url(#wheelGoldGrad);
   r: 9;
+  filter: url(#wheelArrowGlow);
 }
 
 .wheel-arrow-label {
   fill: var(--text);
   font-size: 13px;
+  font-family: var(--font-body);
   cursor: pointer;
   user-select: none;
   touch-action: manipulation;
+  paint-order: stroke;
+  stroke: var(--card-bg);
+  stroke-width: 5px;
+  stroke-linejoin: round;
   transition: fill 0.2s ease, x 0.35s ease, y 0.35s ease;
 }
 
@@ -568,7 +756,7 @@ textarea:focus, input[type="text"]:focus {
 }
 
 .wheel-center-circle {
-  fill: #100e17;
+  fill: url(#wheelCenterGrad);
   stroke: var(--accent);
   stroke-width: 2;
   transition: stroke 0.2s ease;
@@ -576,23 +764,216 @@ textarea:focus, input[type="text"]:focus {
 
 .wheel-center-text {
   fill: var(--text);
-  font-size: 16px;
+  font-family: var(--font-heading);
+  font-size: 19px;
   font-weight: 600;
   text-anchor: middle;
 }
 
+/* ---------- Sembol Haritası: bütün + parça görünümü ---------- */
+.symbol-map-card {
+  margin-top: 4px;
+}
+
+.symbol-map-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  margin: 12px auto 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+#symbol-map-svg,
+.history-map-svg {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.map-pannable.panning {
+  cursor: grabbing;
+}
+
+.map-zoom-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+}
+
+.map-zoom-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--ring);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 0.15s ease, transform 0.12s ease, border-color 0.15s ease;
+}
+
+.map-zoom-btn:hover {
+  border-color: var(--accent);
+}
+
+.map-zoom-btn:active {
+  transform: scale(0.92);
+}
+
+.map-center-circle {
+  fill: var(--bg-sunken);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.map-center-text {
+  fill: var(--text);
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.map-edge {
+  stroke: var(--ring);
+  stroke-width: 1.5;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+}
+
+.map-edge-assoc {
+  stroke: var(--ring-soft);
+  stroke-dasharray: 3 4;
+}
+
+.map-edge-q {
+  stroke: var(--gold);
+  stroke-width: 1.25;
+  stroke-dasharray: 2 4;
+  opacity: 0.7;
+}
+
+.map-node {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.map-node-circle {
+  fill: var(--bg-sunken);
+  stroke: var(--accent);
+  stroke-width: 2;
+  transition: fill 0.15s ease, stroke 0.15s ease, r 0.2s ease;
+}
+
+.map-node-circle.assoc {
+  stroke: var(--gold);
+}
+
+.map-node-circle.q {
+  fill: var(--bg-sunken);
+  stroke: var(--gold);
+  stroke-width: 1.5;
+  opacity: 0.9;
+}
+
+.map-label {
+  fill: var(--muted);
+  font-size: 12px;
+  font-family: var(--font-body);
+  paint-order: stroke;
+  stroke: var(--card-bg);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+  transition: fill 0.15s ease, font-weight 0.15s ease;
+}
+
+.map-label-q {
+  font-size: 11px;
+  fill: var(--muted);
+}
+
+.map-node:hover .map-node-circle {
+  stroke-width: 3;
+}
+
+/* Tıklanan çağrışım düğümü "öne çıkar": büyür, altın dolgu + hafif parıltı
+   alır — 4 soru düğümü ondan dallanıyor gibi hissettirir. */
+.map-node-circle.assoc.expanded {
+  r: 13;
+  fill: var(--gold);
+  filter: drop-shadow(0 0 6px var(--gold-soft));
+}
+
+.map-node.assoc.expanded .map-label {
+  fill: var(--text);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .map-flower-layer .map-node {
+    animation: itemIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 40ms);
+  }
+}
+
+/* ---------- Giriş ekranı ---------- */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+.login-input-row {
+  position: relative;
+}
+
+.login-input-row .icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted-2);
+  pointer-events: none;
+}
+
+.login-input-row input {
+  padding-left: 42px;
+}
+
+.error-text {
+  color: var(--danger);
+  font-size: 0.9em;
+}
+
 @media (max-width: 640px) {
   .app-header {
-    padding: 20px 16px 12px;
+    padding: 16px 16px 12px;
+  }
+
+  .progress-wrap {
+    top: 61px;
   }
 
   main {
-    padding: 0 12px 60px;
+    padding: 12px 14px calc(48px + env(safe-area-inset-bottom, 0px));
     gap: 14px;
   }
 
   .card {
-    padding: 16px;
+    padding: 18px;
+    border-radius: var(--radius-md);
   }
 
   /* Girdi + buton satırlarını dikeyde üst üste koy, ikisi de tam genişlik ve
@@ -613,7 +994,21 @@ textarea:focus, input[type="text"]:focus {
     font-size: 1em;
   }
 
-  .chip-remove {
-    padding: 6px 8px;
+  .result-header {
+    flex-direction: row;
   }
+
+  .result-header-actions {
+    flex-direction: row;
+  }
+
+  .result-header-actions .btn-secondary {
+    width: auto;
+  }
+}
+
+@media (max-width: 380px) {
+  .brand { font-size: 1.3rem; }
+  .header-actions { gap: 6px; }
+  .btn-link { padding: 6px 10px; font-size: 0.82em; }
 }
