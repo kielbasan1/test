@@ -17,6 +17,8 @@
     extractStatus: document.getElementById("extract-status"),
     stepDream: document.getElementById("step-dream"),
     stepSymbols: document.getElementById("step-symbols"),
+    btnSymbolsBack: document.getElementById("btn-symbols-back"),
+    symbolsDreamText: document.getElementById("symbols-dream-text"),
     symbolChips: document.getElementById("symbol-chips"),
     symbolProgress: document.getElementById("symbol-progress"),
     manualSymbolInput: document.getElementById("manual-symbol-input"),
@@ -30,17 +32,23 @@
     assocInput: document.getElementById("assoc-input"),
     btnAddAssoc: document.getElementById("btn-add-assoc"),
     assocList: document.getElementById("assoc-list"),
+    btnAmplify: document.getElementById("btn-amplify"),
+    amplifyResult: document.getElementById("amplify-result"),
     fourQuestions: document.getElementById("four-questions"),
     btnNextSymbol: document.getElementById("btn-next-symbol"),
     stepFinalize: document.getElementById("step-finalize"),
+    btnFinalizeBack: document.getElementById("btn-finalize-back"),
     btnFinalize: document.getElementById("btn-finalize"),
     finalizeStatus: document.getElementById("finalize-status"),
     stepResult: document.getElementById("step-result"),
     resultText: document.getElementById("result-text"),
     btnCopyResult: document.getElementById("btn-copy-result"),
     btnDownloadResult: document.getElementById("btn-download-result"),
+    btnDownloadJson: document.getElementById("btn-download-json"),
     symbolMapSvg: document.getElementById("symbol-map-svg"),
     btnShowHistory: document.getElementById("btn-show-history"),
+    btnImport: document.getElementById("btn-import"),
+    importFileInput: document.getElementById("import-file-input"),
     btnNewDream: document.getElementById("btn-new-dream"),
     stepHistory: document.getElementById("step-history"),
     historyEmpty: document.getElementById("history-empty"),
@@ -56,11 +64,11 @@
   // Ana akıştaki 5 adım, sırasıyla — geçmiş rüyalar paneli bu sayıma dahil
   // değil, ayrı bir taşma ekranı sayılır.
   const STEP_ORDER = [
-    { key: "stepDream", name: "Rüya" },
-    { key: "stepSymbols", name: "Semboller" },
-    { key: "stepWheel", name: "Çark" },
-    { key: "stepFinalize", name: "Yorum" },
-    { key: "stepResult", name: "Sonuç" },
+    { key: "stepDream", nameKey: "step.name.dream" },
+    { key: "stepSymbols", nameKey: "step.name.symbols" },
+    { key: "stepWheel", nameKey: "step.name.wheel" },
+    { key: "stepFinalize", nameKey: "step.name.finalize" },
+    { key: "stepResult", nameKey: "step.name.result" },
   ];
 
   function uid() {
@@ -145,7 +153,7 @@
     if (stepIdx === -1) return; // geçmiş paneli gibi ana akış dışı ekranlar
 
     el.progressWrap.classList.remove("hidden");
-    state.currentStepMeta = { index: stepIdx + 1, name: STEP_ORDER[stepIdx].name };
+    state.currentStepMeta = { index: stepIdx + 1, nameKey: STEP_ORDER[stepIdx].nameKey };
     updateProgress();
   }
 
@@ -154,8 +162,8 @@
       state.symbols.length > 0 && state.symbols.every((s) => s.associations.some((a) => a.selected))
     );
     if (!state.currentStepMeta) return;
-    const { index, name } = state.currentStepMeta;
-    const stepPrefix = `Adım ${index}/${STEP_ORDER.length} · ${name}`;
+    const { index, nameKey } = state.currentStepMeta;
+    const stepPrefix = I18N.t("step.label", { index, total: STEP_ORDER.length, name: I18N.t(nameKey) });
 
     if (state.symbols.length === 0) {
       const pct = index === 1 ? 8 : Math.round((index / STEP_ORDER.length) * 100);
@@ -172,8 +180,8 @@
 
     el.progressFill.style.width = pct + "%";
     el.progressLabel.textContent = state.resultReady
-      ? `${stepPrefix} — tamamlandı ✓`
-      : `${stepPrefix} — ${doneSymbols}/${state.symbols.length} sembolde çağrışım seçildi`;
+      ? I18N.t("step.done", { prefix: stepPrefix })
+      : I18N.t("step.symbolsDone", { prefix: stepPrefix, done: doneSymbols, total: state.symbols.length });
   }
 
   function resetProgress() {
@@ -187,13 +195,13 @@
   el.btnExtract.addEventListener("click", async () => {
     const text = el.dreamText.value.trim();
     if (!text) {
-      setStatus(el.extractStatus, "Önce rüyanı yaz.", true);
+      setStatus(el.extractStatus, I18N.t("dream.status.empty"), true);
       return;
     }
     state.dreamText = text;
     state.dreamContext = el.dreamContext.value.trim();
     el.btnExtract.disabled = true;
-    setStatus(el.extractStatus, "Semboller çıkarılıyor...");
+    setStatus(el.extractStatus, I18N.t("dream.status.extracting"));
     el.extractStatus.classList.add("spinner");
     try {
       const data = await postJSON("/api/extract-symbols", { dream_text: text });
@@ -204,7 +212,7 @@
         associations: [],
         questions: { q1: "", q2: "", q3: "", q4: "" },
       }));
-      setStatus(el.extractStatus, `${state.symbols.length} sembol bulundu.`);
+      setStatus(el.extractStatus, I18N.t("dream.status.found", { n: state.symbols.length }));
       renderChips();
       updateProgress();
       showOnlyStep(el.stepSymbols);
@@ -230,13 +238,17 @@
     el.btnStartSymbols.classList.remove("hidden");
     const incompleteIndex = firstIncompleteIndex();
     if (incompleteIndex === -1) {
-      el.btnStartSymbols.textContent = "Yoruma Geç →";
+      el.btnStartSymbols.textContent = I18N.t("symbols.goToInterpretation");
     } else if (state.symbols.every((s) => s.associations.length === 0)) {
-      el.btnStartSymbols.textContent = "Sembollerle Başla →";
+      el.btnStartSymbols.textContent = I18N.t("symbols.start");
     } else {
-      el.btnStartSymbols.textContent = "Devam Et →";
+      el.btnStartSymbols.textContent = I18N.t("symbols.continue");
     }
   }
+
+  el.btnSymbolsBack.addEventListener("click", () => {
+    showOnlyStep(el.stepDream);
+  });
 
   el.btnStartSymbols.addEventListener("click", () => {
     const incompleteIndex = firstIncompleteIndex();
@@ -248,9 +260,10 @@
   });
 
   function renderChips() {
+    el.symbolsDreamText.textContent = state.dreamText;
     const doneCount = state.symbols.filter((s) => s.associations.some((a) => a.selected)).length;
     el.symbolProgress.textContent = state.symbols.length
-      ? `${doneCount} / ${state.symbols.length} sembolde çağrışım seçildi.`
+      ? I18N.t("symbols.progress", { done: doneCount, total: state.symbols.length })
       : "";
 
     el.symbolChips.innerHTML = "";
@@ -272,7 +285,7 @@
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "chip-remove";
-      removeBtn.setAttribute("aria-label", `${sym.name} sembolünü kaldır`);
+      removeBtn.setAttribute("aria-label", I18N.t("symbols.chipRemove", { name: sym.name }));
       removeBtn.appendChild(makeIcon("x", "icon-sm"));
       removeBtn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -327,16 +340,49 @@
   function selectSymbol(index) {
     state.activeIndex = index;
     const sym = state.symbols[index];
-    el.wheelTitle.textContent = `Sembol Çarkı — ${sym.name}`;
-    el.wheelContext.textContent = sym.context ? `Rüyadaki bağlam: ${sym.context}` : "";
+    el.wheelTitle.textContent = I18N.t("wheel.title", { name: sym.name });
+    el.wheelContext.textContent = sym.context ? I18N.t("wheel.context", { context: sym.context }) : "";
     renderChips();
     renderWheelAndList();
     syncFourQuestionsPanel();
+    resetAmplifyBox();
     showOnlyStep(el.stepWheel);
   }
 
   el.btnWheelBack.addEventListener("click", () => {
     showOnlyStep(el.stepSymbols);
+  });
+
+  // ---------- Amplifikasyon (tek sembol, kişisel çağrışım bulunamadığında) ----------
+
+  function resetAmplifyBox() {
+    el.amplifyResult.classList.add("hidden");
+    el.amplifyResult.classList.remove("error", "status", "spinner");
+    el.amplifyResult.textContent = "";
+  }
+
+  el.btnAmplify.addEventListener("click", async () => {
+    const sym = currentSymbol();
+    if (!sym) return;
+    el.btnAmplify.disabled = true;
+    el.amplifyResult.classList.remove("hidden", "error");
+    el.amplifyResult.classList.add("status", "spinner");
+    el.amplifyResult.textContent = I18N.t("wheel.amplifying");
+    try {
+      const data = await postJSON("/api/amplify-symbol", {
+        name: sym.name,
+        name_en: sym.name_en || "",
+        context: sym.context || "",
+      });
+      el.amplifyResult.classList.remove("status", "spinner");
+      el.amplifyResult.textContent = data.amplification;
+    } catch (err) {
+      el.amplifyResult.classList.remove("status", "spinner");
+      el.amplifyResult.classList.add("error");
+      el.amplifyResult.textContent = err.message;
+    } finally {
+      el.btnAmplify.disabled = false;
+    }
   });
 
   function currentSymbol() {
@@ -403,7 +449,9 @@
     const anotherIncomplete = state.symbols.some(
       (s, idx) => idx !== state.activeIndex && !s.associations.some((a) => a.selected)
     );
-    el.btnNextSymbol.textContent = anotherIncomplete ? "Sonraki Sembol →" : "Yoruma Geç →";
+    el.btnNextSymbol.textContent = anotherIncomplete
+      ? I18N.t("wheel.nextSymbol")
+      : I18N.t("symbols.goToInterpretation");
   }
 
   el.fourQuestions.querySelectorAll("textarea[data-q]").forEach((ta) => {
@@ -423,15 +471,19 @@
     }
   });
 
-  // ---------- Sentez (amplifikasyon artık ayrı bir arama adımı değil,
-  // Gemini gerektiğinde kendi eğitim verisindeki bilgiyi kullanıyor — bkz.
-  // services/gemini_client.py ADIM 7. Google Arama grounding'i denenmişti
+  // ---------- Sentez (amplifikasyon ayrı bir arama adımı değil, Gemini
+  // gerektiğinde kendi eğitim verisindeki bilgiyi kullanıyor — bkz.
+  // services/gemini_client.py ADIM 9. Google Arama grounding'i denenmişti
   // ama billing gerektirdiği ortaya çıktı, kaldırıldı.) ----------
+
+  el.btnFinalizeBack.addEventListener("click", () => {
+    showOnlyStep(el.stepSymbols);
+  });
 
   el.btnFinalize.addEventListener("click", async () => {
     el.btnFinalize.disabled = true;
     try {
-      setStatus(el.finalizeStatus, "Yorum sentezleniyor...");
+      setStatus(el.finalizeStatus, I18N.t("finalize.status.synthesizing"));
       el.finalizeStatus.classList.add("spinner");
       const payload = {
         dream_text: state.dreamText,
@@ -454,7 +506,7 @@
 
       await postJSON("/api/save-dream", state.lastRecord);
 
-      setStatus(el.finalizeStatus, "Tamamlandı.");
+      setStatus(el.finalizeStatus, I18N.t("finalize.status.done"));
       el.btnNewDream.classList.remove("hidden");
     } catch (err) {
       setStatus(el.finalizeStatus, err.message, true);
@@ -519,10 +571,140 @@
     URL.revokeObjectURL(url);
   }
 
+  function downloadJSON(filename, record) {
+    const blob = new Blob([JSON.stringify(record, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   el.btnDownloadResult.addEventListener("click", () => {
     if (!state.lastRecord) return;
     const slug = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     downloadText(`ruya-${slug}.txt`, buildExportText(state.lastRecord));
+  });
+
+  // ---------- Dışa/içe aktarma (.json) ----------
+  // Render gibi ücretsiz hosting'lerde disk kalıcı değil — sunucudaki
+  // ruyalar/ klasörü her yeniden başlatmada silinebilir. .json yedeği bu
+  // yüzden ikincil bir depolama değil, ASIL depolama: kullanıcı kendi
+  // cihazında/bulutunda tutar, "Dosyadan Aç" ile istediği an (harita dahil)
+  // tam sonuç ekranını sunucuya hiç ihtiyaç duymadan geri açabilir.
+
+  el.btnDownloadJson.addEventListener("click", () => {
+    if (!state.lastRecord) return;
+    const slug = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    downloadJSON(`ruya-${slug}.json`, state.lastRecord);
+  });
+
+  function isValidDreamRecord(record) {
+    return (
+      record &&
+      typeof record === "object" &&
+      typeof record.dream_text === "string" &&
+      Array.isArray(record.symbols)
+    );
+  }
+
+  // JSON eklenmeden önceki oturumlardan kalan .txt export'lar da (aynı
+  // "Dosyadan Aç" ile) açılabilsin diye buildExportText'in ürettiği formatı
+  // tersine çeviren bir metin ayrıştırıcı — bu iki fonksiyon aynı formatı
+  // paylaşıyor, biri değişirse öbürü de güncellenmeli.
+  function parseExportText(text) {
+    const DREAM_H = "\nRÜYA\n";
+    const CTX_H = "\nBu rüyayı neden bu gece görmüş olabilirim:\n";
+    const SYM_H = "\nSEMBOLLER\n";
+    const YORUM_H = "\nYORUM\n";
+
+    const withLeadingNl = "\n" + text.trim() + "\n";
+    const dreamIdx = withLeadingNl.indexOf(DREAM_H);
+    const ctxIdx = withLeadingNl.indexOf(CTX_H);
+    const symIdx = withLeadingNl.indexOf(SYM_H);
+    const yorumIdx = withLeadingNl.indexOf(YORUM_H);
+    if (dreamIdx === -1 || ctxIdx === -1 || symIdx === -1 || yorumIdx === -1) return null;
+
+    const dream_text = withLeadingNl.slice(dreamIdx + DREAM_H.length, ctxIdx).replace(/\n+$/, "");
+    const ctxRaw = withLeadingNl.slice(ctxIdx + CTX_H.length, symIdx).replace(/\n+$/, "");
+    const personal_context = ctxRaw === "—" ? "" : ctxRaw;
+    const symbolsBlock = withLeadingNl.slice(symIdx + SYM_H.length, yorumIdx);
+    const interpretation = withLeadingNl.slice(yorumIdx + YORUM_H.length).replace(/\n+$/, "");
+
+    const fieldValue = (line, label) => {
+      const v = line.slice(label.length).trim();
+      return v === "—" ? "" : v;
+    };
+
+    const symbols = symbolsBlock
+      .split(/\n(?=\d+\.\s)/)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => {
+        const lines = entry.split("\n");
+        const nameMatch = lines[0].match(/^\d+\.\s(.+)$/);
+        const sym = {
+          name: nameMatch ? nameMatch[1].trim() : lines[0].trim(),
+          name_en: "",
+          context: "",
+          selected_association: "",
+          all_associations: [],
+          questions: { q1: "", q2: "", q3: "", q4: "" },
+        };
+        lines.slice(1).forEach((raw) => {
+          const l = raw.trim();
+          if (l.startsWith("Bağlam:")) sym.context = fieldValue(l, "Bağlam:");
+          else if (l.startsWith("Seçilen çağrışım:")) sym.selected_association = fieldValue(l, "Seçilen çağrışım:");
+          else if (l.startsWith("Diğer çağrışımlar:"))
+            sym.all_associations = fieldValue(l, "Diğer çağrışımlar:")
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean);
+          else if (l.startsWith("Bu içimde hangi parçam?")) sym.questions.q1 = fieldValue(l, "Bu içimde hangi parçam?");
+          else if (l.startsWith("Hayatımdaki işlevi ne / nereyi yönetiyor?"))
+            sym.questions.q2 = fieldValue(l, "Hayatımdaki işlevi ne / nereyi yönetiyor?");
+          else if (l.startsWith("Kişiliğimin neresinde bunu görüyorum?"))
+            sym.questions.q3 = fieldValue(l, "Kişiliğimin neresinde bunu görüyorum?");
+          else if (l.startsWith("Kim içimde böyle davranıyor?"))
+            sym.questions.q4 = fieldValue(l, "Kim içimde böyle davranıyor?");
+        });
+        return sym;
+      });
+
+    return { dream_text, personal_context, symbols, interpretation };
+  }
+
+  el.btnImport.addEventListener("click", () => el.importFileInput.click());
+
+  el.importFileInput.addEventListener("change", async () => {
+    const file = el.importFileInput.files && el.importFileInput.files[0];
+    el.importFileInput.value = ""; // aynı dosya arka arkaya seçilebilsin diye
+    if (!file) return;
+    try {
+      const text = await file.text();
+      let record;
+      const looksLikeJson = /\.json$/i.test(file.name) || text.trim().startsWith("{");
+      if (looksLikeJson) {
+        record = JSON.parse(text);
+      } else {
+        record = parseExportText(text);
+      }
+      if (!isValidDreamRecord(record)) {
+        window.alert(I18N.t("import.invalid"));
+        return;
+      }
+      state.lastRecord = record;
+      state.resultReady = true;
+      state.dreamText = record.dream_text || "";
+      resetProgress();
+      renderResult(record.interpretation || "");
+      el.btnNewDream.classList.remove("hidden");
+    } catch (err) {
+      window.alert(I18N.t("import.error"));
+    }
   });
 
   el.btnCopyResult.addEventListener("click", async () => {
@@ -531,10 +713,10 @@
       const original = el.btnCopyResult.innerHTML;
       el.btnCopyResult.innerHTML = "";
       el.btnCopyResult.appendChild(makeIcon("check", "icon-sm"));
-      el.btnCopyResult.append("Kopyalandı");
+      el.btnCopyResult.append(I18N.t("result.copied"));
       setTimeout(() => (el.btnCopyResult.innerHTML = original), 1500);
     } catch (err) {
-      setStatus(el.finalizeStatus, "Kopyalanamadı, metni elle seçip kopyalayabilirsin.", true);
+      setStatus(el.finalizeStatus, I18N.t("result.copyError"), true);
     }
   });
 
@@ -583,7 +765,9 @@
         li.style.setProperty("--i", i);
         const dateSpan = document.createElement("span");
         dateSpan.className = "history-date";
-        dateSpan.textContent = d.saved_at ? new Date(d.saved_at).toLocaleString("tr-TR") : "";
+        dateSpan.textContent = d.saved_at
+          ? new Date(d.saved_at).toLocaleString(I18N.getLang() === "en" ? "en-US" : "tr-TR")
+          : "";
         const textSpan = document.createElement("span");
         textSpan.textContent = d.dream_text + (d.dream_text.length >= 120 ? "…" : "");
         li.appendChild(dateSpan);
@@ -605,12 +789,12 @@
       el.historyDetailContent.innerHTML = "";
 
       const dreamHeading = document.createElement("h3");
-      dreamHeading.textContent = "Rüya";
+      dreamHeading.textContent = I18N.t("history.dreamHeading");
       const dreamPara = document.createElement("p");
       dreamPara.textContent = record.dream_text || "";
 
       const interpHeading = document.createElement("h3");
-      interpHeading.textContent = "Yorum";
+      interpHeading.textContent = I18N.t("result.heading");
       const interpPara = document.createElement("div");
       interpPara.textContent = record.interpretation || "";
       interpPara.style.whiteSpace = "pre-wrap";
@@ -620,19 +804,32 @@
       downloadBtn.className = "btn-secondary";
       downloadBtn.style.marginBottom = "14px";
       downloadBtn.appendChild(makeIcon("download", "icon-sm"));
-      downloadBtn.append("İndir (.txt)");
+      downloadBtn.append(I18N.t("result.download"));
       downloadBtn.addEventListener("click", () => {
         const slug = (record.saved_at || fname).replace(/[^0-9]/g, "").slice(0, 14) || "ruya";
         downloadText(`ruya-${slug}.txt`, buildExportText(record));
       });
 
+      const downloadJsonBtn = document.createElement("button");
+      downloadJsonBtn.type = "button";
+      downloadJsonBtn.className = "btn-secondary";
+      downloadJsonBtn.style.marginBottom = "14px";
+      downloadJsonBtn.style.marginLeft = "8px";
+      downloadJsonBtn.appendChild(makeIcon("download", "icon-sm"));
+      downloadJsonBtn.append(I18N.t("result.downloadJson"));
+      downloadJsonBtn.addEventListener("click", () => {
+        const slug = (record.saved_at || fname).replace(/[^0-9]/g, "").slice(0, 14) || "ruya";
+        downloadJSON(`ruya-${slug}.json`, record);
+      });
+
       el.historyDetailContent.appendChild(downloadBtn);
+      el.historyDetailContent.appendChild(downloadJsonBtn);
       el.historyDetailContent.appendChild(dreamHeading);
       el.historyDetailContent.appendChild(dreamPara);
 
       if (record.symbols && record.symbols.length) {
         const mapHeading = document.createElement("h3");
-        mapHeading.textContent = "Sembol Haritası";
+        mapHeading.textContent = I18N.t("result.mapHeading");
         const mapWrap = document.createElement("div");
         mapWrap.className = "symbol-map-wrap";
         const mapSvg = document.createElementNS(SVG_NS, "svg");
@@ -656,6 +853,23 @@
   el.btnHistoryBack.addEventListener("click", () => {
     el.historyDetail.classList.add("hidden");
     el.historyList.classList.remove("hidden");
+  });
+
+  // ---------- Dil değişimi ----------
+  // Statik metinler i18n.js'in kendi DOM taramasıyla güncelleniyor; burada
+  // sadece main.js'in kendi ürettiği (state'e bağlı) dinamik metinleri
+  // yeniden çiziyoruz ki dil değişince ekranda bayat bir dil kalmasın.
+  document.addEventListener("symbolcarki:langchange", () => {
+    renderChips();
+    updateProgress();
+    if (state.activeIndex !== null) {
+      const sym = currentSymbol();
+      if (sym) {
+        el.wheelTitle.textContent = I18N.t("wheel.title", { name: sym.name });
+        el.wheelContext.textContent = sym.context ? I18N.t("wheel.context", { context: sym.context }) : "";
+        syncFourQuestionsPanel();
+      }
+    }
   });
 
   // ---------- Başlangıç ----------

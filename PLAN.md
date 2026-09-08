@@ -104,9 +104,13 @@ olmazsa da kullanıcının kendi indirdiği kopya var" şeklinde ikincil önemde
 `response_schema` desteği format hatası riskini sıfırlar. Küçük modellerde asıl
 kırılganlık burası.
 
-**3.3 Model ayrımı.** Çıkarma ile sentez aynı `GEMINI_MODEL` değişkenini kullanıyor.
-Çıkarma mekanik bir iş (flash-lite yeterli), sentez muhakeme istiyor. İki ayrı env
-değişkeni: `GEMINI_MODEL_EXTRACT`, `GEMINI_MODEL_SYNTH`.
+**3.3 Model ayrımı — yapıldı (2026-09-08).** Çıkarma `GEMINI_MODEL`
+(`gemini-flash-lite-latest`, ucuz+yüksek kota) üzerinde kaldı, sentez artık ayrı
+`GEMINI_SYNTHESIS_MODEL` (`gemini-flash-latest`) kullanıyor. Sebep: flash-lite
+sentez adımında gerçek Jungiyen bağ kurmuyordu, sadece veriyi şiirsel biçimde
+yeniden anlatıyordu — Kaan'ın gözlemi. Free tier'de flash-lite en yüksek günlük
+kotaya sahip ama en zayıf muhakemeye; flash bir üst kademe, hâlâ ücretsiz, günlük
+kota kişisel kullanım için fazlasıyla yeterli.
 
 ## Faz 3.4 — Sembol Haritası (eklendi)
 

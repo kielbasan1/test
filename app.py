@@ -68,8 +68,8 @@ def _friendly_error(exc: Exception) -> str:
     if "RESOURCE_EXHAUSTED" in text or "429" in text:
         return (
             "Günlük Gemini kullanım kotan doldu. Yarın tekrar deneyebilir ya da "
-            ".env dosyasındaki GEMINI_MODEL değerini değiştirip farklı bir "
-            "modelle devam edebilirsin."
+            ".env dosyasındaki GEMINI_MODEL / GEMINI_SYNTHESIS_MODEL değerlerini "
+            "değiştirip farklı bir modelle devam edebilirsin."
         )
     if "UNAVAILABLE" in text or "503" in text:
         return "Gemini şu anda yoğun, birkaç saniye sonra tekrar dene."
@@ -106,6 +106,21 @@ def synthesize():
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": _friendly_error(exc)}), 500
     return jsonify({"interpretation": interpretation})
+
+
+@app.route("/api/amplify-symbol", methods=["POST"])
+def amplify_symbol():
+    data = request.get_json(force=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Sembol adı boş olamaz."}), 400
+    try:
+        amplification = gemini_client.amplify_symbol(
+            name, (data.get("name_en") or "").strip(), (data.get("context") or "").strip()
+        )
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": _friendly_error(exc)}), 500
+    return jsonify({"amplification": amplification})
 
 
 @app.route("/api/save-dream", methods=["POST"])

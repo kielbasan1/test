@@ -205,6 +205,13 @@ a { color: var(--accent-strong); }
   background: var(--bg-sunken);
 }
 
+.lang-toggle {
+  border-color: var(--ring);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 7px 10px;
+}
+
 .btn-link:active {
   transform: scale(0.96);
 }
@@ -384,6 +391,53 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.amplify-block {
+  margin-top: 4px;
+}
+
+.amplify-result {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ring);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font-size: 0.92em;
+  line-height: 1.5;
+}
+
+.dream-recap {
+  margin: 4px 0 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--accent);
+  background: var(--bg-sunken);
+}
+
+.dream-recap h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-body);
+  font-size: 0.78em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-2);
+}
+
+.dream-recap-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92em;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.amplify-result.error {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 .chip-row {
@@ -832,6 +886,41 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   transform: scale(0.92);
 }
 
+.map-export-btn {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ring);
+  background: var(--card-bg);
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.map-export-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.map-export-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.map-glow-bg {
+  pointer-events: none;
+}
+
 .map-center-circle {
   fill: var(--bg-sunken);
   stroke: var(--accent);
@@ -925,6 +1014,27 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
     animation: itemIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards;
     animation-delay: calc(var(--i, 0) * 40ms);
   }
+
+  /* İlk çizimde çekirdek/çağrışım halkası da (yaprak düğümleri gibi) sırayla
+     belirsin — harita açılırken cansız bir "hazır kurulmuş" hisse değil,
+     dışa doğru büyüyen bir hisse sahip olsun. */
+  .map-entrance {
+    animation: itemIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 55ms);
+  }
+
+  /* Henüz açılmamış altın çağrışım düğümleri hafifçe "nefes alır" — tıklanabilir
+     olduklarını sessizce hissettirir, expanded olunca (r geçişli büyüme + sabit
+     parıltı) bu döngü yerini o duruma bırakır. */
+  .map-node-circle.assoc:not(.expanded) {
+    animation: goldBreathe 3.2s ease-in-out infinite;
+    animation-delay: calc(var(--i, 0) * 220ms);
+  }
+}
+
+@keyframes goldBreathe {
+  0%, 100% { filter: drop-shadow(0 0 0 transparent); }
+  50% { filter: drop-shadow(0 0 4px var(--gold-soft)); }
 }
 
 /* ---------- Giriş ekranı ---------- */

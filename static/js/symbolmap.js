@@ -53,25 +53,73 @@ const SymbolMap = (() => {
 
   function pointAt(radius, angleDeg) {
     const rad = (angleDeg * Math.PI) / 180;
-    return { x: CX + radius * Math.cos(rad), y: CY + radius * Math.sin(rad), cos: Math.cos(rad) };
+    return {
+      x: CX + radius * Math.cos(rad),
+      y: CY + radius * Math.sin(rad),
+      cos: Math.cos(rad),
+      sin: Math.sin(rad),
+    };
   }
 
-  function makeNode(x, y, r, labelText, anchor, dx, cls) {
+  // Düğüm tam tepede/altta (cos ~ 0) ise anchorFor "middle" döner ve dx=0
+  // olur — bu durumda etiket, düğümün merkezine bindirilmiş gibi çiziliyordu
+  // (küçük dairenin üstüne oturan metin). Bu düzeltme etiketi radyal yönde
+  // (yukarı/aşağı) düğümün dışına iter, dx=0 kaldığı için yatayda ortalı kalır.
+  function verticalNudge(anchor, sin, baseline, pushOut) {
+    if (anchor !== "middle") return baseline;
+    return sin < 0 ? -pushOut : pushOut;
+  }
+
+  function makeNode(x, y, r, labelText, anchor, dx, cls, dy) {
     const group = el("g", { class: `map-node ${cls}` });
     group.appendChild(el("circle", { cx: x, cy: y, r, class: `map-node-circle ${cls}` }));
     group.appendChild(
-      el("text", { x: x + dx, y: y + 4, "text-anchor": anchor, class: "map-label" }, labelText)
+      el("text", { x: x + dx, y: y + dy, "text-anchor": anchor, class: "map-label" }, labelText)
     );
     return group;
   }
+
+  let uidCounter = 0;
 
   function render(svg, record) {
     while (svg.firstChild) svg.removeChild(svg.firstChild);
     svg.__nodes = new Map(); // id -> { data: {sym, angleDeg}, assocGroup, symGroup }
     svg.__expandedId = null;
+    svg.__record = record;
 
-    svg.appendChild(el("circle", { cx: CX, cy: CY, r: CENTER_R, class: "map-center-circle" }));
-    svg.appendChild(el("text", { x: CX, y: CY + 5, class: "map-center-text" }, "Rüya"));
+    // Aynı sayfada birden fazla harita (sonuç ekranı + geçmiş detayı) aynı
+    // anda DOM'da bulunabiliyor — gradyan/filtre id'leri belge genelinde
+    // çözüldüğü için her render'a özel bir önek şart, yoksa ikinci harita
+    // birincinin tanımını "çalar".
+    const uid = `sm${++uidCounter}`;
+
+    const defs = el("defs", {});
+    const ambientGrad = el("radialGradient", { id: `${uid}-ambient`, cx: "50%", cy: "50%", r: "50%" });
+    ambientGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#9b7bff", "stop-opacity": "0.14" }));
+    ambientGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#9b7bff", "stop-opacity": "0" }));
+    const centerGrad = el("radialGradient", { id: `${uid}-center`, cx: "35%", cy: "30%", r: "75%" });
+    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#2a2247" }));
+    centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#14101f" }));
+    defs.appendChild(ambientGrad);
+    defs.appendChild(centerGrad);
+    svg.appendChild(defs);
+
+    svg.appendChild(
+      el("circle", { cx: CX, cy: CY, r: Q_R + 40, class: "map-glow-bg", fill: `url(#${uid}-ambient)` })
+    );
+
+    svg.appendChild(
+      el("circle", {
+        cx: CX,
+        cy: CY,
+        r: CENTER_R,
+        class: "map-center-circle",
+        style: `fill:url(#${uid}-center)`,
+      })
+    );
+    svg.appendChild(
+      el("text", { x: CX, y: CY + 5, class: "map-center-text", "data-i18n": "map.center" }, I18N.t("map.center"))
+    );
 
     const layer = el("g", { class: "map-flower-layer" });
 
@@ -81,23 +129,26 @@ const SymbolMap = (() => {
     symbols.forEach((sym, i) => {
       const id = `s${i}`;
       const angleDeg = -90 + (360 / n) * i;
-      const { x: sx, y: sy, cos } = pointAt(SYMBOL_R, angleDeg);
+      const { x: sx, y: sy, cos, sin } = pointAt(SYMBOL_R, angleDeg);
       const anchor = anchorFor(cos);
       const dx = anchor === "start" ? 14 : anchor === "end" ? -14 : 0;
+      const dy = verticalNudge(anchor, sin, 4, 18);
 
-      svg.appendChild(
-        el("line", { x1: CX, y1: CY, x2: sx, y2: sy, class: "map-edge map-edge-symbol" })
-      );
-      const symGroup = makeNode(sx, sy, 11, truncate(sym.name, 18), anchor, dx, "symbol");
+      const symEdge = el("line", { x1: CX, y1: CY, x2: sx, y2: sy, class: "map-edge map-edge-symbol map-entrance" });
+      symEdge.style.setProperty("--i", i);
+      svg.appendChild(symEdge);
+      const symGroup = makeNode(sx, sy, 11, truncate(sym.name, 18), anchor, dx, "symbol", dy);
+      symGroup.classList.add("map-entrance");
+      symGroup.style.setProperty("--i", i);
       symGroup.addEventListener("click", () => toggleExpand(svg, id));
       svg.appendChild(symGroup);
 
       let assocGroup = null;
       if (sym.selected_association) {
         const { x: ax, y: ay } = pointAt(ASSOC_R, angleDeg);
-        svg.appendChild(
-          el("line", { x1: sx, y1: sy, x2: ax, y2: ay, class: "map-edge map-edge-assoc" })
-        );
+        const assocEdge = el("line", { x1: sx, y1: sy, x2: ax, y2: ay, class: "map-edge map-edge-assoc map-entrance" });
+        assocEdge.style.setProperty("--i", i + 0.3);
+        svg.appendChild(assocEdge);
         assocGroup = makeNode(
           ax,
           ay,
@@ -105,8 +156,11 @@ const SymbolMap = (() => {
           truncate(sym.selected_association, 22),
           anchor,
           dx,
-          "assoc"
+          "assoc",
+          dy
         );
+        assocGroup.classList.add("map-entrance");
+        assocGroup.style.setProperty("--i", i + 0.3);
         assocGroup.addEventListener("click", () => toggleExpand(svg, id));
         svg.appendChild(assocGroup);
       }
@@ -148,9 +202,13 @@ const SymbolMap = (() => {
 
     QUESTIONS.forEach(([key, label], i) => {
       const qAngle = angleDeg + Q_FAN_DEG[i];
-      const { x: qx, y: qy, cos } = pointAt(Q_R, qAngle);
+      const { x: qx, y: qy, cos, sin } = pointAt(Q_R, qAngle);
       const anchor = anchorFor(cos);
       const dx = anchor === "start" ? 12 : anchor === "end" ? -12 : 0;
+      // Sembol kutupta ise (bkz. buildExportSvg'deki aynı düzeltme) birden
+      // fazla yaprak "middle" hizalamaya düşüp üst üste binebilir — o
+      // durumda y'de kademeli ayrıştır.
+      const dy = anchor === "middle" ? (sin < 0 ? -1 : 1) * (15 + i * 14) : verticalNudge(anchor, sin, 4, 15);
 
       const edge = el("line", {
         x1: assocPoint.x,
@@ -168,7 +226,7 @@ const SymbolMap = (() => {
       group.appendChild(
         el(
           "text",
-          { x: qx + dx, y: qy + 4, "text-anchor": anchor, class: "map-label map-label-q" },
+          { x: qx + dx, y: qy + dy, "text-anchor": anchor, class: "map-label map-label-q" },
           `${i + 1}. ${truncate(answer, 26)}`
         )
       );
@@ -225,13 +283,15 @@ const SymbolMap = (() => {
     const wrap = svg.parentElement;
     const controls = document.createElement("div");
     controls.className = "map-zoom-controls";
-    const mkBtn = (label, title, onClick) => {
+    const mkBtn = (glyph, titleKey, onClick) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "map-zoom-btn";
-      btn.textContent = label;
-      btn.title = title;
-      btn.setAttribute("aria-label", title);
+      btn.textContent = glyph;
+      btn.title = I18N.t(titleKey);
+      btn.setAttribute("aria-label", I18N.t(titleKey));
+      btn.setAttribute("data-i18n-title", titleKey);
+      btn.setAttribute("data-i18n-aria", titleKey);
       btn.addEventListener("click", onClick);
       return btn;
     };
@@ -239,15 +299,42 @@ const SymbolMap = (() => {
       x: svg.__vb.x + svg.__vb.w / 2,
       y: svg.__vb.y + svg.__vb.h / 2,
     });
-    controls.appendChild(mkBtn("+", "Yakınlaştır", () => applyZoom(svg, center(), 0.8)));
-    controls.appendChild(mkBtn("−", "Uzaklaştır", () => applyZoom(svg, center(), 1.25)));
+    controls.appendChild(mkBtn("+", "map.zoomIn", () => applyZoom(svg, center(), 0.8)));
+    controls.appendChild(mkBtn("−", "map.zoomOut", () => applyZoom(svg, center(), 1.25)));
     controls.appendChild(
-      mkBtn("⟲", "Görünümü sıfırla", () => {
+      mkBtn("⟲", "map.reset", () => {
         svg.__vb = { ...svg.__vbBase };
         setViewBox(svg);
       })
     );
     wrap.appendChild(controls);
+
+    // ---- PNG dışa aktarma butonu ----
+    const exportBtn = document.createElement("button");
+    exportBtn.type = "button";
+    exportBtn.className = "map-export-btn";
+    exportBtn.title = I18N.t("map.exportPng");
+    exportBtn.setAttribute("aria-label", I18N.t("map.exportPng"));
+    exportBtn.setAttribute("data-i18n-title", "map.exportPng");
+    exportBtn.setAttribute("data-i18n-aria", "map.exportPng");
+    exportBtn.innerHTML =
+      '<svg class="icon icon-sm"><use href="#icon-download"/></svg><span data-i18n="map.exportPng">PNG indir</span>';
+    exportBtn.addEventListener("click", async () => {
+      if (!svg.__record) return;
+      exportBtn.disabled = true;
+      const original = exportBtn.innerHTML;
+      exportBtn.textContent = I18N.t("map.exportPreparing");
+      try {
+        await exportPng(svg.__record);
+      } catch (err) {
+        console.error("Sembol haritası PNG dışa aktarımı başarısız:", err);
+        window.alert(I18N.t("map.exportError"));
+      } finally {
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = original;
+      }
+    });
+    wrap.appendChild(exportBtn);
 
     // ---- Fare tekerleği ile yakınlaştırma ----
     svg.addEventListener(
@@ -341,6 +428,270 @@ const SymbolMap = (() => {
     svg.addEventListener("pointerleave", (e) => {
       if (e.pointerId === dragId) endPointer(e);
     });
+  }
+
+  // ---------- PNG dışa aktarma ----------
+  //
+  // Etkileşimli haritada aynı anda tek bir çağrışımın 4 soru-cevap yaprağı
+  // açık olabiliyor (ekranda yer yok). PNG'de bu kısıt yok — dışa aktarılan
+  // görüntüde HER sembolün altın çağrışımı ve 4 soru cevabı aynı anda,
+  // sembolün etrafında açık halde çiziliyor. Etkileşimli render()'dan bağımsız,
+  // kendi geometrisini kuran ayrı bir çizim: tüm stiller CSS sınıflarına değil
+  // satır-içi (inline) SVG özniteliklerine dayanıyor — <img>/canvas'a
+  // rasterize ederken sayfanın harici stylesheet'ine (ve Google Fonts gibi
+  // dış kaynaklara, olası canvas "tainting" riskine karşı) bağımlı olmamak
+  // için bilinçli bir tercih.
+
+  // Taban ölçüler ~8 sembole göre kalibre edildi. Sembol sayısı arttıkça
+  // (özellikle 4 soru cevabı + altın çağrışım aynı anda çizildiği için)
+  // düğümler birbirinin içine geçmeye başlıyordu — çünkü sabit yarıçapta bir
+  // sembole düşen açısal yay payı sembol sayısıyla ters orantılı küçülüyor,
+  // ama etiket genişliği sabit kalıyor. Çözüm: yarıçapı (ve tuvali) sembol
+  // sayısıyla ORANTILI büyütmek — bu, sembol başına düşen yay UZUNLUĞUNU
+  // (açı × yarıçap) sembol sayısından bağımsız, sabit tutar.
+  const BASE_N = 8;
+  // 4 soru-cevap yaprağı PNG'den kaldırılınca en dış halka artık altın
+  // çağrışım (ASSOC_R) oldu — tuval de ona göre daraltıldı, eskiden Q_R'a
+  // göre ayrılmış geniş boş kenar boşluğu kalmasın diye.
+  const BASE_EXPORT_SIZE = 1200;
+  const BASE_CENTER_R = 66;
+  const BASE_SYMBOL_R = 230;
+  const BASE_ASSOC_R = 360;
+  const MAX_RADIAL_SCALE = 3; // aşırı sembol sayısında (25+) tuvali sınırsız büyütmeyi engelle
+
+  const PALETTE = {
+    bg: "#14101f",
+    card: "#1c1730",
+    ink: "#efeafb",
+    muted: "#ada2c9",
+    accent: "#9b7bff",
+    accentStrong: "#b69cff",
+    gold: "#e8b94a",
+    ring: "#362d52",
+    ringSoft: "#241d3a",
+  };
+  // Google Fonts (Cormorant Garamond/Inter) sayfanın <link>'i üzerinden
+  // yükleniyor; dışa aktarılan SVG bağımsız bir data-URI olarak
+  // rasterize edildiği için o kaynağa erişemeyebilir — burada güvenli,
+  // yerel yedek fontlar kullanılıyor.
+  const EX_FONT_HEAD = "Georgia, 'Times New Roman', serif";
+  const EX_FONT_BODY = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+
+  function exportPointAt(cx, cy, radius, angleDeg) {
+    const rad = (angleDeg * Math.PI) / 180;
+    return {
+      x: cx + radius * Math.cos(rad),
+      y: cy + radius * Math.sin(rad),
+      cos: Math.cos(rad),
+      sin: Math.sin(rad),
+    };
+  }
+
+  function labelAttrs(extra) {
+    // Halo stroke-width font-size'a göre orantılı olmalı — sabit 5px, küçük
+    // fontta (özellikle "—" gibi ince glifli kısa metinlerde) harfi bir
+    // yumruya dönüştürüp okunmaz kılıyordu.
+    const fontSize = extra["font-size"] || 14;
+    return Object.assign(
+      {
+        "font-family": EX_FONT_BODY,
+        "paint-order": "stroke",
+        stroke: PALETTE.bg,
+        "stroke-width": Math.max(2.5, fontSize * 0.3),
+        "stroke-linejoin": "round",
+      },
+      extra
+    );
+  }
+
+  function buildExportSvg(record) {
+    const symbols = record.symbols || [];
+    const n = symbols.length || 1;
+
+    // Sembol sayısı taban değerin (8) üzerindeyse yarıçapları (ve tuvali)
+    // orantılı büyüt — bkz. yukarıdaki BASE_N yorumu.
+    const radialScale = Math.min(MAX_RADIAL_SCALE, Math.max(1, n / BASE_N));
+    const EXPORT_SIZE = Math.round(BASE_EXPORT_SIZE * radialScale);
+    const EX_CX = EXPORT_SIZE / 2;
+    const EX_CY = EXPORT_SIZE / 2;
+    const EX_CENTER_R = BASE_CENTER_R * radialScale;
+    const EX_SYMBOL_R = BASE_SYMBOL_R * radialScale;
+    const EX_ASSOC_R = BASE_ASSOC_R * radialScale;
+    const pt = (radius, angleDeg) => exportPointAt(EX_CX, EX_CY, radius, angleDeg);
+
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${EXPORT_SIZE} ${EXPORT_SIZE}`);
+    svg.setAttribute("width", EXPORT_SIZE);
+    svg.setAttribute("height", EXPORT_SIZE);
+
+    svg.appendChild(el("rect", { x: 0, y: 0, width: EXPORT_SIZE, height: EXPORT_SIZE, fill: PALETTE.bg }));
+
+    const defs = el("defs", {});
+    const glow = el("filter", { id: "sm-gold-glow", x: "-60%", y: "-60%", width: "220%", height: "220%" });
+    glow.appendChild(el("feGaussianBlur", { stdDeviation: 5, result: "blur" }));
+    const merge = el("feMerge", {});
+    merge.appendChild(el("feMergeNode", { in: "blur" }));
+    merge.appendChild(el("feMergeNode", { in: "SourceGraphic" }));
+    glow.appendChild(merge);
+    defs.appendChild(glow);
+    svg.appendChild(defs);
+
+    svg.appendChild(
+      el("circle", { cx: EX_CX, cy: EX_CY, r: EX_CENTER_R, fill: PALETTE.card, stroke: PALETTE.accent, "stroke-width": 2.5 })
+    );
+    svg.appendChild(
+      el(
+        "text",
+        {
+          x: EX_CX,
+          y: EX_CY + 8,
+          "text-anchor": "middle",
+          fill: PALETTE.ink,
+          "font-family": EX_FONT_HEAD,
+          "font-size": 26,
+          "font-weight": 600,
+        },
+        I18N.t("map.center")
+      )
+    );
+    const slot = 360 / n;
+
+    symbols.forEach((sym, i) => {
+      const angleDeg = -90 + slot * i;
+      const { x: sx, y: sy, cos, sin } = pt(EX_SYMBOL_R, angleDeg);
+      const anchor = anchorFor(cos);
+      const dx = anchor === "start" ? 16 : anchor === "end" ? -16 : 0;
+      const dy = verticalNudge(anchor, sin, 5, 20);
+
+      svg.appendChild(el("line", { x1: EX_CX, y1: EX_CY, x2: sx, y2: sy, stroke: PALETTE.ring, "stroke-width": 1.75 }));
+      svg.appendChild(el("circle", { cx: sx, cy: sy, r: 13, fill: PALETTE.bg, stroke: PALETTE.accent, "stroke-width": 2.5 }));
+      svg.appendChild(
+        el(
+          "text",
+          labelAttrs({
+            x: sx + dx,
+            y: sy + dy,
+            "text-anchor": anchor,
+            fill: PALETTE.accentStrong,
+            "font-size": 16,
+            "font-weight": 600,
+          }),
+          truncate(sym.name, 24)
+        )
+      );
+
+      if (!sym.selected_association) return;
+
+      const { x: ax, y: ay } = pt(EX_ASSOC_R, angleDeg);
+      svg.appendChild(
+        el("line", {
+          x1: sx,
+          y1: sy,
+          x2: ax,
+          y2: ay,
+          stroke: PALETTE.ringSoft,
+          "stroke-width": 1.5,
+          "stroke-dasharray": "3 4",
+        })
+      );
+      svg.appendChild(
+        el("circle", {
+          cx: ax,
+          cy: ay,
+          r: 15,
+          fill: PALETTE.gold,
+          stroke: PALETTE.gold,
+          "stroke-width": 2,
+          filter: "url(#sm-gold-glow)",
+        })
+      );
+      svg.appendChild(
+        el(
+          "text",
+          labelAttrs({
+            x: ax + dx,
+            y: ay + verticalNudge(anchor, sin, 6, 24),
+            "text-anchor": anchor,
+            fill: PALETTE.ink,
+            "font-size": 17,
+            "font-weight": 700,
+          }),
+          truncate(sym.selected_association, 26)
+        )
+      );
+      // Kaan'ın isteğiyle: PNG'de 4 soru-cevap yaprağı artık çizilmiyor —
+      // yoğun rüyalarda (çok sembollü) görsel gürültü yapıyordu. Harita
+      // artık sadece rüya → sembol → altın çağrışım üçlüsünü gösteriyor;
+      // 4 soru cevapları hâlâ uygulama içinde (interaktif haritada,
+      // düğüme tıklayınca) görülebiliyor.
+    });
+
+    const dreamSnippet = truncate((record.dream_text || "").replace(/\s+/g, " ").trim(), 100);
+    svg.appendChild(
+      el(
+        "text",
+        {
+          x: EX_CX,
+          y: EXPORT_SIZE - 34,
+          "text-anchor": "middle",
+          fill: PALETTE.muted,
+          "font-family": EX_FONT_BODY,
+          "font-size": 15,
+        },
+        dreamSnippet
+      )
+    );
+    svg.appendChild(
+      el(
+        "text",
+        {
+          x: EXPORT_SIZE - 24,
+          y: EXPORT_SIZE - 14,
+          "text-anchor": "end",
+          fill: PALETTE.muted,
+          "font-family": EX_FONT_BODY,
+          "font-size": 12,
+          opacity: 0.7,
+        },
+        I18N.t("map.watermark")
+      )
+    );
+
+    return svg;
+  }
+
+  async function exportPng(record) {
+    const svg = buildExportSvg(record);
+    const xml = new XMLSerializer().serializeToString(svg);
+    const dataUrl = "data:image/svg+xml;charset=utf-8;base64," + btoa(unescape(encodeURIComponent(xml)));
+
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error("SVG görüntüye çevrilemedi"));
+      img.src = dataUrl;
+    });
+
+    const exportSize = Number(svg.getAttribute("width"));
+    const scale = 2; // yüksek çözünürlük için süper-örnekleme
+    const canvas = document.createElement("canvas");
+    canvas.width = exportSize * scale;
+    canvas.height = exportSize * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    if (!blob) throw new Error("PNG oluşturulamadı");
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const slug = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    a.href = url;
+    a.download = `sembol-haritasi-${slug}.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
   }
 
   return { render };

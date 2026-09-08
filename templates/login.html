@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Giriş — Sembol Çarkı</title>
+  <title data-i18n="login.pageTitle">Giriş — Sembol Çarkı</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
 <body>
@@ -15,8 +15,11 @@
   </svg>
 
   <header class="app-header">
-    <h1 class="brand"><svg class="icon"><use href="#icon-moon"/></svg>Sembol Çarkı</h1>
-    <p class="subtitle">Devam etmek için şifreni gir</p>
+    <h1 class="brand"><svg class="icon"><use href="#icon-moon"/></svg><span data-i18n="brand.name">Sembol Çarkı</span></h1>
+    <p class="subtitle" data-i18n="login.subtitle">Devam etmek için şifreni gir</p>
+    <div class="header-actions">
+      <button id="btn-lang-toggle" type="button" class="btn-link lang-toggle">EN</button>
+    </div>
   </header>
 
   <main>
@@ -24,14 +27,16 @@
       <form method="POST" class="login-form">
         <div class="login-input-row">
           <svg class="icon"><use href="#icon-lock"/></svg>
-          <input type="password" name="password" placeholder="Şifre" autofocus required autocomplete="current-password" />
+          <input type="password" name="password" data-i18n-placeholder="login.password" placeholder="Şifre" autofocus required autocomplete="current-password" />
         </div>
         {% if error %}
           <p class="error-text">{{ error }}</p>
         {% endif %}
-        <button type="submit" class="btn-primary">Giriş Yap</button>
+        <button type="submit" class="btn-primary" data-i18n="login.submit">Giriş Yap</button>
       </form>
     </section>
   </main>
+
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
 </body>
 </html>
