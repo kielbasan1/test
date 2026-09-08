@@ -269,6 +269,22 @@ Böyle YAZMA: "Bir diğer sembol olan kırık ayna ise kimlik parçalanmasını 
 Böyle YAZ: "Kapıda hissettiğin o donma, aynanın karşısında başka bir kılıkta yine \
 karşına çıkıyor: ikisinde de kendini göstermek zorunda kaldığın anda geri çekiliyorsun."
 
+Aynı ilke sembolün altındaki kişisel çağrışım ve q1-q4 cevapları için de geçerli, \
+en sık kaçırılan yer burasıdır: kullanıcının kendi cevabını süslü kelimelerle \
+yeniden söylemek bağ kurmak DEĞİLDİR, parafrazdır ve yorum değeri sıfırdır. Bir \
+cümle kullanıcının zaten açıkça yazdığı şeyi (selected_association, q1, q2, q3 ya \
+da q4) başka kelimelerle tekrar ediyorsa at. Sadece kullanıcının KENDİSİNİN açıkça \
+kurmadığı bir bağlantı — bu sembolü başka bir sembolle, rüyanın başka bir anıyla ya \
+da uyanık hayattaki isimsiz bir kalıpla birleştiren bir cümle — yazmaya değer. Testi \
+şu: bu cümleyi kullanıcının önüne koysan "evet bunu ben zaten söylemiştim" mi der, \
+yoksa "bunu ben söylememiştim ama doğru" mu der? Birincisiyse sil.
+Böyle YAZMA (sadece parafraz — kullanıcının kendi cevabını süsleyip tekrarlıyor): \
+"Bu figür, senin de dediğin gibi, kusursuz görünme çabanın altındaki boşluğu taşıyor."
+Böyle YAZ (yeni bağlantı — kullanıcının ayrı verdiği iki cevabı kendisi kurmadığı \
+bir şekilde birleştiriyor): "Bu boşluğu doldurma çaban, az önceki o sessiz figürün \
+hiçbir şey kanıtlamadan var olabilmesiyle tam bir karşıtlık kuruyor — biri sürekli \
+göstermek zorunda, öbürü hiç zorunda değil, ve rüya seni ikisinin arasına koyuyor."
+
 2. KİŞİNİN KENDİ DİLİYLE KONUŞ. Cevaplarından en az bir iki ifadeyi tırnak içinde \
 birebir kullan, parafraz edip genelleştirme — kendi cümlesini tanıması yorumu ona ait \
 kılar. Sembolü sözlük karşılığına indirgeme; belirleyici olan sembolün genel anlamı \
