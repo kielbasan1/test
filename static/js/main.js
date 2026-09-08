@@ -49,6 +49,9 @@
     btnShowHistory: document.getElementById("btn-show-history"),
     btnImport: document.getElementById("btn-import"),
     importFileInput: document.getElementById("import-file-input"),
+    btnLoadDraft: document.getElementById("btn-load-draft"),
+    draftFileInput: document.getElementById("draft-file-input"),
+    btnSaveDraft: document.getElementById("btn-save-draft"),
     btnNewDream: document.getElementById("btn-new-dream"),
     stepHistory: document.getElementById("step-history"),
     historyEmpty: document.getElementById("history-empty"),
@@ -692,6 +695,17 @@
       } else {
         record = parseExportText(text);
       }
+      // Kullanıcı "Dosyadan Aç" ile yanlışlıkla bir taslak seçerse (interpretation
+      // yok) burada takılıp boş bir sonuç ekranı göstermek yerine, doğru akışa
+      // (taslak yükleme) yönlendir.
+      if (record && record.is_draft === true) {
+        if (!isValidDraftRecord(record)) {
+          window.alert(I18N.t("loadDraft.invalid"));
+          return;
+        }
+        loadDraftIntoState(record);
+        return;
+      }
       if (!isValidDreamRecord(record)) {
         window.alert(I18N.t("import.invalid"));
         return;
@@ -704,6 +718,87 @@
       el.btnNewDream.classList.remove("hidden");
     } catch (err) {
       window.alert(I18N.t("import.error"));
+    }
+  });
+
+  // ---------- Taslak kaydet/yükle (.json, yorumsuz) ----------
+  // Model/prompt testi için: aynı rüya + semboller + çağrışımlar + 4 soru
+  // cevabını her seferinde elle yeniden girmeden, "Yorumu Oluştur"a basmadan
+  // hemen önceki durumu (interpretation henüz YOK) kaydedip geri yükleyebilmek
+  // içindir. Tam sonuç JSON'undan (result.downloadJson) farkı: interpretation
+  // alanı yok, symbols ham associations/questions şeklinde duruyor — yani
+  // yüklendiğinde Yorum adımından hemen önceki, hâlâ düzenlemeye açık duruma
+  // döner (renderResult ile doğrudan sonuç göstermez).
+
+  function isValidDraftRecord(record) {
+    return (
+      record &&
+      typeof record === "object" &&
+      record.is_draft === true &&
+      typeof record.dream_text === "string" &&
+      Array.isArray(record.symbols)
+    );
+  }
+
+  function loadDraftIntoState(record) {
+    state.dreamText = record.dream_text || "";
+    state.dreamContext = record.personal_context || "";
+    state.symbols = (record.symbols || []).map((s) => ({
+      name: s.name || "",
+      name_en: s.name_en || "",
+      context: s.context || "",
+      associations: Array.isArray(s.associations)
+        ? s.associations.map((a) => ({
+            id: a.id || uid(),
+            text: a.text || "",
+            selected: !!a.selected,
+          }))
+        : [],
+      questions: {
+        q1: (s.questions && s.questions.q1) || "",
+        q2: (s.questions && s.questions.q2) || "",
+        q3: (s.questions && s.questions.q3) || "",
+        q4: (s.questions && s.questions.q4) || "",
+      },
+    }));
+    state.activeIndex = null;
+    state.resultReady = false;
+    state.lastRecord = null;
+
+    el.dreamText.value = state.dreamText;
+    el.dreamContext.value = state.dreamContext;
+    el.btnNewDream.classList.add("hidden");
+    renderChips();
+    updateProgress();
+    showOnlyStep(el.stepFinalize);
+  }
+
+  el.btnSaveDraft.addEventListener("click", () => {
+    const slug = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    downloadJSON(`ruya-taslak-${slug}.json`, {
+      is_draft: true,
+      dream_text: state.dreamText,
+      personal_context: state.dreamContext,
+      symbols: state.symbols,
+    });
+    setStatus(el.finalizeStatus, I18N.t("finalize.draftSaved"));
+  });
+
+  el.btnLoadDraft.addEventListener("click", () => el.draftFileInput.click());
+
+  el.draftFileInput.addEventListener("change", async () => {
+    const file = el.draftFileInput.files && el.draftFileInput.files[0];
+    el.draftFileInput.value = ""; // aynı dosya arka arkaya seçilebilsin diye
+    if (!file) return;
+    try {
+      const record = JSON.parse(await file.text());
+      if (!isValidDraftRecord(record)) {
+        window.alert(I18N.t("loadDraft.invalid"));
+        return;
+      }
+      loadDraftIntoState(record);
+    } catch (err) {
+      window.alert(I18N.t("loadDraft.error"));
     }
   });
 

@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 ruyalar/*.json
 api.txt
+scripts/test_output.txt

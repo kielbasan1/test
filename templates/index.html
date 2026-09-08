@@ -33,6 +33,10 @@
         <svg class="icon icon-sm"><use href="#icon-upload"/></svg><span data-i18n="header.import">Dosyadan Aç</span>
       </button>
       <input id="import-file-input" type="file" accept="application/json,.json,.txt,text/plain" class="hidden" />
+      <button id="btn-load-draft" class="btn-link" data-i18n-title="header.loadDraftTitle" title="Yorumlanmamış bir taslak (.json) yükle — sembolleri/çağrışımları yeniden yazmadan Yorum adımına geçersin">
+        <svg class="icon icon-sm"><use href="#icon-upload"/></svg><span data-i18n="header.loadDraft">Taslak Yükle</span>
+      </button>
+      <input id="draft-file-input" type="file" accept="application/json,.json" class="hidden" />
       <button id="btn-new-dream" class="btn-link hidden">
         <svg class="icon icon-sm"><use href="#icon-sparkle"/></svg><span data-i18n="header.newDream">Yeni Rüya Başlat</span>
       </button>
@@ -169,6 +173,9 @@
       <div class="row">
         <button id="btn-finalize" class="btn-primary" disabled>
           <svg class="icon icon-sm"><use href="#icon-sparkle"/></svg><span data-i18n="finalize.submit">Yorumu Oluştur</span>
+        </button>
+        <button id="btn-save-draft" class="btn-secondary">
+          <svg class="icon icon-sm"><use href="#icon-download"/></svg><span data-i18n="finalize.saveDraft">Taslak Kaydet (.json)</span>
         </button>
         <span id="finalize-status" class="status"></span>
       </div>

@@ -1,0 +1,45 @@
+{
+  "dream_text": "Karanlık bir ormanda yürüyordum. Arkamdan kara bir köpek beni takip ediyordu, ürkütücüydü ama saldırmıyordu. Bir noktada önümde kilitli bir kapı belirdi, açmaya çalıştım ama açamadım. Tam vazgeçecekken köpek yanıma geldi ve kapıya doğru havladı, sanki bana bir şey söylemeye çalışıyordu. Kapı kendiliğinden aralandı; içeride annemin evdeki eski odası vardı ama boştu, eşyalar yoktu. Uyandığımda tuhaf bir hafiflik hissettim.",
+  "personal_context": "Bu haftalarda annemle eski bir konuyu konuşmaktan kaçınıyorum, hep 'uygun an'ı bekliyorum.",
+  "symbols": [
+    {
+      "name": "kara köpek",
+      "name_en": "black dog",
+      "context": "rüya boyunca beni takip ediyor, ürkütücü ama saldırmıyor, sonra kapıya doğru havlıyor",
+      "selected_association": "vahşi ama sadık, kontrolsüz göründüğü halde bana zarar vermeyen bir parçam",
+      "all_associations": ["vahşi ama sadık", "korkutucu ama zararsız", "sezgi", "sadakat"],
+      "questions": {
+        "q1": "Kontrolsüz, dizginlenmemiş ama aslında bana ihanet etmeyen bir parçam.",
+        "q2": "Beni tehlikeye karşı uyaran ama kimseye anlatmadığım içgüdüsel tarafım.",
+        "q3": "Öfkemi ya da içgüdülerimi göstermekten çekindiğim zamanlarda.",
+        "q4": "Kardeşim böyle davranıyor bazen, dobra ve çekinmeden."
+      }
+    },
+    {
+      "name": "kilitli kapı",
+      "name_en": "locked door",
+      "context": "önümde beliriyor, açmaya çalışıyorum ama açamıyorum, köpek havlayınca kendiliğinden aralanıyor",
+      "selected_association": "geçemediğim, hep ertelediğim bir konuşma ya da karar",
+      "all_associations": ["engel", "geçiş", "bilinmeyen", "erteleme"],
+      "questions": {
+        "q1": "Kararsızlığımı, bir şeyle yüzleşmeye hazır olmayan tarafımı.",
+        "q2": "Bir ilişkideki zor konuşmayı sürekli erteleten taraf.",
+        "q3": "İş yerinde patronumla konuşmam gerektiğinde.",
+        "q4": "Ben böyle davranıyorum, kimse zorlamıyor beni."
+      }
+    },
+    {
+      "name": "annemin boş odası",
+      "name_en": "mother's empty room",
+      "context": "kapı aralanınca içeride görünüyor, eşyasız, boş",
+      "selected_association": "geçmişin artık orada olmadığını ama hâlâ bir yer kapladığını hissettiren boşluk",
+      "all_associations": ["kayıp", "geçmiş", "boşluk", "özlem"],
+      "questions": {
+        "q1": "Annemle ilişkimdeki tamamlanmamış, boşta kalan bir parçam.",
+        "q2": "Onunla konuşamadığım şeyleri hâlâ taşıyan taraf.",
+        "q3": "Aile toplantılarında sessizleştiğimde.",
+        "q4": ""
+      }
+    }
+  ]
+}
