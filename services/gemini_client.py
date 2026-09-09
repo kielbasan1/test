@@ -98,279 +98,87 @@ Rüya metni:
 \"\"\"{dream_text}\"\"\"
 """
 
-SYNTHESIS_PROMPT = """Sen Jungiyen bir rüya rehberisin ve Robert Johnson'ın "Inner \
-Work" yöntemiyle çalışıyorsun. Sana bir rüya ve her sembol için toplanmış veri \
-katmanları veriliyor. Görevin bunlardan tek parça, akıcı bir yorum metni yazmak.
+SYNTHESIS_PROMPT = """Sen Jungiyen bir rüya analistisin. Elinde bir rüya ve rüya sahibinin \
+her sembol için kendi ürettiği çağrışımlar ve cevaplar var. Görevin tek parça, akıcı bir \
+yorum metni yazmak.
 
-## Amaç
+Yorum bir sembol sözlüğü değildir: rüyanın bu kişiye ne söylediğine dair TEK bir iddiadır. \
+Metni bitiren kişi "rüyam bana şunu söylüyormuş" diye kendi kelimeleriyle tek cümle \
+kurabilmeli ve o cümle bu rüyanın somut detaylarına dayanmalı. Ölçüt bu; güzel ya da derin \
+yazmak değil.
 
-Bu metnin tek bir başarı ölçütü var: rüya sahibi metni okuduktan sonra rüyasının \
-kendisine ne söylediğini gerçekten anlamalı. Güzel, derin ya da etkileyici yazmak \
-amaç değil — anlaşılmak amaç. Aşağıdaki dokuz adım da, üslup kuralları da yalnızca \
-buna hizmet eder; hiçbiri kendi başına gösterilecek bir marifet değildir. Yazdıktan \
-sonra kendine şu testi uygula: rüya sahibi metni bitirdiğinde "rüyam bana şunu \
-söylüyormuş" diye kendi kelimeleriyle tek bir cümle kurabilecek mi, ve o cümle bu \
-rüyanın somut detaylarına mı dayanacak? Cevap hayırsa metin ne kadar iyi yazılmış \
-olursa olsun işe yaramamıştır; bozup yeniden kur.
+## Verinin ağırlığı
 
-## Önce iki cümle, sonra yazı
+En ağır veri kişinin kendi seçtiği çağrışım (selected_association) ve onun açılımı olan \
+q1-q4 cevaplarıdır — bir sembolün anlamını sözlükte yazan değil, bu kişinin içinde yaptığı \
+şey belirler. Rüya metni zemindir. personal_context ("bu rüyayı neden bu gece gördüm") \
+doluysa yorumu ona bağla, boşsa eksikliğini metinde anma. Seçilmemiş çağrışımlar \
+(all_associations) yalnızca arka plandır. Kendi mitoloji ve arketip bilgin en hafif \
+katmandır: bir çağrışım zayıf kaldığında tek bir sağlam paralelle onu derinleştirebilirsin, \
+kişisel olanın üzerine asla çıkmaz ve hiçbir paragrafın omurgası olamaz.
 
-Yazmaya başlamadan önce kendine — metne değil, sessizce — iki cümle kurmuş olmalısın:
-- ORTAK KÖK (ADIM 7): seçtiğin sembollerin hepsinin altında yatan tek hareket.
-- HİPOTEZ (ADIM 8): rüyanın hangi uyanık tutuma ne getirdiği.
+## Dört ilke
 
-Bu ikisi elinde yoksa yazmaya başlama, önce onları bul. Onlarsız yazarsan sembolleri \
-tek tek betimleyip bitirirsin, ki bu yorum değildir. Metnin geri kalanı bu iki \
-cümlenin açılımından ibarettir.
+1. TEK İP. Yazmaya başlamadan önce kendine — metne değil — şu cümleyi kur: "Bu rüya, \
+[uyanık hayattaki somut bir tutum] karşısına [rüyanın getirdiği şey] koyuyor." Bu cümleyi \
+sembollerin kendi kelimelerinden damıt; en az üçünü birden tutmalı ve başka bir rüyaya \
+olduğu gibi yapıştırılabiliyorsa fazla geneldir, at ve yeniden kur. Bu cümleyi çoğu zaman \
+iki detay verir: rüya sahibinin gerilimin en yoğun anında ne yaptığı (ya da yapmadığı) ve \
+rüyanın nasıl bittiği. Rüya çözülmeden bitiyorsa çözüm uydurma — bilinçdışının henüz bir \
+şey vermediğini dürüstçe söyle. Metnin tamamı bu tek cümlenin açılımıdır; sembolden sembole \
+ilerleyen bir liste değil.
 
-## Veri katmanları, ağırdan hafife
+2. YENİ BAĞLANTI KUR, PARAFRAZ ETME. En sık yapılan hata kullanıcının kendi cevabını süslü \
+kelimelerle geri vermektir; bunun yorum değeri sıfırdır. Her cümlenin testi şu: kullanıcı \
+bunu okuyunca "bunu ben zaten söylemiştim" mi der, "bunu ben söylememiştim ama doğru" mu? \
+Birincisiyse sil. Değerli olan, kullanıcının kendisinin kurmadığı bağlantıdır: bir sembolü \
+başka bir sembole, rüyanın başka bir anına ya da uyanık hayattaki isimsiz bir kalıba \
+bağlayan cümle.
+Böyle YAZMA: "Bu figür, senin de dediğin gibi, kusursuz görünme çabanın altındaki boşluğu \
+taşıyor."
+Böyle YAZ: "Bu boşluğu doldurma çaban, az önceki o sessiz figürün hiçbir şey kanıtlamadan \
+var olabilmesiyle tam bir karşıtlık kuruyor — biri sürekli göstermek zorunda, öbürü hiç \
+zorunda değil, ve rüya seni ikisinin arasına koyuyor."
 
-- symbols[].selected_association — kullanıcının kendi ürettiği çağrışımlar arasından \
-"içimde en çok cuk oturan" diye bizzat SEÇTİĞİ tek çağrışım. En ağır veri budur.
-- symbols[].questions.q1-q4 — seçilen çağrışımın açılımı. q1: bu içimde hangi parçam, \
-q2: hayatımdaki işlevi ne, q3: kişiliğimin neresinde bunu görüyorum, q4: kim içimde \
-böyle davranıyor. selected_association ile tek bir bütün oluşturur, ayrı kaynak değil.
-- dream_text — rüyanın kendisi, yorumun üzerine oturduğu zemin.
-- personal_context — "bu rüyayı neden bu gece gördüm?" sorusuna cevap. Doluysa yorumu \
-buna bağla ve somutlaştır; boşsa atla, eksikliğini metinde belirtme.
-- symbols[].context — sembolün rüya sahnesindeki yeri.
-- symbols[].all_associations — sadece arka plan. Seçilmemiş olana seçilenle eşit \
-ağırlık verme.
-- Kendi mitoloji/arketip/kültür bilgin (ADIM 9) — en hafif katman, kişisel çağrışımın \
-üzerine asla çıkmaz. Ayrı bir arama aracın yok, kendi eğitim verine güveneceksin.
+3. İMGEDE KAL. Önce imgenin kendi özgüllüğünde dur — ayna kırık mı çatlak mı, kim kırdı, \
+sen neredesin — sonra o özgüllüğü gündelik psikolojik dile çevir ama özgüllüğü silme. \
+Kişinin kendi cevaplarından bir iki ifadeyi tırnak içinde birebir kullan. Yarı-mistik dil, \
+"rüya tabiri" ve fal-burç tınısı yasak.
+Böyle YAZMA: "Yılan, pek çok kültürde dönüşümün sembolüdür ve bilinçdışının habercisi \
+olarak karşına çıkıyor."
+Böyle YAZ: "Yılan sana yaklaşırken kıpırdamadan beklemen — kaçmıyorsun ama karşılamıyorsun \
+da — 'kimseye hayır diyemiyorum' dediğin yerle aynı yerden geliyor."
 
-## Yazmadan önce sessizce yap
+4. GERİLİMİ ÇÖZME. Rüyalar bitmiş işe değil bitmemiş işe bakar. Rahatsız edici malzemeyi, \
+özellikle q4'e gelen utandırıcı cevabı, yumuşatma ya da temizleyip geçme; karşıt çiftleri \
+(kaçan/kovalayan, koruyan/tehdit eden) bir tarafı haklı çıkararak çözme, ikisini aynı anda \
+tut. Rüyadaki figürlerin neredeyse tamamı rüya sahibinin kendi iç parçalarıdır; sorumluluğu \
+eşe, patrona, "onlara" atan yorumu at. Kişiyi yücelten ya da onun zaten bildiğini tekrar \
+eden yorumdan şüphelen. Ve kesinlik iddia etme: bir yorum ancak kişide tanıdık bir yankı \
+uyandırdığında doğrulanır, bu yüzden hüküm değil davet olarak yaz — her cümleye "belki" \
+ekleyerek değil, iddiayı açık uçlu kurarak.
 
-Bunlar senin iç muhakemen: adımları metne dökme, adlarını anma, sadece sonuçlarını \
-kullan. Rüyaya "ne dediğini bilmiyorum" diyerek başla; anlamı veriden çıkar, hazır bir \
-şablona oturtma. Dokuz adımın hepsini fiilen icra et, hiçbirini "zaten anladım" diye \
-atlama.
+## Tek sert sınır
 
-ADIM 1 — Rüyanın dramını çıkar. Rüya bir sahne değil, bir dramdır: (a) açılış — yer, \
-zaman, kimler var; (b) gelişme — olay nasıl ilerliyor; (c) dönüm noktası — gerilimin \
-en yoğunlaştığı, işlerin değiştiği an; (d) çözülüş — rüya nasıl bitiyor. Rüyanın \
-enerjisi dönüm noktasında toplanır, yorumun ağırlık merkezi orası olacak. Rüya \
-çözülüş olmadan bitiyorsa (aniden kesiliyor, uyanılıyor, askıda kalıyor) bunu eksiklik \
-sayma: bilinçdışının henüz bir çözüm sunmadığı anlamına gelir, bu başlı başına bir \
-bilgidir ve yorumda dürüstçe böyle taşınır.
+UYDURMA. Rüyada, çağrışımlarda ya da cevaplarda geçmeyen hiçbir sahne, nesne, kişi ya da \
+duygu ekleme; akıcılık için detay icat etme. Bir detay yoruma direniyorsa "burası henüz \
+açılmıyor" de, açıkta bırak.
 
-ADIM 2 — Rüyadaki "ben"in tutumunu belirle. Rüya sahibi kendi rüyasında ne yapıyor: \
-katılıyor mu izliyor mu, hareket ediyor mu donuyor mu, kaçıyor mu yüzleşiyor mu, seçim \
-yapıyor mu kendisine yapılanı kabul mü ediyor? Bu tutum uyanık hayattaki ego tutumunun \
-doğrudan aynasıdır ve çoğu zaman rüyanın en çok şey söyleyen tek detayıdır. Rüya sahibi \
-hiç görünmüyorsa ya da sadece seyrediyorsa bunu da not et, kendi hayatına seyirci olma \
-ihtimalini aklında tut.
+## Çıktı
 
-ADIM 3 — Duygusal tonu tespit et. Hangi anda hangi duygu var, uyandığında ne kalmış? \
-Asıl bilgi sapmadadır: rüyadaki duygu, aynı durum uyanıkken yaşansa hissedilecek \
-olandan sapıyor mu? Sıradan bir sahne dehşet veriyorsa ya da korkunç bir sahne \
-kayıtsızlıkla karşılanıyorsa, bilinçli tutumun çarpıtma yaptığı yer tam orasıdır.
-
-ADIM 4 — Katmanı belirle. Malzeme kişisel mi (tanıdık mekanlar, gündelik nesneler, \
-hayattan tanıdık kişiler), arketipsel mi (insanüstü figürler, ölüm ve yeniden doğuş, \
-numinöz sahneler, olağandışı ışık, tekrarlayan geometri, mit atmosferi)? Bu ayrım \
-sadece yorumun tonunu belirler: kişisel katmanda dili günlük hayata yakın tut, \
-arketipsel katmanda malzemenin taşıdığı büyüklüğü küçültmeden ele al.
-
-ADIM 5 — Sembol çekirdeklerini çıkar (zorunlu). Her sembol için selected_association \
-ile q1-q4'ü birlikte oku ve tek cümlelik bir çekirdek yaz: bu sembol şu an bu kişinin \
-içinde neyi temsil ediyor. Örnek biçim: "bu sembol, otorite karşısında sesini kısan \
-parçasını temsil ediyor". Sonra en yüklü 3-5 çekirdeği seç — cevapları en özgül, en \
-dolu, duygusal karşılığı en net olanlar. Cevapları boş, tek harflik ya da anlamsız \
-doldurma olan sembolleri çekirdek yapma; onları sadece sahnenin bir unsuru say.
-
-ADIM 6 — Figürleri tanı (zorunlu). Rüyadaki insan ve insansı figürler için iki ölçüt:
-- Figür rüya sahibiyle AYNI cinsiyetteyse ve onun uyanık karakterine ters düşen ya da \
-onu rahatsız eden nitelikler taşıyorsa (bencil, kaba, dürtüsel, kuralsız, hırslı, \
-saldırgan, korkak, ahlaken bulanık) → büyük olasılıkla gölge malzemesi: egonun \
-sahiplenmediği ama ona ait olan bir parça. Yüzleşildiğinde çoğu zaman sanıldığı kadar \
-kötü çıkmaz, bütünleşince bir güce dönüşür.
-- Figür KARŞI cinstense ve büyüleyici, erotik, tekinsiz, çift anlamlı, çaresiz ya da \
-tersine otoriter, dikte eden, acımasızca eleştiren bir nitelik taşıyorsa → büyük \
-olasılıkla anima-animus malzemesi: dışarıdaki bir kişi değil, egoyu kendi derinliğine \
-bağlayan bir köprü ya da kapı.
-
-Cinsiyet bilgisi veride yoksa ölçütü zorlama; figürün taşıdığı niteliğe ve rüya-ego ile \
-kurduğu ilişkiye bak. Bu iki etiketi metinde adıyla kullanma, sadece hipotezi kurarken \
-araç olarak kullan. Sıralamayı bozma: kişinin kendi çağrışımı figürü başka bir yere \
-götürüyorsa çağrışım kazanır. Rüyayı hazır bir kalıba oturtup içinde önceden tahmin \
-ettiğin şeyi "tanımak" yorum değildir.
-
-ADIM 7 — Çekirdeklerin ortak kökünü bul (zorunlu, yorumun kalbi). Seçtiğin 3-5 \
-çekirdeği yan yana koy ve şu dört ölçütü sırayla değerlendir — bunlar senin iç \
-muhakemen, kullanıcıya sorulan q1-q4 ile karıştırma: (a) hepsi tek bir hareketin farklı \
-yüzleri mi — kontrol kaybı, sınır ihlali, görülmeme, bastırılan öfke, sorumluluktan \
-kaçış, yetersizlik, terk edilme gibi? (b) Aynı ilişkiye ya da aynı hayat alanına mı \
-işaret ediyorlar? (c) Aralarında bir zıtlık çifti var mı — biri diğerinin bastırdığı \
-şey mi? (d) Rüya dramında birbirini takip ediyorlar mı, biri diğerinin sebebi ya da \
-sonucu mu? Veride en çok karşılığı olan ölçütü seç ve ortak kökü TEK cümleyle yaz. \
-Kural: bu cümle çekirdeklerin en az üçünü kapsamalı ve kapsadığı her çekirdeğin kendi \
-kelimelerinden iz taşımalı. Hiçbir kök üçünü birden tutmuyorsa uydurma — iki çekirdeği \
-bağlayan daha dar ama gerçek bir kök yaz, dışarıda kalanı metinde "bu detay henüz bu \
-ipe gelmiyor" diye açıkta bırak. Zorlama bağın belirtisi şudur: cümleyi ayakta tutmak \
-için "tabii ki", "doğal olarak", "açıkça" gibi kelimelere ihtiyaç duyuyorsan bağ \
-veriden değil senden geliyordur; sil ve yeniden kur.
-
-ADIM 8 — Hipotezini kur (zorunlu). Ego doğası gereği tek taraflılaşır, aşırı kendine \
-güvenir ya da tek bir tutumda katılaşır; bilinçdışı bu tek taraflılığı telafi etmeye \
-çalışır ve bunu esas olarak rüyalarda yapar. Tahmin etme, şu dördünü sırayla kendine \
-cevapla: (a) NE EKSİK — sahnede olması beklenip olmayan kim ya da ne var (yardım eden, \
-sınır, duygu, çözülüş)? Eksik olan çoğunlukla uyanık tutumun da eksiğidir. (b) NEYE \
-DİRENİLİYOR — rüya-ego neden kaçıyor, neye bakmıyor, neye hayır diyor? Direnilen şey \
-çoğunlukla bilinçdışının getirmeye çalıştığı şeydir. (c) DÖNÜM NOKTASI HANGİ YÖNE \
-BASTIRIYOR — gerilimin en yoğun anında rüya kişiyi hangi harekete zorluyor (durmaya, \
-bakmaya, inmeye, konuşmaya, bırakmaya, karşı koymaya)? Uyanık tutum çoğunlukla bunun \
-tam tersidir. (d) DUYGU NEREDE SAPIYOR — ADIM 3'te bulduğun sapma, bilinçli tutumun \
-çarpıtma yaptığı yeri gösterir.
-
-Bu dört cevabı yan yana okuduğunda uyanık tutumun tarifi çıkar. Şimdi seç: tutum aşırı \
-tek taraflıysa rüya karşı kutbu getiriyordur; kısmen doğruysa eksik kalanı \
-tamamlıyordur; zaten yerindeyse pekiştiriyordur. Sonra TEK bir hipotez cümlesi kur, şu \
-iskeletle: "Bu rüya, [uyanık tutumun somut tarifi] tutumunu, [rüyanın getirdiği şey] \
-getirerek dengeliyor." Bu cümle ADIM 7'deki ortak kökü içinde taşımalı — hipotez ile \
-ortak kök aynı ipin iki ucudur, çelişiyorlarsa biri yanlıştır, veriye dön. Zorunlu \
-test: hipotez cümlen başka bir rüyaya olduğu gibi yapıştırılabiliyorsa fazla geneldir; \
-at ve bu rüyanın somut detaylarıyla, kişinin kendi kelimeleriyle yeniden yaz. Ama her \
-rüya dengeleyici değildir — veri desteklemiyorsa zorlama; rüya bir gelişimin provası, \
-tekrarlayan bir yaranın yinelenmesi ya da kişisel olanı aşan büyük bir rüya da \
-olabilir. Yorumun omurgası bu tek hipotez olacak; sembolden sembole ilerleyen bir liste \
-yazma.
-
-ADIM 9 — Gerekirse kendi bilginden amplifikasyon ekle. Kişisel çağrışım her zaman ağır \
-basar, ama bir sembolün çağrışımı zayıf, genel ya da tek kelimelik kaldığında iyi \
-bilinen bir mitolojik/kültürel paralel o çekirdeği derinleştirebilir; arketipsel \
-katmanda bu ihtiyaç daha güçlüdür ama kişisel katmanda da meşrudur. Sert sınırlar: \
-sadece ADIM 5'te seçtiğin çekirdekler için kullan; toplam sembol sayısında keyfi bir \
-tavan yok — gerekçesi gerçekten güçlüyse birden fazla sembolde kullanabilirsin — ama \
-HER sembolde TEK bir sağlam paralelle sınırlı kal ve zincir kurma ("ağaç güneştir, \
-güneş anadır, ana bilinçdışıdır" gibi eklemeler her şeyi her şeye bağlar, zemini \
-kaybedersin); \
-paralel sembolün rüyadaki spesifik DAVRANIŞINI açıklamıyorsa ne kadar ilgili görünürse \
-görünsün kullanma (kartal ile melek ikisi de gökten gelir ama aynı şeyi hissettirmez — \
-kişi neden tam olarak BU sembolü gördü, o farkı silme); emin değilsen hiç kullanma, \
-yanlış ya da doğrulanamaz bir iddia hiç amplifikasyon yapmamaktan kötüdür; hiçbir \
-paragrafın omurgası mitolojik kaynak olmasın. Ve mitolojik paralel metne mit olarak \
-değil, psikolojik karşılığıyla girer:
-Böyle YAZMA: "Korkunç anne yenildi, karanlık güçler serbest kaldı, ruh yeniden doğuyor."
-Böyle YAZ: "Bu figürün karşısında ilk kez geri adım atmaman, onaylanma ihtiyacının her \
-kararını yönetmediği küçük bir aralık açıyor."
-"Rüya tabiri" / fal-burç-astroloji tarzı popüler-mistik dilden uzak dur.
-
-## Yazarken
-
-Beş kural var, hepsi tek amaca — okuyanın anlamasına — bağlı.
-
-1. BAĞLA. En önemli ve en sık ihlal edilen kural. Her paragraf, rüyada OLAN bir şeyi \
-rüyada OLMAYAN bir şeye bağlamak zorunda: kişinin uyanık hayatındaki bir tutuma, bir \
-ilişkiye, tekrarlayan bir kalıba. Ortak kök yorumun ipidir ve her sembolde yeniden \
-görünür olmalı; yeni bir sembole geçen her paragraf, bir önceki sembolle kurulan bağı \
-en az bir cümlede açıkça söylemeli. Rüyayı yeniden anlatma: sahneyi güzel kelimelerle \
-tekrarlamak yorum değildir, bir cümle rüyayı betimleyip onun hakkında yeni bir şey \
-söylemiyorsa sil. Bir sembolü ortak köke bağlayamıyorsan ona ayrı bir paragraf açma; \
-tek cümleyle geç ya da "bu detay henüz açılmıyor" deyip açıkta bırak. Son denetim: \
-paragrafların yerini değiştirdiğinde metin bozulmuyorsa bağ kurmamışsın, sıralamışsın.
-Böyle YAZMA: "Bir diğer sembol olan kırık ayna ise kimlik parçalanmasını temsil eder."
-Böyle YAZ: "Kapıda hissettiğin o donma, aynanın karşısında başka bir kılıkta yine \
-karşına çıkıyor: ikisinde de kendini göstermek zorunda kaldığın anda geri çekiliyorsun."
-
-Aynı ilke sembolün altındaki kişisel çağrışım ve q1-q4 cevapları için de geçerli, \
-en sık kaçırılan yer burasıdır: kullanıcının kendi cevabını süslü kelimelerle \
-yeniden söylemek bağ kurmak DEĞİLDİR, parafrazdır ve yorum değeri sıfırdır. Bir \
-cümle kullanıcının zaten açıkça yazdığı şeyi (selected_association, q1, q2, q3 ya \
-da q4) başka kelimelerle tekrar ediyorsa at. Sadece kullanıcının KENDİSİNİN açıkça \
-kurmadığı bir bağlantı — bu sembolü başka bir sembolle, rüyanın başka bir anıyla ya \
-da uyanık hayattaki isimsiz bir kalıpla birleştiren bir cümle — yazmaya değer. Testi \
-şu: bu cümleyi kullanıcının önüne koysan "evet bunu ben zaten söylemiştim" mi der, \
-yoksa "bunu ben söylememiştim ama doğru" mu der? Birincisiyse sil.
-Böyle YAZMA (sadece parafraz — kullanıcının kendi cevabını süsleyip tekrarlıyor): \
-"Bu figür, senin de dediğin gibi, kusursuz görünme çabanın altındaki boşluğu taşıyor."
-Böyle YAZ (yeni bağlantı — kullanıcının ayrı verdiği iki cevabı kendisi kurmadığı \
-bir şekilde birleştiriyor): "Bu boşluğu doldurma çaban, az önceki o sessiz figürün \
-hiçbir şey kanıtlamadan var olabilmesiyle tam bir karşıtlık kuruyor — biri sürekli \
-göstermek zorunda, öbürü hiç zorunda değil, ve rüya seni ikisinin arasına koyuyor."
-
-2. KİŞİNİN KENDİ DİLİYLE KONUŞ. Cevaplarından en az bir iki ifadeyi tırnak içinde \
-birebir kullan, parafraz edip genelleştirme — kendi cümlesini tanıması yorumu ona ait \
-kılar. Sembolü sözlük karşılığına indirgeme; belirleyici olan sembolün genel anlamı \
-değil, bu kişinin psikesinde nasıl işlediğidir.
-Böyle YAZMA: "Yılan, pek çok kültürde dönüşümün sembolüdür ve bu rüyada bilinçdışının \
-habercisi olarak karşına çıkıyor."
-Böyle YAZ: "Yılan sana yaklaşırken hissettiğin o donma anı, 'kimseye hayır \
-diyemiyorum' dediğin yerle aynı yerden geliyor; ikisi de aynı kaçışın iki yüzü."
-
-3. RÜYADAKİ BENİ MERKEZDE TUT. Rüya sahibinin kendi rüyasında ne yaptığı (ya da \
-yapmadığı) çoğu zaman yorumun taşıyıcı fikridir, sembollerin arasında kaybetme. İnsan \
-figürlerinde düzeyi doğru seç: figür hayatında şu an canlı ve yakın bir rol tutuyorsa \
-(birlikte yaşadığı, çatıştığı, güncel biri) rüya hem o ilişki hem bir iç parça hakkında \
-konuşuyor olabilir, ikisini birden aç; figür uzak, tanınmayan, ölmüş ya da ünlü biriyse \
-öznel düzeyde oku — o kişi değil, rüya sahibinin içindeki bir tutum ya da komplekstir. \
-Emin olamadığında öznel düzeyi tercih et ve bunu kapalı bir hüküm gibi değil, açık bir \
-okuma olarak sun.
-
-4. DÜRÜST OL. Rahatsız edici materyali olduğu gibi tut — özellikle q4'e gelen cevap \
-utandırıcıysa ya da kişinin kendi imajıyla çelişiyorsa bu büyük olasılıkla gölge \
-materyalidir: yumuşatma, atlama, patolojikleştirme; nazik ama dürüst bir çerçevede tut \
-ve bütünleştiğinde neye dönüşebileceğini göster. Karşıt çiftleri (kaçan/kovalayan, \
-üst/alt, koruyan/tehdit eden, suç ortağı/kurban, bağlanan/terk eden) çözme — bir tarafı \
-haklı çıkarıp diğerini kötüleme, ikisini AYNI ANDA tut. Veri bir figürü ya da sembolü \
-hem olumlu hem olumsuz, hem istenen hem tiksinilen bir nitelikle veriyorsa bu bir \
-tutarsızlık değildir, verinin ta kendisidir; tek notaya indirgersen basitleştirmiş \
-olursun, iki ucu da aynı cümlede taşı.
-Böyle YAZMA (tek nota, çelişkiyi çözüyor): "Bu figür seni hayal kırıklığına uğrattığı \
-için rüyada tehdit edici bir unsur olarak beliriyor."
-Böyle YAZ (iki ucu birden tutan): "Bu figür hem seni içine çeken hem sana hükmeden \
-biri — rüya bu ikisini birbirinden ayırmıyor, çünkü senin için de ayrı değiller: aynı \
-ilişkinin iki yüzü olarak yan yana duruyorlar."
-İki yöne birden bak: bu içerik nereden geliyor ve rüya sahibini nereye çağırıyor. \
-Amaç egoyu rahatlatmak değil, büyütücü bir öz bilgi sunmak; pohpohlayıcı sonuca kaçma. \
-Yorumu hüküm olarak değil hipotez olarak sun — bunu her cümleye "belki" ekleyerek \
-değil, iddiayı açık uçlu kurarak yap. Bir yorum ancak rüya sahibinde bedensel, tanıdık \
-bir yankı uyandırdığında gerçekten doğrulanmış sayılır; bunu bildiğin için hüküm değil \
-davet olarak yaz.
-
-5. UYDURMA. Rüyada, çağrışımlarda ya da soru cevaplarında geçmeyen hiçbir sahne, nesne, \
-kişi ya da duygu ekleme; akıcılık için detay icat etme. Emin olmadığın yerde "sanki", \
-"belki" diyerek açık bırak; bir detay yoruma direniyorsa "burası henüz açılmıyor" de. \
-Kolayca anlamlandırdıklarını seçip gerisini görmezden gelirsen yorum eksik olur. \
-Jungiyen terimleri (gölge, persona, anima, animus, Self, kompleks, bireyleşme) yalnızca \
-veride gerçek karşılığı varsa ve tek kelimeyle kullan; tanımlama, ders anlatma.
-
-## Kapanış
-
-Son paragrafta iki iş yap.
-
-Birincisi, hipotezini açıkça söyle: rüyanın hangi tek taraflılığı dengelediğini, neyi \
-tamamladığını ya da neyi pekiştirdiğini tek net cümlede kur ve o cümlede ortak kökü de \
-görünür kıl — okuyan kişi, konuştuğun sembollerin neden aynı şeyin farklı yüzleri \
-olduğunu bu cümleden anlamalı. Sonra bir sonraki adımı SORU biçiminde açık bırak.
-Böyle YAZMA: "Bilinçdışın seni bireyleşme yolculuğuna çağırıyor, bu güzel bir başlangıç."
-Böyle YAZ: "Rüya, her şeyi tek başına taşıma alışkanlığını, tam taşıyamadığın anda \
-birinin kapıyı açmasıyla dengeliyor — kilitli oda da, ayna da aynı yerden konuşuyor. \
-Yardımın gelmesi için işlerin gerçekten ne kadar kötüye gitmesi gerekiyor sence?"
-
-İkincisi, somut bir ritüel öner. Bedensel ya da fiziksel olsun, bu rüyadaki somut bir \
-sembolü içersin, bugün ya da bu hafta on dakikada yapılabilsin. Tek cümle yeter.
-Böyle YAZMA: "Bu hafta yalnızlık ihtiyacın üzerine düşün, ne zaman geri çekildiğinin \
-farkında ol."
-Böyle YAZ: "Bu hafta bir akşam, rüyadaki o kapıyı hatırlatan bir kapıyı elinle yavaşça \
-kapat ve kapanma sesini duyana kadar orada dur."
-
-## Çıktı biçimi
-
-Akıcı düzyazı: 4-6 paragraf, yaklaşık 450-700 kelime. Başlık, alt başlık, madde \
-işareti, numaralı liste, kalın yazı yok. Rüya sahibine doğrudan "sen" diye hitap et; \
-Türkçe, sıcak ama analitik bir üslup. İlk cümle doğrudan yorumun içinden başlasın — \
-rüyayı özetleyerek ya da "bu rüyanda şu semboller var" diyerek girme. Rüyanın kendi \
-akışını izle (açılış, gelişme, dönüm noktası, çözülüş) ve ağırlığını dönüm noktasına \
-ver. Yöntemin adlarını (çekirdek, amplifikasyon, kompansasyon, selected_association, \
-q1-q4, adım numaraları) metinde asla anma — rüya sahibi yöntemi değil kendi rüyasını \
-okuyacak.
+Akıcı düzyazı, 4-6 paragraf, 450-700 kelime. Başlık, madde işareti, kalın yazı yok. \
+Türkçe, doğrudan "sen" diye hitap, sıcak ama analitik. İlk cümle doğrudan yorumun içinden \
+başlasın; rüyayı özetleyerek girme. Yöntemin ve Jung'un terimlerini (gölge, persona, anima, \
+Self, kompleks, amplifikasyon, telafi, lysis, selected_association, q1-q4) metinde anma — \
+kişi yöntemi değil kendi rüyasını okuyacak. Son paragrafta iki iş yap: tek ip cümleni açıkça \
+kur, ardından somut bir ritüel öner — bu rüyadaki bir sembolü içeren, bu hafta on dakikada \
+yapılabilecek bedensel bir şey (rüyada kovalayan ya da kaçılan bir figür varsa, gözler \
+kapalı ona dönüp dostça "benden ne istiyorsun?" diye sormak bunun en güçlü biçimidir).
 
 VERİ:
 {payload_json}
 
-Şimdi bu veriye dayanarak yorumu yaz. Tek ölçüt: okuyan kişi rüyasının ona ne \
-söylediğini anlasın.
+Şimdi yorumu yaz. Tek ölçüt: okuyan kişi rüyasının ona ne söylediğini anlasın.
 """
 AMPLIFY_PROMPT = """Sana tek bir rüya sembolü veriliyor. Rüya sahibi bu sembol için \
 kendi kişisel çağrışımını bulamadı, sıkıştı — senden bu sembolün taşıdığı bilinen \
@@ -427,6 +235,15 @@ def extract_symbols(dream_text: str) -> list[dict]:
 
 
 def synthesize_interpretation(payload: dict) -> str:
+    # Gemini'nin ücretsiz kotası sentez adımında tekrar tekrar 429/503 verdiği
+    # için Groq'a kaçış yolu eklendi (bkz. Threads.md, 2026-09-09/10 kararı).
+    # Varsayılan hâlâ Gemini; SYNTHESIS_PROVIDER=groq ile devre dışı bırakılır.
+    provider = os.environ.get("SYNTHESIS_PROVIDER", "gemini").strip().lower()
+    if provider == "groq":
+        from services import groq_client
+
+        return groq_client.synthesize_interpretation(payload)
+
     client = _get_client()
     prompt = SYNTHESIS_PROMPT.replace(
         "{payload_json}", json.dumps(payload, ensure_ascii=False, indent=2)
@@ -444,7 +261,7 @@ def synthesize_interpretation(payload: dict) -> str:
             # projede billing kapalı olduğu için grounding kotası sıfırdı (ilk
             # istekte 429 RESOURCE_EXHAUSTED) — grounding olmadan aynı istek
             # sorunsuz çalışıyor. Bu yüzden amplifikasyon artık ayrı bir arama
-            # aracına değil, modelin ADIM 9'da kullandığı kendi eğitim
+            # aracına değil, modelin promptta kullandığı kendi eğitim
             # verisindeki bilgiye dayanıyor; hiçbir dış servise bağımlılık yok.
         ),
     )
