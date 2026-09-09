@@ -62,7 +62,16 @@
     progressWrap: document.getElementById("progress-wrap"),
     progressFill: document.getElementById("progress-fill"),
     progressLabel: document.getElementById("progress-label"),
+    onboardIntro: document.getElementById("onboard-intro"),
+    btnOnboardDismiss: document.getElementById("btn-onboard-dismiss"),
+    removeSymbolToast: document.getElementById("remove-symbol-toast"),
+    removeSymbolToastText: document.getElementById("remove-symbol-toast-text"),
+    btnUndoRemoveSymbol: document.getElementById("btn-undo-remove-symbol"),
   };
+
+  const ONBOARD_SEEN_KEY = "symbolcarki:onboarded";
+  const UNDO_REMOVE_TIMEOUT_MS = 8000;
+  let pendingRemoval = null; // { symbol, index, activeIndexBefore, timerId }
 
   // Ana akıştaki 5 adım, sırasıyla — geçmiş rüyalar paneli bu sayıma dahil
   // değil, ayrı bir taşma ekranı sayılır.
@@ -276,6 +285,9 @@
       chip.className =
         "chip" + (i === state.activeIndex ? " active" : "") + (hasSelection ? " done" : "");
       chip.style.setProperty("--i", i);
+      chip.setAttribute("role", "button");
+      chip.setAttribute("tabindex", "0");
+      chip.setAttribute("aria-label", sym.name);
 
       if (hasSelection) {
         chip.appendChild(makeIcon("check", "icon-sm"));
@@ -297,6 +309,13 @@
       chip.appendChild(removeBtn);
 
       chip.addEventListener("click", () => selectSymbol(i));
+      chip.addEventListener("keydown", (e) => {
+        if (e.target !== chip) return; // remove butonundan gelen Enter/Space'i tekrar tetikleme
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+          e.preventDefault();
+          selectSymbol(i);
+        }
+      });
       el.symbolChips.appendChild(chip);
     });
 
@@ -319,8 +338,19 @@
     selectSymbol(state.symbols.length - 1);
   }
 
+  function hideRemoveSymbolToast() {
+    if (pendingRemoval && pendingRemoval.timerId) clearTimeout(pendingRemoval.timerId);
+    pendingRemoval = null;
+    el.removeSymbolToast.classList.add("hidden");
+  }
+
   function removeSymbol(index) {
-    state.symbols.splice(index, 1);
+    // Geri alınabilir silme: veri hemen state'ten çıkıyor ama bir süre bellekte
+    // tutuluyor. "Sil = kalıcı yok olur" onayı yerine Nielsen #3'ün önerdiği
+    // yol — çünkü kurtarma burada güvenli ve ucuz, engelleyici bir dialog
+    // gereksiz sürtünme olurdu.
+    const [removedSymbol] = state.symbols.splice(index, 1);
+    const activeIndexBefore = state.activeIndex;
     if (state.activeIndex === index) {
       state.activeIndex = null;
     } else if (state.activeIndex !== null && state.activeIndex > index) {
@@ -328,7 +358,27 @@
     }
     renderChips();
     updateProgress();
+
+    if (pendingRemoval && pendingRemoval.timerId) clearTimeout(pendingRemoval.timerId);
+    el.removeSymbolToastText.textContent = I18N.t("symbols.removed", { name: removedSymbol.name });
+    el.removeSymbolToast.classList.remove("hidden");
+    pendingRemoval = {
+      symbol: removedSymbol,
+      index,
+      activeIndexBefore,
+      timerId: setTimeout(hideRemoveSymbolToast, UNDO_REMOVE_TIMEOUT_MS),
+    };
   }
+
+  el.btnUndoRemoveSymbol.addEventListener("click", () => {
+    if (!pendingRemoval) return;
+    const { symbol, index, activeIndexBefore } = pendingRemoval;
+    state.symbols.splice(index, 0, symbol);
+    state.activeIndex = activeIndexBefore;
+    hideRemoveSymbolToast();
+    renderChips();
+    updateProgress();
+  });
 
   el.btnAddSymbol.addEventListener("click", addManualSymbol);
   el.manualSymbolInput.addEventListener("keydown", (e) => {
@@ -400,12 +450,78 @@
     el.assocList.innerHTML = "";
     sym.associations.forEach((a, i) => {
       const li = document.createElement("li");
-      li.textContent = a.text;
       li.className = a.selected ? "selected" : "";
       li.style.setProperty("--i", i);
+      li.setAttribute("role", "button");
+      li.setAttribute("tabindex", "0");
+      li.setAttribute("aria-label", a.text);
+
+      const label = document.createElement("span");
+      label.className = "assoc-text";
+      label.textContent = a.text;
+      li.appendChild(label);
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "assoc-edit";
+      editBtn.setAttribute("aria-label", I18N.t("wheel.editAssoc", { text: a.text }));
+      editBtn.appendChild(makeIcon("edit", "icon-sm"));
+      editBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        startEditAssociation(li, label, a);
+      });
+      li.appendChild(editBtn);
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "assoc-remove";
+      removeBtn.setAttribute("aria-label", I18N.t("wheel.removeAssoc", { text: a.text }));
+      removeBtn.appendChild(makeIcon("x", "icon-sm"));
+      removeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        sym.associations.splice(i, 1);
+        renderWheelAndList();
+        syncFourQuestionsPanel();
+      });
+      li.appendChild(removeBtn);
+
       li.addEventListener("click", () => onSelectAssociation(a.id));
+      li.addEventListener("keydown", (e) => {
+        if (e.target !== li) return; // edit/sil butonlarından gelen tuşu tekrar tetikleme
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+          e.preventDefault();
+          onSelectAssociation(a.id);
+        }
+      });
       el.assocList.appendChild(li);
     });
+  }
+
+  function startEditAssociation(li, label, assoc) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "assoc-edit-input";
+    input.value = assoc.text;
+    li.replaceChild(input, label);
+    input.focus();
+    input.select();
+
+    const commit = () => {
+      const next = input.value.trim();
+      if (next) assoc.text = next;
+      renderWheelAndList();
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        renderWheelAndList();
+      }
+    });
+    input.addEventListener("blur", commit);
+    input.addEventListener("click", (e) => e.stopPropagation());
   }
 
   function addAssociation() {
@@ -629,7 +745,16 @@
     const ctxIdx = withLeadingNl.indexOf(CTX_H);
     const symIdx = withLeadingNl.indexOf(SYM_H);
     const yorumIdx = withLeadingNl.indexOf(YORUM_H);
-    if (dreamIdx === -1 || ctxIdx === -1 || symIdx === -1 || yorumIdx === -1) return null;
+    const missingSections = [];
+    if (dreamIdx === -1) missingSections.push("RÜYA");
+    if (ctxIdx === -1) missingSections.push("Bu rüyayı neden bu gece görmüş olabilirim");
+    if (symIdx === -1) missingSections.push("SEMBOLLER");
+    if (yorumIdx === -1) missingSections.push("YORUM");
+    if (missingSections.length) {
+      const err = new Error("missing-sections");
+      err.missingSections = missingSections;
+      throw err;
+    }
 
     const dream_text = withLeadingNl.slice(dreamIdx + DREAM_H.length, ctxIdx).replace(/\n+$/, "");
     const ctxRaw = withLeadingNl.slice(ctxIdx + CTX_H.length, symIdx).replace(/\n+$/, "");
@@ -686,39 +811,53 @@
     const file = el.importFileInput.files && el.importFileInput.files[0];
     el.importFileInput.value = ""; // aynı dosya arka arkaya seçilebilsin diye
     if (!file) return;
+    let text;
     try {
-      const text = await file.text();
-      let record;
-      const looksLikeJson = /\.json$/i.test(file.name) || text.trim().startsWith("{");
-      if (looksLikeJson) {
-        record = JSON.parse(text);
-      } else {
-        record = parseExportText(text);
-      }
-      // Kullanıcı "Dosyadan Aç" ile yanlışlıkla bir taslak seçerse (interpretation
-      // yok) burada takılıp boş bir sonuç ekranı göstermek yerine, doğru akışa
-      // (taslak yükleme) yönlendir.
-      if (record && record.is_draft === true) {
-        if (!isValidDraftRecord(record)) {
-          window.alert(I18N.t("loadDraft.invalid"));
-          return;
-        }
-        loadDraftIntoState(record);
-        return;
-      }
-      if (!isValidDreamRecord(record)) {
-        window.alert(I18N.t("import.invalid"));
-        return;
-      }
-      state.lastRecord = record;
-      state.resultReady = true;
-      state.dreamText = record.dream_text || "";
-      resetProgress();
-      renderResult(record.interpretation || "");
-      el.btnNewDream.classList.remove("hidden");
+      text = await file.text();
     } catch (err) {
       window.alert(I18N.t("import.error"));
+      return;
     }
+
+    const looksLikeJson = /\.json$/i.test(file.name) || text.trim().startsWith("{");
+    let record;
+    if (looksLikeJson) {
+      try {
+        record = JSON.parse(text);
+      } catch (err) {
+        window.alert(I18N.t("import.invalidJson"));
+        return;
+      }
+    } else {
+      try {
+        record = parseExportText(text);
+      } catch (err) {
+        window.alert(I18N.t("import.missingSections", { sections: err.missingSections.join(", ") }));
+        return;
+      }
+    }
+
+    // Kullanıcı "Dosyadan Aç" ile yanlışlıkla bir taslak seçerse (interpretation
+    // yok) burada takılıp boş bir sonuç ekranı göstermek yerine, doğru akışa
+    // (taslak yükleme) yönlendir.
+    if (record && record.is_draft === true) {
+      if (!isValidDraftRecord(record)) {
+        window.alert(I18N.t("loadDraft.invalid"));
+        return;
+      }
+      loadDraftIntoState(record);
+      return;
+    }
+    if (!isValidDreamRecord(record)) {
+      window.alert(I18N.t("import.missingFields"));
+      return;
+    }
+    state.lastRecord = record;
+    state.resultReady = true;
+    state.dreamText = record.dream_text || "";
+    resetProgress();
+    renderResult(record.interpretation || "");
+    el.btnNewDream.classList.remove("hidden");
   });
 
   // ---------- Taslak kaydet/yükle (.json, yorumsuz) ----------
@@ -964,6 +1103,25 @@
         el.wheelContext.textContent = sym.context ? I18N.t("wheel.context", { context: sym.context }) : "";
         syncFourQuestionsPanel();
       }
+    }
+  });
+
+  // ---------- İlk kullanım açıklaması ----------
+  // Yöntemi hiç bilmeyen kullanıcılar için tek seferlik, kapatılabilir bir
+  // açıklama — bir daha gösterilmez (localStorage), akışı bloklamaz.
+  try {
+    if (!localStorage.getItem(ONBOARD_SEEN_KEY)) {
+      el.onboardIntro.classList.remove("hidden");
+    }
+  } catch (_e) {
+    el.onboardIntro.classList.remove("hidden");
+  }
+  el.btnOnboardDismiss.addEventListener("click", () => {
+    el.onboardIntro.classList.add("hidden");
+    try {
+      localStorage.setItem(ONBOARD_SEEN_KEY, "1");
+    } catch (_e) {
+      /* localStorage yoksa sessizce yok say, sadece bu oturumda tekrar sorulur */
     }
   });
 

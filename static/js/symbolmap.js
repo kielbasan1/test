@@ -71,7 +71,12 @@ const SymbolMap = (() => {
   }
 
   function makeNode(x, y, r, labelText, anchor, dx, cls, dy) {
-    const group = el("g", { class: `map-node ${cls}` });
+    const group = el("g", {
+      class: `map-node ${cls}`,
+      role: "button",
+      tabindex: "0",
+      "aria-label": labelText,
+    });
     group.appendChild(el("circle", { cx: x, cy: y, r, class: `map-node-circle ${cls}` }));
     group.appendChild(
       el("text", { x: x + dx, y: y + dy, "text-anchor": anchor, class: "map-label" }, labelText)
@@ -95,18 +100,32 @@ const SymbolMap = (() => {
 
     const defs = el("defs", {});
     const ambientGrad = el("radialGradient", { id: `${uid}-ambient`, cx: "50%", cy: "50%", r: "50%" });
-    ambientGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#9b7bff", "stop-opacity": "0.14" }));
-    ambientGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#9b7bff", "stop-opacity": "0" }));
+    ambientGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#5a6472", "stop-opacity": "0.16" }));
+    ambientGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#5a6472", "stop-opacity": "0" }));
     const centerGrad = el("radialGradient", { id: `${uid}-center`, cx: "35%", cy: "30%", r: "75%" });
-    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#2a2247" }));
-    centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#14101f" }));
+    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#262b34" }));
+    centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#0e1015" }));
+    // Çarktaki gibi ikinci, pirinç tonlu ve merkezden kaydırılmış ışık lekesi —
+    // haritayı da tek renkli düz bir parıltı yerine iki tonlu hissettirir.
+    const ambientGoldGrad = el("radialGradient", { id: `${uid}-ambient-gold`, cx: "68%", cy: "72%", r: "55%" });
+    ambientGoldGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#c49a5f", "stop-opacity": "0.11" }));
+    ambientGoldGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#c49a5f", "stop-opacity": "0" }));
     defs.appendChild(ambientGrad);
+    defs.appendChild(ambientGoldGrad);
     defs.appendChild(centerGrad);
     svg.appendChild(defs);
 
     svg.appendChild(
       el("circle", { cx: CX, cy: CY, r: Q_R + 40, class: "map-glow-bg", fill: `url(#${uid}-ambient)` })
     );
+    svg.appendChild(
+      el("circle", { cx: CX, cy: CY, r: Q_R + 55, class: "map-glow-bg-gold", fill: `url(#${uid}-ambient-gold)` })
+    );
+
+    // Çarktaki gravürlü kadran halkasıyla aynı dil: harita da bir alet
+    // yüzeyi, sadece bir diyagram değil.
+    svg.appendChild(el("circle", { cx: CX, cy: CY, r: ASSOC_R + 38, class: "map-rim" }));
+    svg.appendChild(el("circle", { cx: CX, cy: CY, r: SYMBOL_R + 24, class: "map-rim-inner" }));
 
     svg.appendChild(
       el("circle", {
@@ -141,6 +160,7 @@ const SymbolMap = (() => {
       symGroup.classList.add("map-entrance");
       symGroup.style.setProperty("--i", i);
       symGroup.addEventListener("click", () => toggleExpand(svg, id));
+      symGroup.addEventListener("keydown", (e) => onNodeKeydown(e, svg, id));
       svg.appendChild(symGroup);
 
       let assocGroup = null;
@@ -162,6 +182,7 @@ const SymbolMap = (() => {
         assocGroup.classList.add("map-entrance");
         assocGroup.style.setProperty("--i", i + 0.3);
         assocGroup.addEventListener("click", () => toggleExpand(svg, id));
+        assocGroup.addEventListener("keydown", (e) => onNodeKeydown(e, svg, id));
         svg.appendChild(assocGroup);
       }
 
@@ -172,6 +193,13 @@ const SymbolMap = (() => {
     svg.__flowerLayer = layer;
 
     initPanZoom(svg);
+  }
+
+  function onNodeKeydown(e, svg, id) {
+    if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+      e.preventDefault();
+      toggleExpand(svg, id);
+    }
   }
 
   function toggleExpand(svg, id) {
@@ -460,15 +488,15 @@ const SymbolMap = (() => {
   const MAX_RADIAL_SCALE = 3; // aşırı sembol sayısında (25+) tuvali sınırsız büyütmeyi engelle
 
   const PALETTE = {
-    bg: "#14101f",
-    card: "#1c1730",
-    ink: "#efeafb",
-    muted: "#ada2c9",
-    accent: "#9b7bff",
-    accentStrong: "#b69cff",
-    gold: "#e8b94a",
-    ring: "#362d52",
-    ringSoft: "#241d3a",
+    bg: "#0e1015",
+    card: "#1c1f27",
+    ink: "#e9e4d8",
+    muted: "#9d9788",
+    accent: "#9c7a4a",
+    accentStrong: "#c49a5f",
+    gold: "#e0ab52",
+    ring: "#3a352b",
+    ringSoft: "#26221a",
   };
   // Google Fonts (Cormorant Garamond/Inter) sayfanın <link>'i üzerinden
   // yükleniyor; dışa aktarılan SVG bağımsız bir data-URI olarak

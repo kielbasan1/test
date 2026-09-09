@@ -46,8 +46,8 @@ const SymbolWheel = (() => {
       cy: "30%",
       r: "75%",
     });
-    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#2a2247" }));
-    centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#14101f" }));
+    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#262b34" }));
+    centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#0e1015" }));
 
     const goldGrad = el("radialGradient", {
       id: "wheelGoldGrad",
@@ -55,9 +55,10 @@ const SymbolWheel = (() => {
       cy: "30%",
       r: "70%",
     });
-    goldGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#fbe6ad" }));
-    goldGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#c9922e" }));
+    goldGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#f3d9a8" }));
+    goldGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#a97b3f" }));
 
+    // Aletin gövdesi: sıcak mor değil, soğuk çelik/gunmetal ambient parıltı.
     const ambientGrad = el("radialGradient", {
       id: "wheelAmbientGrad",
       cx: "50%",
@@ -65,10 +66,25 @@ const SymbolWheel = (() => {
       r: "50%",
     });
     ambientGrad.appendChild(
-      el("stop", { offset: "0%", "stop-color": "#9b7bff", "stop-opacity": "0.16" })
+      el("stop", { offset: "0%", "stop-color": "#5a6472", "stop-opacity": "0.18" })
     );
     ambientGrad.appendChild(
-      el("stop", { offset: "100%", "stop-color": "#9b7bff", "stop-opacity": "0" })
+      el("stop", { offset: "100%", "stop-color": "#5a6472", "stop-opacity": "0" })
+    );
+
+    // İkinci, pirinç tonlu ve merkezden kaydırılmış ışık lekesi — çelik
+    // zemine karşı tek, sıcak bir kadran ışığı hissi verir.
+    const ambientGoldGrad = el("radialGradient", {
+      id: "wheelAmbientGoldGrad",
+      cx: "68%",
+      cy: "72%",
+      r: "55%",
+    });
+    ambientGoldGrad.appendChild(
+      el("stop", { offset: "0%", "stop-color": "#c49a5f", "stop-opacity": "0.12" })
+    );
+    ambientGoldGrad.appendChild(
+      el("stop", { offset: "100%", "stop-color": "#c49a5f", "stop-opacity": "0" })
     );
 
     const glowFilter = el("filter", {
@@ -87,6 +103,7 @@ const SymbolWheel = (() => {
     defs.appendChild(centerGrad);
     defs.appendChild(goldGrad);
     defs.appendChild(ambientGrad);
+    defs.appendChild(ambientGoldGrad);
     defs.appendChild(glowFilter);
     svg.appendChild(defs);
   }
@@ -96,6 +113,15 @@ const SymbolWheel = (() => {
     const frame = el("g", { class: "wheel-frame" });
     frame.appendChild(
       el("circle", { cx: CX, cy: CY, r: RIM_R + 34, class: "wheel-glow-bg" })
+    );
+    frame.appendChild(
+      el("circle", {
+        cx: CX,
+        cy: CY,
+        r: RIM_R + 50,
+        class: "wheel-glow-bg-gold",
+        fill: "url(#wheelAmbientGoldGrad)",
+      })
     );
     frame.appendChild(el("circle", { cx: CX, cy: CY, r: RIM_R, class: "wheel-rim" }));
     frame.appendChild(el("circle", { cx: CX, cy: CY, r: TIP_R - 24, class: "wheel-rim-inner" }));
@@ -121,7 +147,13 @@ const SymbolWheel = (() => {
   }
 
   function createArrow(assoc, onSelect) {
-    const group = el("g", { class: "wheel-arrow-group", "data-id": assoc.id });
+    const group = el("g", {
+      class: "wheel-arrow-group",
+      "data-id": assoc.id,
+      role: "button",
+      tabindex: "0",
+      "aria-label": assoc.text || "",
+    });
     const hitArea = el("line", { class: "wheel-arrow-hitarea" });
     const line = el("line", { class: "wheel-arrow-line" });
     const tip = el("circle", { r: 7, class: "wheel-arrow-tip" });
@@ -134,6 +166,12 @@ const SymbolWheel = (() => {
     group.appendChild(tip);
     group.appendChild(label);
     group.addEventListener("click", () => onSelect(assoc.id));
+    group.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+        e.preventDefault();
+        onSelect(assoc.id);
+      }
+    });
 
     return { group, hitArea, line, tip, tipHitArea, label };
   }

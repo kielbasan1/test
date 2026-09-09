@@ -6,13 +6,15 @@
   <title data-i18n="login.pageTitle">Giriş — Sembol Çarkı</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
-<body>
+<body class="login-page">
   <svg xmlns="http://www.w3.org/2000/svg" class="hidden" aria-hidden="true">
     <defs>
       <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20 12.5A8.5 8.5 0 1 1 11.5 4a6.5 6.5 0 0 0 8.5 8.5Z"/></symbol>
       <symbol id="icon-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
     </defs>
   </svg>
+
+  <div class="login-glow" aria-hidden="true"></div>
 
   <header class="app-header">
     <h1 class="brand"><svg class="icon"><use href="#icon-moon"/></svg><span data-i18n="brand.name">Sembol Çarkı</span></h1>

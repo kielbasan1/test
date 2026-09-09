@@ -19,6 +19,7 @@
       <symbol id="icon-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3z"/></symbol>
       <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></symbol>
       <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 21V9m0 0l-4 4m4-4l4 4M5 3h14"/></symbol>
+      <symbol id="icon-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></symbol>
     </defs>
   </svg>
 
@@ -33,10 +34,6 @@
         <svg class="icon icon-sm"><use href="#icon-upload"/></svg><span data-i18n="header.import">Dosyadan Aç</span>
       </button>
       <input id="import-file-input" type="file" accept="application/json,.json,.txt,text/plain" class="hidden" />
-      <button id="btn-load-draft" class="btn-link" data-i18n-title="header.loadDraftTitle" title="Yorumlanmamış bir taslak (.json) yükle — sembolleri/çağrışımları yeniden yazmadan Yorum adımına geçersin">
-        <svg class="icon icon-sm"><use href="#icon-upload"/></svg><span data-i18n="header.loadDraft">Taslak Yükle</span>
-      </button>
-      <input id="draft-file-input" type="file" accept="application/json,.json" class="hidden" />
       <button id="btn-new-dream" class="btn-link hidden">
         <svg class="icon icon-sm"><use href="#icon-sparkle"/></svg><span data-i18n="header.newDream">Yeni Rüya Başlat</span>
       </button>
@@ -46,6 +43,10 @@
         <button type="submit" class="btn-link" data-i18n="header.logout">Çıkış Yap</button>
       </form>
       {% endif %}
+      <button id="btn-load-draft" class="btn-link btn-link-dev" data-i18n-title="header.loadDraftTitle" title="Yorumlanmamış bir taslak (.json) yükle — sembolleri/çağrışımları yeniden yazmadan Yorum adımına geçersin">
+        <svg class="icon icon-sm"><use href="#icon-edit"/></svg><span data-i18n="header.loadDraft">Taslak Yükle</span>
+      </button>
+      <input id="draft-file-input" type="file" accept="application/json,.json" class="hidden" />
     </div>
   </header>
 
@@ -73,6 +74,10 @@
     <!-- ADIM 1: Rüya girişi -->
     <section id="step-dream" class="card">
       <h2 data-i18n="dream.heading">Rüyanı Yaz</h2>
+      <div id="onboard-intro" class="onboard-intro hidden">
+        <p data-i18n="onboard.body">Bu uygulama Robert Johnson'ın rüya çalışması yöntemini adım adım senin için açar — yöntemi önceden bilmen gerekmiyor. Rüyanı yazacaksın, çıkan her sembol için kendi çağrışımlarını ekleyeceksin, sonunda hem görsel bir harita hem de (istersen) bir yapay zeka bakış açısı göreceksin.</p>
+        <button id="btn-onboard-dismiss" type="button" class="btn-link" data-i18n="onboard.dismiss">Anladım</button>
+      </div>
       <textarea id="dream-text" rows="8" data-i18n-placeholder="dream.textareaPlaceholder" placeholder="Rüyanı hatırladığın kadarıyla, detaylarıyla buraya yaz..."></textarea>
       <label class="context-label">
         <span data-i18n="dream.contextLabel">Bu rüyayı neden bu gece görmüş olabilirsin?</span> <span class="hint small" data-i18n="dream.contextHint">(opsiyonel — bugün/bu aralar yaşadığın bir şey, bir kaygı, bir karar)</span>
@@ -102,6 +107,10 @@
         <button id="btn-start-symbols" class="btn-primary" data-i18n="symbols.start">Sembollerle Başla →</button>
       </div>
       <div id="symbol-chips" class="chip-row"></div>
+      <div id="remove-symbol-toast" class="toast hidden" role="status" aria-live="polite">
+        <span id="remove-symbol-toast-text"></span>
+        <button id="btn-undo-remove-symbol" type="button" class="btn-link" data-i18n="symbols.undo">Geri Al</button>
+      </div>
       <div class="add-association manual-symbol-row">
         <input id="manual-symbol-input" type="text" data-i18n-placeholder="symbols.manualPlaceholder" placeholder="Atlanan bir sembol varsa buraya yaz (örn. saat)" />
         <button id="btn-add-symbol" class="btn-secondary">
@@ -130,7 +139,7 @@
             </button>
           </div>
           <ul id="assoc-list" class="assoc-list"></ul>
-          <p class="hint small" data-i18n="wheel.assocHint">İçinde en çok "cuk oturan" çağrışımı işaretlemek için üstüne tıkla — o ok renklenecek.</p>
+          <p class="hint small" data-i18n="wheel.assocHint">Aşağıdakilerden sana en çok "oturan" — en tanıdık, en doğru gelen — çağrışımına tıkla: o ok altın rengine dönecek.</p>
 
           <div class="amplify-block">
             <button id="btn-amplify" type="button" class="btn-link">
@@ -144,6 +153,7 @@
       <!-- ADIM 3b: 4 soru -->
       <div id="four-questions" class="four-questions hidden">
         <h3 data-i18n="fourQ.heading">Seçtiğin çağrışımı derinleştir</h3>
+        <p class="hint small" data-i18n="fourQ.why">Bu sorular seçtiğin çağrışımı senin gerçek hayatına bağlar — Johnson'ın yönteminde yorumu doğrulayan asıl adım burasıdır.</p>
         <label><span data-i18n="fourQ.q1">Bu içimde hangi parçam?</span>
           <textarea data-q="q1" rows="2"></textarea>
         </label>
@@ -196,8 +206,6 @@
           </button>
         </div>
       </div>
-      <p class="hint small" data-i18n="result.hint">Sunucudaki kayıt geçici olabilir (ücretsiz hosting'te silinebilir) — .json yedeğini indirip "Dosyadan Aç" ile istediğin an (bu haritayla birlikte) geri açabilirsin.</p>
-
       <div class="symbol-map-card">
         <h3 data-i18n="result.mapHeading">Sembol Haritası</h3>
         <p class="hint small" data-i18n="result.mapHint">Altın çağrışım düğümüne tıkla — 4 soruya verdiğin cevaplar da birer düğüm olarak açılır. Sürükleyerek kaydır, tekerlek/iki parmakla yakınlaştır.</p>
@@ -206,7 +214,10 @@
         </div>
       </div>
 
+      <p class="result-frame" data-i18n="result.frame">Bu, çağrışımların ve modelin bilgisinden derlenmiş bir bakış açısı — son söz değil. Kendi yorumunla karşılaştır.</p>
       <div id="result-text" class="result-text"></div>
+
+      <p class="hint small result-storage-note" data-i18n="result.hint">Sunucudaki kayıt geçici olabilir (ücretsiz hosting'te silinebilir) — .json yedeğini indirip "Dosyadan Aç" ile istediğin an (bu haritayla birlikte) geri açabilirsin.</p>
     </section>
   </main>
 

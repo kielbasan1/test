@@ -3,38 +3,41 @@
 :root {
   color-scheme: dark;
 
-  /* Yüzeyler — koyu erguvan/gece tonu, saf siyah değil (gözü daha az yorar,
-     "Dark Mode OLED" tarzından farklı olarak sıcak/mistik his verir). */
-  --bg: #120f1d;
-  --bg-elevated: #1c1730;
-  --bg-sunken: #14101f;
-  --card-bg: #1c1730;
-  --input-bg: #14101f;
+  /* Yön: Pirinç Astrolab. Yüzeyler artık mor/erguvan değil, gravürlü bir
+     aletin içine bakıyormuş gibi soğuk gunmetal/arduvaz — sıcaklık mordan
+     değil pirinçten geliyor. Bkz. .impeccable/surfaces/templates-index-html.md
+     (Direction contract, seed dc7fd291). */
+  --bg: #13151b;
+  --bg-elevated: #1c1f27;
+  --bg-sunken: #0e1015;
+  --card-bg: #1c1f27;
+  --input-bg: #0e1015;
 
-  /* Metin */
-  --text: #efeafb;
-  --muted: #ada2c9;
-  --muted-2: #756a91;
+  /* Metin — sıcak fildişi/kağıt tonu, soğuk zeminle kontrast kurar */
+  --text: #e9e4d8;
+  --muted: #9d9788;
+  --muted-2: #6c665a;
 
-  /* Marka */
-  --accent: #9b7bff;
-  --accent-strong: #b69cff;
-  --accent-soft: rgba(155, 123, 255, 0.14);
-  --gold: #e8b94a;
-  --gold-soft: rgba(232, 185, 74, 0.14);
+  /* Marka: eskitilmiş pirinç/bronz. Altın (--gold) artık dekoratif değil,
+     aletin tek "aktif kadran" ışığı — sadece seçili/odaklı durumda yanar. */
+  --accent: #9c7a4a;
+  --accent-strong: #c49a5f;
+  --accent-soft: rgba(156, 122, 74, 0.18);
+  --gold: #e0ab52;
+  --gold-soft: rgba(224, 171, 82, 0.16);
   --green: #4ade9c;
 
-  --ring: #362d52;
-  --ring-soft: #241d3a;
+  --ring: #3a352b;
+  --ring-soft: #26221a;
   --danger: #f0705a;
   --danger-soft: rgba(240, 112, 90, 0.14);
 
   --font-heading: "Cormorant Garamond", Georgia, serif;
   --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
   --icon-size: 20px;
 }
 
@@ -55,13 +58,27 @@ html {
 
 body {
   margin: 0;
-  background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.55;
   -webkit-tap-highlight-color: transparent;
   min-height: 100dvh;
+
+  /* Alet muhafazasının içine bakıyormuş hissi: sabit bir vinyet + göbekten
+     dışa doğru gravürlü, çok ince ok/derece çizgileri (bir pusulanın taksimatı
+     gibi). Nebula/yıldız değil — bu artık bir "aletin içi", gökyüzü değil. */
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-color: var(--bg);
+  background-image:
+    repeating-conic-gradient(
+      from 0deg at 50% 50%,
+      rgba(156, 122, 74, 0.05) 0deg 0.6deg,
+      transparent 0.6deg 6deg
+    ),
+    radial-gradient(ellipse 1400px 1000px at 50% 8%, rgba(156, 122, 74, 0.07), transparent 60%),
+    radial-gradient(circle at 50% 45%, transparent 0%, transparent 45%, rgba(0, 0, 0, 0.35) 100%);
 }
 
 h1, h2, h3 {
@@ -158,15 +175,17 @@ a { color: var(--accent-strong); }
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
   font-weight: 600;
-  letter-spacing: 0.01em;
-  font-size: 1.5rem;
+  letter-spacing: 0.015em;
+  font-size: 2.1rem;
+  position: relative;
 }
 
 .brand .icon {
   color: var(--gold);
+  filter: drop-shadow(0 0 10px var(--gold-soft));
 }
 
 .subtitle {
@@ -203,6 +222,19 @@ a { color: var(--accent-strong); }
 .btn-link:hover {
   color: var(--text);
   background: var(--bg-sunken);
+}
+
+/* Model/prompt testi için bırakılan geliştirici kontrolü — gerçek kullanıcı
+   özellikleriyle (Dosyadan Aç, Geçmiş) aynı görsel ağırlıkta durmasın diye
+   küçültülüp soluklaştırılmış, header'ın sonuna (Çıkış'tan sonra) taşınmış. */
+.btn-link-dev {
+  opacity: 0.55;
+  font-size: 0.78em;
+  padding: 5px 10px;
+}
+
+.btn-link-dev:hover {
+  opacity: 1;
 }
 
 .lang-toggle {
@@ -260,21 +292,42 @@ main {
 }
 
 .card {
+  position: relative;
   background: var(--card-bg);
   border: 1px solid var(--ring);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 28px 24px 24px;
+  /* Alet paneli hissi: köşelerde perçin noktaları + üstte ince pirinç
+     bevel çizgisi + zemin gölgesi. Yumuşak bir "glow" değil, mekanik bir
+     panel — kartın kendisi bir alet parçası gibi duruyor. */
+  background-image:
+    radial-gradient(circle 2px at 14px 14px, rgba(196, 154, 95, 0.55), transparent 60%),
+    radial-gradient(circle 2px at calc(100% - 14px) 14px, rgba(196, 154, 95, 0.55), transparent 60%),
+    radial-gradient(circle 2px at 14px calc(100% - 14px), rgba(196, 154, 95, 0.4), transparent 60%),
+    radial-gradient(circle 2px at calc(100% - 14px) calc(100% - 14px), rgba(196, 154, 95, 0.4), transparent 60%);
+  box-shadow:
+    inset 0 1px 0 rgba(196, 154, 95, 0.12),
+    0 24px 60px -28px rgba(0, 0, 0, 0.7);
 }
 
 .card.hidden { display: none; }
 
 h2 {
   margin-top: 0;
-  font-size: 1.5rem;
+  font-size: 2rem;
+  letter-spacing: 0.01em;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ring);
+  /* derece taksimatı: kadranın kenarındaki çentikler gibi kısa bir işaret */
+  background-image: linear-gradient(90deg, var(--accent) 0, var(--accent) 28px, transparent 28px);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 28px 2px;
 }
 
 h3 {
-  font-size: 1.15rem;
+  font-size: 1.3rem;
+  letter-spacing: 0.01em;
 }
 
 .hint {
@@ -283,6 +336,24 @@ h3 {
 }
 
 .hint.small { font-size: 0.82em; }
+
+.onboard-intro {
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.onboard-intro p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95em;
+  line-height: 1.6;
+}
 
 textarea, input[type="text"], input[type="password"] {
   width: 100%;
@@ -325,24 +396,35 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   padding: 11px 20px;
   min-height: 44px;
   font: inherit;
-  font-size: 0.95em;
+  font-size: 0.88em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   cursor: pointer;
   font-weight: 600;
   touch-action: manipulation;
-  transition: transform 0.12s ease, background-color 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+  transition: transform 0.1s ease, background-color 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
 }
 
+/* Mekanik "tık" hissi: yumuşak bir scale değil, tek karelik kısa bir çöküş */
 .btn-primary:active:not(:disabled), .btn-secondary:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: scale(0.97) translateY(1px);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), #7c5cff);
-  color: #0f0c1a;
+  background: linear-gradient(180deg, var(--accent-strong), var(--accent));
+  color: #17130b;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 210, 0.35),
+    0 1px 0 rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s ease, background-color 0.15s ease, opacity 0.15s ease,
+    border-color 0.15s ease, box-shadow 0.2s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+  background: linear-gradient(180deg, #d3a968, var(--accent-strong));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 210, 0.45),
+    0 2px 10px -2px rgba(196, 154, 95, 0.5);
 }
 
 .btn-primary:disabled {
@@ -488,6 +570,20 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   background: var(--danger-soft);
 }
 
+.toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--ring);
+  border-radius: var(--radius-sm);
+  font-size: 0.88em;
+  color: var(--muted);
+}
+
 .manual-symbol-row {
   margin-top: 18px;
 }
@@ -513,6 +609,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 
 .result-header-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -573,6 +670,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 
 .chip.done {
   border-color: var(--gold);
+  box-shadow: 0 0 14px -4px var(--gold-soft);
 }
 
 .chip.done .icon {
@@ -630,13 +728,16 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 .assoc-list li {
-  padding: 10px 12px;
+  padding: 8px 8px 8px 12px;
   border-radius: var(--radius-sm);
   background: var(--bg-sunken);
   border: 1px solid var(--ring);
   cursor: pointer;
   font-size: 0.92em;
   touch-action: manipulation;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   transition: border-color 0.15s ease, color 0.15s ease, transform 0.12s ease, background-color 0.15s ease;
 }
 
@@ -649,6 +750,44 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   color: var(--gold);
   background: var(--gold-soft);
   font-weight: 600;
+  box-shadow: 0 0 14px -4px var(--gold-soft);
+}
+
+.assoc-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.assoc-edit,
+.assoc-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--muted-2);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  touch-action: manipulation;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.assoc-edit:hover { color: var(--accent-strong); background: var(--accent-soft); }
+.assoc-remove:hover { color: var(--danger); background: var(--danger-soft); }
+
+.assoc-edit-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--input-bg);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 1em;
 }
 
 .four-questions {
@@ -670,15 +809,29 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   color: var(--muted);
 }
 
+.result-frame {
+  color: var(--muted);
+  font-size: 0.9em;
+  font-style: italic;
+  margin: 20px 0 12px;
+}
+
 .result-text {
   white-space: pre-wrap;
   font-size: 1.05em;
   line-height: 1.75;
 }
 
+.result-storage-note {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ring);
+}
+
 /* ---------- Çark çerçevesi (frame): kadran halkası + ortam parıltısı ----------
    wheel.js'de sembolden bağımsız, bir kere kurulup hiç silinmeyen katman. */
 .wheel-glow-bg,
+.wheel-glow-bg-gold,
 .wheel-rim,
 .wheel-rim-inner,
 .wheel-tick {
@@ -695,6 +848,17 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   stroke-width: 1.25;
   stroke-dasharray: 2 7;
   opacity: 0.75;
+  transform-origin: 280px 280px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .wheel-rim {
+    animation: wheelRimSpin 180s linear infinite;
+  }
+}
+
+@keyframes wheelRimSpin {
+  to { transform: rotate(360deg); }
 }
 
 .wheel-rim-inner {
@@ -759,7 +923,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 .wheel-arrow-line {
-  stroke: #5a5280;
+  stroke: #5c5a52;
   stroke-width: 2;
   cursor: pointer;
   touch-action: manipulation;
@@ -779,7 +943,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 .wheel-arrow-tip {
-  fill: #5a5280;
+  fill: #5c5a52;
   cursor: pointer;
   transition: fill 0.2s ease, r 0.2s ease, cx 0.35s ease, cy 0.35s ease, filter 0.2s ease;
 }
@@ -917,8 +1081,33 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   cursor: default;
 }
 
-.map-glow-bg {
+.map-glow-bg,
+.map-glow-bg-gold,
+.map-rim,
+.map-rim-inner {
   pointer-events: none;
+}
+
+.map-rim {
+  fill: none;
+  stroke: var(--ring);
+  stroke-width: 1.25;
+  stroke-dasharray: 2 7;
+  opacity: 0.6;
+  transform-origin: 320px 320px;
+}
+
+.map-rim-inner {
+  fill: none;
+  stroke: var(--ring-soft);
+  stroke-width: 1;
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .map-rim {
+    animation: wheelRimSpin 240s linear infinite;
+  }
 }
 
 .map-center-circle {
@@ -1038,6 +1227,44 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 /* ---------- Giriş ekranı ---------- */
+/* Giriş, "boş bir kutu" değil çarkın kendi ambient parıltısının ilk esintisi
+   olarak hissettirilsin diye kartı dikey ortalıyor ve arkasına yavaşça nefes
+   alan bir halo koyuyor — .wheel-center-halo'daki haloBreathe ile aynı dil. */
+.login-page main {
+  min-height: calc(100dvh - 220px);
+  justify-content: center;
+  position: relative;
+}
+
+.login-glow {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 560px;
+  height: 560px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .login-glow {
+    animation: loginGlowBreathe 5.5s ease-in-out infinite;
+  }
+}
+
+@keyframes loginGlowBreathe {
+  0%, 100% { opacity: 0.7; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+}
+
+.login-page .card {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
