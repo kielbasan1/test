@@ -6,6 +6,10 @@ değişikliklerini hızlı test etmek için. `scripts/test_ruya.json`'daki veriy
 okuyup doğrudan gemini_client.synthesize_interpretation()'ı çağırır — Flask
 sunucusu, giriş ekranı ya da tarayıcı gerekmez.
 
+`test_ruya.json` gerçek/kişisel rüya verisi içerebileceği için .gitignore'da
+ve asla commit edilmez. Elinde yoksa `scripts/test_ruya.example.json`'u aynı
+isme kopyala (sentetik, paylaşıma uygun bir örnek).
+
 Kullanım (proje kökünden):
     python scripts/test_synthesis.py
 """
@@ -32,6 +36,10 @@ OUTPUT = Path(__file__).resolve().parent / "test_output.txt"
 
 
 def main() -> None:
+    if not FIXTURE.exists():
+        example = FIXTURE.with_name("test_ruya.example.json")
+        print(f"{FIXTURE} yok. Örnek için: cp {example} {FIXTURE}")
+        return
     # Windows konsolu (cp1254) Türkçe karakterleri sessizce bozuyor (print/redirect
     # ile bile) — sonucu doğrudan UTF-8 dosyaya yazıp konsola sadece ASCII bir
     # onay basıyoruz, gerçek metni Read/editör ile oku.

@@ -26,14 +26,16 @@ def _extract_model_name() -> str:
 
 
 def _synthesis_model_name() -> str:
-    # Extraction ile aynı model. Bir dönem flash'a çıkılmıştı çünkü o günkü
-    # SYNTHESIS_PROMPT aynı anda çok sayıda iç içe kural dayatıyordu ve
-    # flash-lite'ın düşünme bütçesi kolay olana (format, hitap) gidip asıl işi
-    # (sembolleri birbirine bağlamak) atlıyordu. Prompt bu model için yeniden
-    # yapılandırıldı: tek bir amaç cümlesi, daha az eşzamanlı kısıt, soyut kural
-    # yerine somut örnekler. Gerekçe ortadan kalktığı için ucuz/yüksek-kotalı
-    # modele dönüldü; GEMINI_SYNTHESIS_MODEL ile yine yükseltilebilir.
-    return os.environ.get("GEMINI_SYNTHESIS_MODEL", "gemini-flash-lite-latest")
+    # Jungiyen yorum gerçek bağ kurma ve hipotez üretme gerektiriyor. Prompt
+    # flash-lite için yeniden yapılandırıldı (tek amaç cümlesi, daha az
+    # eşzamanlı kısıt, soyut kural yerine somut örnek) ve gerçek bir rüyayla
+    # test edilince belirgin bir iyileşme gösterdi — ama artık elimizde
+    # gerçek bir test rüyası (scripts/test_ruya.json) olduğu için modeli de
+    # flash'a çıkarıp aynı prompt üzerinde daha da iyi bir sonuç arıyoruz.
+    # flash-lite'ın günlük kotası çok daha yüksek (~500/gün); flash'ınki
+    # düşünülenden düşük olabilir (~20/gün rapor edildi) — kota sorun
+    # çıkarırsa GEMINI_SYNTHESIS_MODEL ile flash-lite'a geri dönülebilir.
+    return os.environ.get("GEMINI_SYNTHESIS_MODEL", "gemini-flash-latest")
 
 
 def _extract_text(response) -> str:
