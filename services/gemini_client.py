@@ -208,6 +208,15 @@ sonrasında hiçbir açıklama yazma.
 
 
 def extract_symbols(dream_text: str) -> list[dict]:
+    # Sentezdeki gibi Groq'a kaçış yolu — SYNTHESIS_PROVIDER tek anahtar,
+    # extraction ve sentez ayrı ayrı sağlayıcı seçmiyor (bkz. Threads.md,
+    # 2026-09-10: extraction'ın hiç kapsanmadığı bulundu).
+    provider = os.environ.get("SYNTHESIS_PROVIDER", "gemini").strip().lower()
+    if provider == "groq":
+        from services import groq_client
+
+        return groq_client.extract_symbols(dream_text)
+
     client = _get_client()
     prompt = EXTRACT_PROMPT.replace("{dream_text}", dream_text)
     response = client.models.generate_content(
@@ -278,6 +287,12 @@ def amplify_symbol(name: str, name_en: str, context: str) -> str:
     sebebi artık kota değil (ikisi de flash-lite), thinking_level="low" ile
     tek sembollük hafif bir istek olarak kalması.
     """
+    provider = os.environ.get("SYNTHESIS_PROVIDER", "gemini").strip().lower()
+    if provider == "groq":
+        from services import groq_client
+
+        return groq_client.amplify_symbol(name, name_en, context)
+
     client = _get_client()
     prompt = (
         AMPLIFY_PROMPT.replace("{symbol_name}", name)
