@@ -240,9 +240,11 @@ ADIM 9 — Gerekirse kendi bilginden amplifikasyon ekle. Kişisel çağrışım 
 basar, ama bir sembolün çağrışımı zayıf, genel ya da tek kelimelik kaldığında iyi \
 bilinen bir mitolojik/kültürel paralel o çekirdeği derinleştirebilir; arketipsel \
 katmanda bu ihtiyaç daha güçlüdür ama kişisel katmanda da meşrudur. Sert sınırlar: \
-sadece ADIM 5'te seçtiğin çekirdekler için kullan; en fazla bir, olsa olsa iki sembolde \
-TEK bir sağlam paralele değin ve orada dur; zincir kurma ("ağaç güneştir, güneş anadır, \
-ana bilinçdışıdır" gibi eklemeler her şeyi her şeye bağlar, zemini kaybedersin); \
+sadece ADIM 5'te seçtiğin çekirdekler için kullan; toplam sembol sayısında keyfi bir \
+tavan yok — gerekçesi gerçekten güçlüyse birden fazla sembolde kullanabilirsin — ama \
+HER sembolde TEK bir sağlam paralelle sınırlı kal ve zincir kurma ("ağaç güneştir, \
+güneş anadır, ana bilinçdışıdır" gibi eklemeler her şeyi her şeye bağlar, zemini \
+kaybedersin); \
 paralel sembolün rüyadaki spesifik DAVRANIŞINI açıklamıyorsa ne kadar ilgili görünürse \
 görünsün kullanma (kartal ile melek ikisi de gökten gelir ama aynı şeyi hissettirmez — \
 kişi neden tam olarak BU sembolü gördü, o farkı silme); emin değilsen hiç kullanma, \
@@ -309,11 +311,22 @@ okuma olarak sun.
 utandırıcıysa ya da kişinin kendi imajıyla çelişiyorsa bu büyük olasılıkla gölge \
 materyalidir: yumuşatma, atlama, patolojikleştirme; nazik ama dürüst bir çerçevede tut \
 ve bütünleştiğinde neye dönüşebileceğini göster. Karşıt çiftleri (kaçan/kovalayan, \
-üst/alt, koruyan/tehdit eden) çözme, bir tarafı haklı çıkarıp diğerini kötüleme, \
-gerilimi olduğu gibi bırak. İki yöne birden bak: bu içerik nereden geliyor ve rüya \
-sahibini nereye çağırıyor. Amaç egoyu rahatlatmak değil, büyütücü bir öz bilgi sunmak; \
-pohpohlayıcı sonuca kaçma. Yorumu hüküm olarak değil hipotez olarak sun — bunu her \
-cümleye "belki" ekleyerek değil, iddiayı açık uçlu kurarak yap.
+üst/alt, koruyan/tehdit eden, suç ortağı/kurban, bağlanan/terk eden) çözme — bir tarafı \
+haklı çıkarıp diğerini kötüleme, ikisini AYNI ANDA tut. Veri bir figürü ya da sembolü \
+hem olumlu hem olumsuz, hem istenen hem tiksinilen bir nitelikle veriyorsa bu bir \
+tutarsızlık değildir, verinin ta kendisidir; tek notaya indirgersen basitleştirmiş \
+olursun, iki ucu da aynı cümlede taşı.
+Böyle YAZMA (tek nota, çelişkiyi çözüyor): "Bu figür seni hayal kırıklığına uğrattığı \
+için rüyada tehdit edici bir unsur olarak beliriyor."
+Böyle YAZ (iki ucu birden tutan): "Bu figür hem seni içine çeken hem sana hükmeden \
+biri — rüya bu ikisini birbirinden ayırmıyor, çünkü senin için de ayrı değiller: aynı \
+ilişkinin iki yüzü olarak yan yana duruyorlar."
+İki yöne birden bak: bu içerik nereden geliyor ve rüya sahibini nereye çağırıyor. \
+Amaç egoyu rahatlatmak değil, büyütücü bir öz bilgi sunmak; pohpohlayıcı sonuca kaçma. \
+Yorumu hüküm olarak değil hipotez olarak sun — bunu her cümleye "belki" ekleyerek \
+değil, iddiayı açık uçlu kurarak yap. Bir yorum ancak rüya sahibinde bedensel, tanıdık \
+bir yankı uyandırdığında gerçekten doğrulanmış sayılır; bunu bildiğin için hüküm değil \
+davet olarak yaz.
 
 5. UYDURMA. Rüyada, çağrışımlarda ya da soru cevaplarında geçmeyen hiçbir sahne, nesne, \
 kişi ya da duygu ekleme; akıcılık için detay icat etme. Emin olmadığın yerde "sanki", \
