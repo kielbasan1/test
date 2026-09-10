@@ -1,15 +1,20 @@
-// Sembol Haritası — rüyanın "bütün + parça" görünümü.
+// Sembol Haritası — rüyanın "bütün + parça" görünümü, sunburst (çember) düzeni.
 //
-// Amaç yorum yapmak değil, kullanıcının kendi bağlantıyı kendi kurabilmesi
-// için tüm veriyi (rüya → semboller → seçilen çağrışımlar → 4 soru cevabı)
-// tek bir radyal ağaç olarak, tamamen düğümler halinde göz önüne sermek —
-// ayrı bir metin paneli yok, her şey grafiğin kendi içinde. Wheel.js'deki
-// radyal yerleşim mantığını paylaşır ama bağımsız bir modüldür.
+// Amaç yorum yapmak değil, kullanıcının kendi bağlantıyı kendi kurabilmesi.
+// Her sembol tam bir dilim (merkezden kenara); dilimde SADECE iki halka var:
+// içte altın çağrışım, dışta sembol adı. Referans: Kaan'ın gönderdiği sunburst
+// mockup'ı (2026-09-10) — yapı oradan, içerik değil (mockup metinleri örnek).
 //
-// Etkileşim: rüya merkezde → semboller ilk halka → seçilen çağrışım ikinci
-// halka. Çağrışım düğümüne (ya da onun sembolüne) tıklayınca o düğüm biraz
-// büyüyüp öne çıkar ve etrafında 4 soru-cevap düğümü ("yaprak") açılır. Aynı
-// anda sadece bir çağrışımın yaprağı açık kalır; tekrar tıklamak kapatır.
+// Neden sadece iki halka: 6 halkalı ilk sürümde metinler okunamayacak kadar
+// sıkışıyordu. "Less is more" (Kaan, 2026-09-11): çember tek bakışta bütünü
+// verir, 4 soru ve TAM cevapları bir altın çağrışıma TIKLANINCA dışarıda
+// açılan dört kutuda görünür (aynı anda yalnızca bir sembolünki açık kalır).
+// Resim/rapor olarak dışa aktarıldığında bu kutular hiç çizilmez — çıktıda
+// yalnızca sembol adı + altın çağrışım olur.
+//
+// Değişmez kural: hiçbir hücrede metin kesilmez. Sığmıyorsa font kademeli
+// küçültülür (bkz. fitCellText); bu, 1-20 sembol × tüm açık kutular için
+// otomatik testle doğrulanıyor.
 //
 // Veri şekli (main.js'deki state.lastRecord / geçmişten gelen record ile
 // aynı — export/rapor/çalışma sayfasının beklediği şekille de örtüşür):
@@ -18,13 +23,6 @@
 
 const SymbolMap = (() => {
   const NS = "http://www.w3.org/2000/svg";
-  const CX = 320;
-  const CY = 320;
-  const CENTER_R = 46;
-  const SYMBOL_R = 150;
-  const ASSOC_R = 225;
-  const Q_R = 300;
-  const Q_FAN_DEG = [-24, -8, 8, 24];
 
   const QUESTIONS = [
     ["q1", "Bu içimde hangi parçam?"],
@@ -33,6 +31,23 @@ const SymbolMap = (() => {
     ["q4", "Kim içimde böyle davranıyor?"],
   ];
 
+  // İÇTEN DIŞA sıralı — çizim merkezden başlıyor. Dıştan içe okunuşu:
+  // sembol adı (en dış) → altın çağrışım (içte).
+  //
+  // Çemberde SADECE bu iki alan var (Kaan'ın son kararı, 2026-09-11):
+  // "less is more" — her hücre bol yer bulsun, metinler kesilmeden tam
+  // görünsün. 4 soru ve tam cevapları, bir altın çağrışıma TIKLANINCA
+  // dışarıda açılan 4 kutuda görünüyor (bkz. Q_BAND / expandedIndex);
+  // resim olarak dışa aktarılırken bu kutular hiç çizilmiyor.
+  const RING_ORDER = ["assoc", "name"];
+  // Halkanın iç/dış kenarından ne kadarını metin için "kullanılamaz" pay
+  // bırakacağımız (komşu halkayla net bir ayrım için) ve satırlar arası
+  // minimum boşluğun font boyutunun kaç katı olacağı — ikisi de hem satır
+  // sayısı hesabında (maxLines) hem de gerçek yerleşimde (drawRadialCellText)
+  // aynı sayılar kullanılsın diye paylaşılıyor.
+  const RING_TEXT_PAD = 0.15;
+  const RING_LINE_GAP = 1.6;
+
   function el(tag, attrs, text) {
     const node = document.createElementNS(NS, tag);
     for (const k in attrs) node.setAttribute(k, attrs[k]);
@@ -40,21 +55,13 @@ const SymbolMap = (() => {
     return node;
   }
 
-  function anchorFor(cos) {
-    if (cos > 0.2) return "start";
-    if (cos < -0.2) return "end";
-    return "middle";
-  }
-
   function truncate(text, max) {
     if (!text) return "";
     return text.length > max ? text.slice(0, max - 1) + "…" : text;
   }
 
-  // Kelime bazlı sarma — tek satırda kesip "…" ile boğmak yerine (eski
-  // davranış, Kaan'ın "isimler tam sığmıyor" şikayetinin kaynağıydı) etiketi
-  // birden fazla satıra yayar. Karakter sayımı yaklaşımı truncate() ile aynı
-  // pragmatizmde (gerçek metin genişliği ölçmüyor, bkz. charsPerLine).
+  // Kelime bazlı sarma — karakter sayımı gerçek metin genişliği ölçmüyor,
+  // charsPerLine()'ın kaba yay-uzunluğu tahminiyle aynı pragmatizmde.
   function wrapLines(text, maxChars) {
     const words = (text || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
     if (!words.length) return [];
@@ -74,8 +81,7 @@ const SymbolMap = (() => {
   }
 
   // wrapLines'ı en fazla maxLines satırla sınırlar; daha fazlası gerekiyorsa
-  // son gösterilen satırı "…" ile işaretler — truncate()'in çok satırlı
-  // karşılığı. Harita düğüm etiketlerinde (render + PNG export) kullanılıyor.
+  // son gösterilen satırı "…" ile işaretler.
   function wrapForLabel(text, maxCharsPerLine, maxLines) {
     const all = wrapLines(text, maxCharsPerLine);
     const shown = all.slice(0, maxLines);
@@ -85,265 +91,488 @@ const SymbolMap = (() => {
     return shown;
   }
 
-  // Birden çok satırı tek bir <text> düğümünde, (attrs.x, attrs.y) referans
-  // noktası etrafında dikey ortalanmış <tspan>'lar olarak çizer.
-  function multilineText(attrs, lines, lineHeight) {
-    const text = el("text", attrs);
-    const shown = lines.length ? lines : [""];
-    const n = shown.length;
-    shown.forEach((line, i) => {
-      const dy = i === 0 ? -((n - 1) * lineHeight) / 2 : lineHeight;
-      text.appendChild(el("tspan", { x: attrs.x, dy }, line));
-    });
-    return text;
+  // Canvas ölçüm API'sine bağımlı olmadan (dışa aktarılan SVG bağımsız bir
+  // data-URI olduğu için) kaba bir karakter-genişliği tahmini. 0.54 gerçek
+  // glif genişliğini (özellikle Türkçe ğ/ş/İ gibi karakterlerle) hafife
+  // alıyordu — sunburst'ün dar iç halkalarında komşu dilime taşmaya yol
+  // açtı (Kaan'ın 15 sembollü testinde canlıda görüldü), 0.68'e çıkarıldı.
+  // Taban 3'e indirildi (önceki 6, çalışma sayfasının geniş kartları için
+  // hiç bağlayıcı olmayan bir taban gerçek sunburst darlığında satırı
+  // gereğinden uzun tutup taşmaya zorluyordu).
+  function charsPerLine(fontSize, widthPx) {
+    return Math.max(5, Math.floor(widthPx / (fontSize * 0.6)));
   }
 
-  function pointAt(radius, angleDeg) {
+  function polar(cx, cy, r, angleDeg) {
     const rad = (angleDeg * Math.PI) / 180;
-    return {
-      x: CX + radius * Math.cos(rad),
-      y: CY + radius * Math.sin(rad),
-      cos: Math.cos(rad),
-      sin: Math.sin(rad),
-    };
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
   }
 
-  // Düğüm tam tepede/altta (cos ~ 0) ise anchorFor "middle" döner ve dx=0
-  // olur — bu durumda etiket, düğümün merkezine bindirilmiş gibi çiziliyordu
-  // (küçük dairenin üstüne oturan metin). Bu düzeltme etiketi radyal yönde
-  // (yukarı/aşağı) düğümün dışına iter, dx=0 kaldığı için yatayda ortalı kalır.
-  function verticalNudge(anchor, sin, baseline, pushOut) {
-    if (anchor !== "middle") return baseline;
-    return sin < 0 ? -pushOut : pushOut;
+  // Bir halka-dilim hücresinin (annular sector) dış hattı — standart SVG ark
+  // yolu: dış yayı bir yönde, iç yayı ters yönde çizip kapatıyor (donut
+  // dilimi). r0 < r1, a0 < a1 (derece) varsayılır.
+  function sectorPath(cx, cy, r0, r1, a0, a1) {
+    const largeArc = a1 - a0 > 180 ? 1 : 0;
+    const p0 = polar(cx, cy, r0, a0);
+    const p1 = polar(cx, cy, r1, a0);
+    const p2 = polar(cx, cy, r1, a1);
+    const p3 = polar(cx, cy, r0, a1);
+    return [
+      `M ${p0.x} ${p0.y}`,
+      `L ${p1.x} ${p1.y}`,
+      `A ${r1} ${r1} 0 ${largeArc} 1 ${p2.x} ${p2.y}`,
+      `L ${p3.x} ${p3.y}`,
+      `A ${r0} ${r0} 0 ${largeArc} 0 ${p0.x} ${p0.y}`,
+      "Z",
+    ].join(" ");
   }
 
-  // Etiket başına satır/karakter bütçesi — tek satır kesip "…" ile boğmak
-  // yerine (eski davranış) iki satıra kadar sarıyoruz, gerçek isim/çağrışım
-  // metninin tamamı okunabilsin diye.
-  const SYMBOL_LABEL_CHARS = 14;
-  const ASSOC_LABEL_CHARS = 16;
-  const LABEL_LINE_HEIGHT = 12.5;
-  const LABEL_MAX_LINES = 2;
-
-  function makeNode(x, y, r, labelText, anchor, dx, cls, dy, fillUrl) {
-    const group = el("g", {
-      class: `map-node ${cls}`,
-      role: "button",
-      tabindex: "0",
-      "aria-label": labelText,
+  // Bir hücrenin metnini (birden fazla satır olabilir) GERÇEK bir yay
+  // boyunca çizer — düz bir <text>'i rotate() ile döndürmek yerine (eski
+  // yöntem), her satır için görünmez bir yay <path> tanımlayıp metni
+  // <textPath> ile o yayın üzerine oturtuyoruz. Fark önemli: düz/döndürülmüş
+  // metin, hücrenin eğri sınırından bir "kiriş" gibi sapıyordu — özellikle
+  // iç (küçük yarıçaplı, yüksek eğrilikli) halkalarda metnin uçları komşu
+  // dilime taşıyordu. Yay üzerindeki metin bu sapmayı yapısal olarak ortadan
+  // kaldırır (Kaan'ın "yazılar çemberin eğimiyle eğilmemiş" gözlemi,
+  // 2026-09-10).
+  //
+  // Yay boyunca akan metinde çevirme kriteri ÜST/ALT yarıdır, sol/sağ değil:
+  // üstte saat yönü soldan sağa akar (düz okunur), altta ise saat yönü
+  // sağdan sola akar — o yüzden SADECE alt yarıda (0°-180°, yani sin>0) yayın
+  // çizim yönü ters çevrilir (a1→a0). İlk sürümde kriter yanlışlıkla sol yarı
+  // (90°-270°) idi; bu yüzden tam alttaki dilimler baş aşağı kalıyor, kimi
+  // düz kimi ters görünüyordu (Kaan'ın gözlemi, 2026-09-11).
+  function drawRadialCellText(svg, defs, arcIdPrefix, lines, cx, cy, r0, r1, a0, a1, fontSize, fill, haloColor) {
+    const shown = lines.length ? lines : ["—"];
+    const n = shown.length;
+    // Metni r0..r1'in TAMAMINA değil, ortadaki bir kısmına sığdır — aksi
+    // halde bir halkanın son satırı bir sonraki halkanın ilk satırına
+    // neredeyse değiyor, ikisi aynı açısal doğrultuda (aynı "ışın") olduğu
+    // için tek bir kesintisiz metin bloğu gibi görünüyor.
+    const pad = (r1 - r0) * RING_TEXT_PAD;
+    const ir0 = r0 + pad;
+    const ir1 = r1 - pad;
+    const band = (ir1 - ir0) / n;
+    const amid = (a0 + a1) / 2;
+    const norm = ((amid % 360) + 360) % 360;
+    const flip = norm > 0 && norm < 180;
+    const start = flip ? a1 : a0;
+    const end = flip ? a0 : a1;
+    const largeArc = Math.abs(end - start) > 180 ? 1 : 0;
+    const sweep = end > start ? 1 : 0;
+    shown.forEach((line, i) => {
+      // Satır sırası da yarıya göre değişir: üst yarıda ekranda "daha
+      // yukarısı" merkeze UZAK olan yarıçaptır, alt yarıda ise merkeze
+      // YAKIN olan. İlk satır her zaman görsel olarak üstte kalsın diye
+      // üst yarıda dıştan içe, alt yarıda içten dışa diziyoruz.
+      const r = flip ? ir0 + band * (i + 0.5) : ir1 - band * (i + 0.5);
+      const p0 = polar(cx, cy, r, start);
+      const p1 = polar(cx, cy, r, end);
+      const pathId = `${arcIdPrefix}-${i}`;
+      defs.appendChild(
+        el("path", { id: pathId, d: `M ${p0.x} ${p0.y} A ${r} ${r} 0 ${largeArc} ${sweep} ${p1.x} ${p1.y}` })
+      );
+      const text = el("text", {
+        fill,
+        "font-family": EX_FONT_BODY,
+        "font-size": fontSize,
+        "paint-order": "stroke",
+        stroke: haloColor,
+        "stroke-width": Math.max(1.5, fontSize * 0.22),
+        "stroke-linejoin": "round",
+      });
+      text.appendChild(el("textPath", { href: `#${pathId}`, startOffset: "50%", "text-anchor": "middle" }, line));
+      svg.appendChild(text);
     });
-    const circleAttrs = { cx: x, cy: y, r, class: `map-node-circle ${cls}` };
-    // fill CSS'te (.map-node-circle) değil öznitelik olarak veriliyor —
-    // öznitelikler CSS sınıf kurallarından daha düşük öncelikli, bu yüzden
-    // .assoc.expanded gibi daha spesifik bir kural (fill: var(--gold))
-    // tıklanınca bu gradyanın üzerine sorunsuz yazabiliyor.
-    if (fillUrl) circleAttrs.fill = fillUrl;
-    group.appendChild(el("circle", circleAttrs));
-    const maxChars = cls === "assoc" ? ASSOC_LABEL_CHARS : SYMBOL_LABEL_CHARS;
-    const lines = wrapForLabel(labelText, maxChars, LABEL_MAX_LINES);
-    group.appendChild(
-      multilineText(
-        { x: x + dx, y: y + dy, "text-anchor": anchor, class: `map-label map-label-${cls}` },
-        lines,
-        LABEL_LINE_HEIGHT
+  }
+
+  // Bir hücrenin metnini TAM göstermeye çalışır: taban font boyutuyla
+  // sığmıyorsa fontu kademeli küçültür (Kaan'ın izniyle — "biri büyük punto
+  // diğeri küçük punto olabilir, sığdırmak için sıkıntı yok", 2026-09-11).
+  // Küçültmek iki yönden birden yardım eder: satır başına daha çok karakter
+  // sığar VE her satır daha az dikey yer kaplar. Ancak en küçük boyutta bile
+  // sığmıyorsa son çare olarak keser (…), aksi halde metin hücreden taşardı.
+  function fitCellText(text, r0, r1, a0, a1, baseFontSize, maxChars, minFactor) {
+    const insetThickness = (r1 - r0) * (1 - 2 * RING_TEXT_PAD);
+    // İç kenardan (r0) hesapla, orta yarıçaptan değil — hücredeki en dar
+    // yay orası, en güvenli taban.
+    const arcAtRing = ((a1 - a0) * Math.PI) / 180 * r0 * 0.75;
+    const minFontSize = baseFontSize * (minFactor || 0.55);
+    for (let fontSize = baseFontSize; fontSize >= minFontSize; fontSize -= 0.5) {
+      const chars = Math.min(maxChars, charsPerLine(fontSize, arcAtRing));
+      const lines = wrapLines(text, chars);
+      const maxLines = Math.max(1, Math.floor(insetThickness / (fontSize * RING_LINE_GAP)));
+      if (lines.length <= maxLines) return { lines, fontSize };
+    }
+    const chars = Math.min(maxChars, charsPerLine(minFontSize, arcAtRing));
+    const maxLines = Math.max(1, Math.floor(insetThickness / (minFontSize * RING_LINE_GAP)));
+    return { lines: wrapForLabel(text, chars, maxLines), fontSize: minFontSize };
+  }
+
+  function cellText(sym, key) {
+    if (key === "name") return sym.name || "";
+    if (key === "assoc") return sym.selected_association || "";
+    return (sym.questions || {})[key] || "";
+  }
+
+  // Halkaların göreli kalınlığı — iç halka (Q1) dıştakilere göre daha az
+  // yay uzunluğuna sahip (yarıçap küçük) ama cevabı genelde daha uzun bir
+  // cümle, bu yüzden ona daha fazla RADYAL kalınlık (daha çok satır
+  // sığdırma payı) veriliyor; dış halkalar (isim/çağrışım) zaten geniş yay
+  // uzunluğuna sahip olduğu için ince kalabiliyor. 6 halkadan 3'e inince
+  // (bkz. RING_ORDER) her halkaya düşen pay ciddi büyüdü, font boyutları da
+  // buna göre yukarı çekildi.
+  const RING_WEIGHT = { assoc: 2.3, name: 1.25 };
+  const HUB_WEIGHT = 1.15;
+  // Tıklanınca açılan 4 soru kutusu: en dış halkanın dışında, dört eş
+  // kalınlıkta bant. Sadece etkileşimli haritada ve sadece açık olan
+  // sembol için çizilir; PNG/rapor çıktısında hiç yer almaz.
+  const Q_BAND_WEIGHT = 2.1; // her soru kutusunun kalınlığı (unit cinsinden)
+  const Q_BAND_MIN_DEG = 140; // dar dilimlerde bile kutular bu kadar geniş açılır
+  // Kutunun ne kadarı cevaba ayrılacak — cevap sorudan uzun olduğu için
+  // aslan payı cevapta (ilk denemede tersiydi, cevaplar kesiliyordu).
+  const Q_ANSWER_SHARE = 0.66;
+  // Font boyutu BİLEREK unit'e (yarıçapa) bağlı değil, sabit — sembol
+  // sayısı arttıkça unit'i (ve yarıçapı) büyütüp fontu SABİT tutmak, bir
+  // dilime düşen karakter bütçesini gerçekten artıran tek şey. İkisi
+  // birlikte ölçeklenseydi (ilk denemede olduğu gibi) oran hiç değişmez,
+  // dar dilimlerde metin komşu dilime taşardı — bu, Kaan'ın 15 sembollü
+  // test verisiyle canlıda görülüp düzeltildi (2026-09-10).
+  const RING_FONT = {
+    interactive: { name: 15, assoc: 13.5, question: 11, answer: 12.5 },
+    export: { name: 28, assoc: 25, question: 20, answer: 23 },
+  };
+  // Satır başına karakter tavanı — sadece çok geniş dilimlerde (az sembollü
+  // rüya) bir satırın çemberin üçte birini kaplamasını engellemek için var;
+  // asıl sınırlayıcı yay uzunluğu hesabı (bkz. fitCellText). Otomatik font
+  // küçültme bu tavana takılıp boşa çalışmasın diye cömert tutuldu.
+  const RING_MAXCHARS = { name: 36, assoc: 46, question: 52, answer: 52 };
+
+  // Sembol sayısı taban değerin (8) üzerindeyse yarıçapı (ve tuvali)
+  // orantılı büyüt — bir sembole düşen yay uzunluğunu sembol sayısından
+  // bağımsız tutmaya çalışır (font sabit kaldığı için gerçekten işe yarar).
+  function radialScaleFor(n) {
+    return Math.min(3, Math.max(1, n / 8));
+  }
+
+  function ringRadii(hubR, unit) {
+    const radii = {};
+    let r = hubR;
+    RING_ORDER.forEach((key) => {
+      const t = RING_WEIGHT[key] * unit;
+      radii[key] = [r, r + t];
+      r += t;
+    });
+    return { radii, outerR: r };
+  }
+
+  // Bir altın çağrışıma tıklandığında, o sembolün dört sorusunu ve TAM
+  // cevaplarını dış halkanın dışında dört kutu olarak çizer. Kutular
+  // dilimden daha geniş bir açıya yayılabilir (Q_BAND_MIN_DEG) — aynı anda
+  // sadece bir sembol açık olduğu için komşu dilimlerle çakışma riski yok,
+  // bu da uzun cevaplara bol yer bırakıyor. Her kutu iki parçaya bölünür:
+  // dışta soru (küçük punto, vurgu rengi), içte cevap (normal punto).
+  function drawQuestionBand(svg, defs, arcPrefix, sym, cx, cy, outerR, unit, a0, a1, P, fonts) {
+    const amid = (a0 + a1) / 2;
+    const span = Math.max(a1 - a0, Q_BAND_MIN_DEG);
+    const qa0 = amid - span / 2;
+    const qa1 = amid + span / 2;
+    const t = Q_BAND_WEIGHT * unit;
+    const band = el("g", { class: "map-question-band" });
+
+    QUESTIONS.forEach(([key, label], qi) => {
+      const r0 = outerR + 22 + qi * t;
+      const r1 = r0 + t * 0.9; // kutular arasında ince boşluk
+      const path = sectorPath(cx, cy, r0, r1, qa0, qa1);
+      band.appendChild(
+        el("path", { d: path, fill: P.card, stroke: P.gold, "stroke-width": 1.25, "fill-opacity": 0.96 })
+      );
+
+      const answer = (sym.questions || {})[key];
+      const shownAnswer = answer && answer.trim() ? answer : "—";
+      // Kutunun içi cevap (büyük pay), dış şeridi soru.
+      const split = r0 + (r1 - r0) * Q_ANSWER_SHARE;
+      const qFit = fitCellText(label, split, r1, qa0, qa1, fonts.question, RING_MAXCHARS.question, 0.4);
+      drawRadialCellText(band, defs, `${arcPrefix}-${qi}-s`, qFit.lines, cx, cy, split, r1, qa0, qa1, qFit.fontSize, P.accentStrong, P.card);
+      const aFit = fitCellText(shownAnswer, r0, split, qa0, qa1, fonts.answer, RING_MAXCHARS.answer, 0.4);
+      drawRadialCellText(band, defs, `${arcPrefix}-${qi}-c`, aFit.lines, cx, cy, r0, split, qa0, qa1, aFit.fontSize, P.ink, P.card);
+    });
+
+    svg.appendChild(band);
+  }
+
+  // Bir dilim çemberini tam olarak çizer (kadran halkası + tüm sembol
+  // dilimleri + merkez göbek) — 15'ten fazla sembolde birden fazla kez
+  // çağrılıp alt alta dizilir (bkz. buildSunburstSvg).
+  function drawOneCircle(svg, defs, arcPrefix, symbols, cx, cy, unit, P, fonts, interactive, centerGradId, ambientGradId, centerLabel, expandedIndex, onExpand) {
+    const n = symbols.length || 1;
+    const hubR = HUB_WEIGHT * unit;
+    const { radii, outerR } = ringRadii(hubR, unit);
+
+    if (interactive) {
+      svg.appendChild(
+        el("circle", { cx, cy, r: outerR + 26, class: "map-glow-bg", fill: `url(#${ambientGradId})` })
+      );
+    }
+
+    // Gravürlü dış kadran halkası — Astrolab dilinin bu haritada da
+    // sürmesi için (bkz. .map-rim CSS'i, yavaşça dönen kesikli çizgi).
+    svg.appendChild(
+      el("circle", { cx, cy, r: outerR + 14, fill: "none", stroke: P.ring, "stroke-width": 1, class: interactive ? "map-rim" : "" })
+    );
+
+    const slot = 360 / n;
+    // Dilimler arası ince boşluk — çok sembolde otomatik daralır, hiç
+    // kaybolmaz (dilimlerin birbirine değmesini önler).
+    const gapDeg = Math.min(2.2, slot * 0.1);
+
+    symbols.forEach((sym, i) => {
+      const a0 = -90 + slot * i + gapDeg / 2;
+      const a1 = -90 + slot * (i + 1) - gapDeg / 2;
+
+      const group = el("g", { class: interactive ? "map-sector-group" : "" });
+      if (interactive) group.style.setProperty("--i", i);
+
+      const isOpen = expandedIndex === i;
+
+      RING_ORDER.forEach((key) => {
+        const [r0, r1] = radii[key];
+        const isAssoc = key === "assoc";
+        const path = sectorPath(cx, cy, r0, r1, a0, a1);
+        const cell = el("path", {
+          d: path,
+          fill: i % 2 === 0 ? P.card : P.bg,
+          stroke: P.ring,
+          "stroke-width": 1,
+        });
+        group.appendChild(cell);
+        if (isAssoc) {
+          group.appendChild(
+            el("path", {
+              d: path,
+              fill: P.gold,
+              "fill-opacity": isOpen ? 0.34 : 0.16,
+              stroke: isOpen ? P.gold : "none",
+              "stroke-width": isOpen ? 2 : 0,
+            })
+          );
+        }
+
+        const fit = fitCellText(cellText(sym, key), r0, r1, a0, a1, fonts[key], RING_MAXCHARS[key], 0.42);
+        const fill = isAssoc ? P.ink : P.accentStrong;
+        drawRadialCellText(group, defs, `${arcPrefix}-${i}-${key}`, fit.lines, cx, cy, r0, r1, a0, a1, fit.fontSize, fill, P.bg);
+
+        // Altın çağrışım hücresi tıklanabilir: 4 soru kutusunu açar/kapatır.
+        if (isAssoc && interactive && onExpand) {
+          const hit = el("path", {
+            d: path,
+            fill: "transparent",
+            class: "map-assoc-hit",
+            role: "button",
+            tabindex: "0",
+            "aria-label": `${sym.name || ""} — ${I18N.t("map.openQuestions")}`,
+          });
+          hit.addEventListener("click", (e) => {
+            e.stopPropagation();
+            onExpand(isOpen ? null : i);
+          });
+          hit.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+              e.preventDefault();
+              onExpand(isOpen ? null : i);
+            }
+          });
+          group.appendChild(hit);
+        }
+      });
+
+      svg.appendChild(group);
+
+      if (isOpen && interactive) {
+        drawQuestionBand(svg, defs, `${arcPrefix}-q${i}`, sym, cx, cy, outerR, unit, a0, a1, P, fonts);
+      }
+    });
+
+    svg.appendChild(
+      el("circle", {
+        cx,
+        cy,
+        r: hubR,
+        class: interactive ? "map-center-circle" : "",
+        stroke: P.accent,
+        "stroke-width": 2.5,
+        style: `fill:url(#${centerGradId})`,
+      })
+    );
+    svg.appendChild(
+      el(
+        "text",
+        Object.assign(
+          {
+            x: cx,
+            y: cy + hubR * 0.1,
+            "text-anchor": "middle",
+            "dominant-baseline": "middle",
+            "font-family": EX_FONT_HEAD,
+            "font-size": Math.max(13, hubR * 0.32),
+            "font-weight": 600,
+          },
+          interactive ? { class: "map-center-text" } : { fill: P.ink }
+        ),
+        centerLabel
       )
     );
-    return group;
+
+    return outerR;
+  }
+
+  // ---------- Ana çizim — hem etkileşimli harita hem PNG/rapor export'u bu
+  // tek fonksiyonu kullanıyor, sadece boyut/tema/etkileşim farklı. ----------
+  //
+  // 15'ten fazla sembolde tek çembere sıkıştırmak yerine (Kaan'ın kararı,
+  // 2026-09-10) ikinci/üçüncü bir çember üretilip altına diziliyor — her
+  // çember en fazla 15 sembol taşır, aynı rüyanın farklı bir "sayfası" gibi.
+  const MAX_SYMBOLS_PER_CIRCLE = 15;
+
+  function buildSunburstSvg(record, opts) {
+    const { theme = "dark", interactive = false, existingSvg = null, expandedIndex = null } = opts || {};
+    const P = theme === "paper" ? PALETTE_PAPER : PALETTE;
+    const allSymbols = record.symbols || [];
+    const fonts = RING_FONT[interactive ? "interactive" : "export"];
+    const marginBase = interactive ? 30 : 130; // export'ta alt yazı (özet+watermark) için daha geniş pay
+    const circleGap = interactive ? 60 : 150;
+
+    const chunks = [];
+    for (let i = 0; i < allSymbols.length; i += MAX_SYMBOLS_PER_CIRCLE) {
+      chunks.push(allSymbols.slice(i, i + MAX_SYMBOLS_PER_CIRCLE));
+    }
+    if (!chunks.length) chunks.push([]);
+
+    const unitBase = interactive ? 58 : 120;
+    const geoms = chunks.map((chunk) => {
+      const n = chunk.length || 1;
+      const unit = unitBase * radialScaleFor(n);
+      const { outerR } = ringRadii(HUB_WEIGHT * unit, unit);
+      // Etkileşimli haritada soru kutuları için dışarıda yer AYRILIR (hiçbir
+      // şey açık değilken boş durur ama tuval yeniden boyutlanmasın diye
+      // baştan hesaba katılıyor); dışa aktarımda böyle bir bant hiç yok.
+      const qBandR = interactive ? 22 + 4 * Q_BAND_WEIGHT * unit : 0;
+      return { chunk, unit, outerR, reachR: outerR + 14 + qBandR };
+    });
+
+    const width = Math.round(Math.max(...geoms.map((g) => g.reachR * 2)) + marginBase * 2);
+    let cursorY = marginBase;
+    const placed = geoms.map((g, idx) => {
+      const cy = cursorY + g.reachR;
+      cursorY = cy + g.reachR + (idx < geoms.length - 1 ? circleGap : 0);
+      return Object.assign({}, g, { cx: width / 2, cy });
+    });
+    const height = Math.round(cursorY + marginBase);
+
+    const svg = existingSvg || document.createElementNS(NS, "svg");
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    if (!interactive) {
+      svg.appendChild(el("rect", { x: 0, y: 0, width, height, fill: P.bg }));
+    }
+
+    // Aynı sayfada birden fazla harita (sonuç ekranı + geçmiş detayı) aynı
+    // anda DOM'da bulunabiliyor — gradyan id'leri belge genelinde çözüldüğü
+    // için her çizime özel bir önek şart. Tüm çemberler (birden fazlaysa)
+    // aynı iki gradyanı paylaşır, tema aynı olduğu için ayrı tanıma gerek yok.
+    const uid = `sm${++uidCounter}`;
+    const centerGradId = `${uid}-center`;
+    const ambientGradId = `${uid}-ambient`;
+
+    const defs = el("defs", {});
+    const centerGrad = el("radialGradient", { id: centerGradId, cx: "35%", cy: "30%", r: "75%" });
+    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": theme === "paper" ? "#fffdf7" : "#262b34" }));
+    centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": P.bg }));
+    defs.appendChild(centerGrad);
+    if (interactive) {
+      const ambientGrad = el("radialGradient", { id: ambientGradId, cx: "50%", cy: "50%", r: "50%" });
+      ambientGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#5a6472", "stop-opacity": "0.14" }));
+      ambientGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#5a6472", "stop-opacity": "0" }));
+      defs.appendChild(ambientGrad);
+    }
+    svg.appendChild(defs);
+
+    // Tıklanınca (veya kapanınca) haritayı aynı elemanın içine yeniden çiz;
+    // aynı anda yalnızca tek bir sembolün soru kutuları açık kalır.
+    const onExpand = interactive
+      ? (globalIdx) => {
+          const vb = svg.__vb ? { ...svg.__vb } : null;
+          buildSunburstSvg(record, { theme, interactive: true, existingSvg: svg, expandedIndex: globalIdx });
+          if (vb) {
+            svg.__vb = vb;
+            svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+          }
+        }
+      : null;
+
+    placed.forEach((pc, idx) => {
+      const centerLabel = chunks.length > 1 ? `${I18N.t("map.center")} ${idx + 1}/${chunks.length}` : I18N.t("map.center");
+      const offset = idx * MAX_SYMBOLS_PER_CIRCLE;
+      const localExpanded =
+        expandedIndex !== null && expandedIndex >= offset && expandedIndex < offset + pc.chunk.length
+          ? expandedIndex - offset
+          : null;
+      drawOneCircle(
+        svg,
+        defs,
+        `${uid}-c${idx}`,
+        pc.chunk,
+        pc.cx,
+        pc.cy,
+        pc.unit,
+        P,
+        fonts,
+        interactive,
+        centerGradId,
+        ambientGradId,
+        centerLabel,
+        localExpanded,
+        onExpand ? (localIdx) => onExpand(localIdx === null ? null : offset + localIdx) : null
+      );
+    });
+
+    if (!interactive) {
+      const dreamSnippet = truncate((record.dream_text || "").replace(/\s+/g, " ").trim(), 100);
+      svg.appendChild(
+        el(
+          "text",
+          { x: width / 2, y: height - 34, "text-anchor": "middle", fill: P.muted, "font-family": EX_FONT_BODY, "font-size": 15 },
+          dreamSnippet
+        )
+      );
+      svg.appendChild(
+        el(
+          "text",
+          { x: width - 24, y: height - 14, "text-anchor": "end", fill: P.muted, "font-family": EX_FONT_BODY, "font-size": 12, opacity: 0.7 },
+          I18N.t("map.watermark")
+        )
+      );
+    }
+
+    if (interactive) {
+      svg.__record = record;
+      initPanZoom(svg);
+    }
+
+    return svg;
   }
 
   let uidCounter = 0;
 
   function render(svg, record) {
-    while (svg.firstChild) svg.removeChild(svg.firstChild);
-    svg.__nodes = new Map(); // id -> { data: {sym, angleDeg}, assocGroup, symGroup }
-    svg.__expandedId = null;
-    svg.__record = record;
-
-    // Aynı sayfada birden fazla harita (sonuç ekranı + geçmiş detayı) aynı
-    // anda DOM'da bulunabiliyor — gradyan/filtre id'leri belge genelinde
-    // çözüldüğü için her render'a özel bir önek şart, yoksa ikinci harita
-    // birincinin tanımını "çalar".
-    const uid = `sm${++uidCounter}`;
-
-    const defs = el("defs", {});
-    const ambientGrad = el("radialGradient", { id: `${uid}-ambient`, cx: "50%", cy: "50%", r: "50%" });
-    ambientGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#5a6472", "stop-opacity": "0.16" }));
-    ambientGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#5a6472", "stop-opacity": "0" }));
-    const centerGrad = el("radialGradient", { id: `${uid}-center`, cx: "35%", cy: "30%", r: "75%" });
-    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#262b34" }));
-    centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#0e1015" }));
-    // Çarktaki gibi ikinci, pirinç tonlu ve merkezden kaydırılmış ışık lekesi —
-    // haritayı da tek renkli düz bir parıltı yerine iki tonlu hissettirir.
-    const ambientGoldGrad = el("radialGradient", { id: `${uid}-ambient-gold`, cx: "68%", cy: "72%", r: "55%" });
-    ambientGoldGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#c49a5f", "stop-opacity": "0.11" }));
-    ambientGoldGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#c49a5f", "stop-opacity": "0" }));
-    // Düğümler artık düz bir zemin rengi değil, hafif hacimli birer "boncuk" —
-    // objectBoundingBox varsayılanı sayesinde tek bir tanım her düğümde kendi
-    // konumuna göre aynı sol-üst vurgulu ışık yönünü veriyor, düğüm başına
-    // ayrı gradyan gerekmiyor.
-    const nodeGrad = el("radialGradient", { id: `${uid}-node`, cx: "32%", cy: "28%", r: "75%" });
-    nodeGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#3c434d" }));
-    nodeGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#14161c" }));
-    const goldNodeGrad = el("radialGradient", { id: `${uid}-gold-node`, cx: "32%", cy: "28%", r: "75%" });
-    goldNodeGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#4a3a20" }));
-    goldNodeGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#181209" }));
-    defs.appendChild(ambientGrad);
-    defs.appendChild(ambientGoldGrad);
-    defs.appendChild(centerGrad);
-    defs.appendChild(nodeGrad);
-    defs.appendChild(goldNodeGrad);
-    svg.appendChild(defs);
-
-    svg.appendChild(
-      el("circle", { cx: CX, cy: CY, r: Q_R + 40, class: "map-glow-bg", fill: `url(#${uid}-ambient)` })
-    );
-    svg.appendChild(
-      el("circle", { cx: CX, cy: CY, r: Q_R + 55, class: "map-glow-bg-gold", fill: `url(#${uid}-ambient-gold)` })
-    );
-
-    // Çarktaki gravürlü kadran halkasıyla aynı dil: harita da bir alet
-    // yüzeyi, sadece bir diyagram değil.
-    svg.appendChild(el("circle", { cx: CX, cy: CY, r: ASSOC_R + 38, class: "map-rim" }));
-    svg.appendChild(el("circle", { cx: CX, cy: CY, r: SYMBOL_R + 24, class: "map-rim-inner" }));
-
-    svg.appendChild(
-      el("circle", {
-        cx: CX,
-        cy: CY,
-        r: CENTER_R,
-        class: "map-center-circle",
-        style: `fill:url(#${uid}-center)`,
-      })
-    );
-    svg.appendChild(
-      el("text", { x: CX, y: CY + 5, class: "map-center-text", "data-i18n": "map.center" }, I18N.t("map.center"))
-    );
-
-    const layer = el("g", { class: "map-flower-layer" });
-
-    const symbols = record.symbols || [];
-    const n = symbols.length || 1;
-
-    symbols.forEach((sym, i) => {
-      const id = `s${i}`;
-      const angleDeg = -90 + (360 / n) * i;
-      const { x: sx, y: sy, cos, sin } = pointAt(SYMBOL_R, angleDeg);
-      const anchor = anchorFor(cos);
-      const dx = anchor === "start" ? 14 : anchor === "end" ? -14 : 0;
-      // pushOut 22 (önceden 18) — etiketler artık 2 satıra sarabiliyor,
-      // "middle" hizalı (tam tepe/alt) düğümlerde bloğun düğüm dairesine
-      // binmemesi için biraz daha pay gerekiyor.
-      const dy = verticalNudge(anchor, sin, 4, 22);
-
-      const symEdge = el("line", { x1: CX, y1: CY, x2: sx, y2: sy, class: "map-edge map-edge-symbol map-entrance" });
-      symEdge.style.setProperty("--i", i);
-      svg.appendChild(symEdge);
-      const symGroup = makeNode(sx, sy, 11, sym.name || "", anchor, dx, "symbol", dy, `url(#${uid}-node)`);
-      symGroup.classList.add("map-entrance");
-      symGroup.style.setProperty("--i", i);
-      symGroup.addEventListener("click", () => toggleExpand(svg, id));
-      symGroup.addEventListener("keydown", (e) => onNodeKeydown(e, svg, id));
-      svg.appendChild(symGroup);
-
-      let assocGroup = null;
-      if (sym.selected_association) {
-        const { x: ax, y: ay } = pointAt(ASSOC_R, angleDeg);
-        const assocEdge = el("line", { x1: sx, y1: sy, x2: ax, y2: ay, class: "map-edge map-edge-assoc map-entrance" });
-        assocEdge.style.setProperty("--i", i + 0.3);
-        svg.appendChild(assocEdge);
-        assocGroup = makeNode(
-          ax,
-          ay,
-          8,
-          sym.selected_association,
-          anchor,
-          dx,
-          "assoc",
-          dy,
-          `url(#${uid}-gold-node)`
-        );
-        assocGroup.classList.add("map-entrance");
-        assocGroup.style.setProperty("--i", i + 0.3);
-        assocGroup.addEventListener("click", () => toggleExpand(svg, id));
-        assocGroup.addEventListener("keydown", (e) => onNodeKeydown(e, svg, id));
-        svg.appendChild(assocGroup);
-      }
-
-      svg.__nodes.set(id, { data: { sym, angleDeg }, symGroup, assocGroup });
-    });
-
-    svg.appendChild(layer);
-    svg.__flowerLayer = layer;
-
-    initPanZoom(svg);
+    buildSunburstSvg(record, { theme: "dark", interactive: true, existingSvg: svg });
   }
 
-  function onNodeKeydown(e, svg, id) {
-    if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
-      e.preventDefault();
-      toggleExpand(svg, id);
-    }
-  }
-
-  function toggleExpand(svg, id) {
-    const entry = svg.__nodes.get(id);
-    if (!entry || !entry.assocGroup) return;
-
-    const wasExpanded = svg.__expandedId === id;
-    collapse(svg);
-    if (!wasExpanded) expand(svg, id, entry);
-  }
-
-  function collapse(svg) {
-    if (svg.__expandedId) {
-      const prev = svg.__nodes.get(svg.__expandedId);
-      if (prev && prev.assocGroup) prev.assocGroup.classList.remove("expanded");
-    }
-    while (svg.__flowerLayer.firstChild) svg.__flowerLayer.removeChild(svg.__flowerLayer.firstChild);
-    svg.__expandedId = null;
-  }
-
-  function expand(svg, id, entry) {
-    const { sym, angleDeg } = entry.data;
-    entry.assocGroup.classList.add("expanded");
-    svg.__expandedId = id;
-
-    const assocPoint = pointAt(ASSOC_R, angleDeg);
-    const q = sym.questions || {};
-
-    QUESTIONS.forEach(([key, label], i) => {
-      const qAngle = angleDeg + Q_FAN_DEG[i];
-      const { x: qx, y: qy, cos, sin } = pointAt(Q_R, qAngle);
-      const anchor = anchorFor(cos);
-      const dx = anchor === "start" ? 12 : anchor === "end" ? -12 : 0;
-      // Sembol kutupta ise (bkz. buildExportSvg'deki aynı düzeltme) birden
-      // fazla yaprak "middle" hizalamaya düşüp üst üste binebilir — o
-      // durumda y'de kademeli ayrıştır.
-      const dy = anchor === "middle" ? (sin < 0 ? -1 : 1) * (15 + i * 14) : verticalNudge(anchor, sin, 4, 15);
-
-      const edge = el("line", {
-        x1: assocPoint.x,
-        y1: assocPoint.y,
-        x2: qx,
-        y2: qy,
-        class: "map-edge map-edge-q",
-      });
-      svg.__flowerLayer.appendChild(edge);
-
-      const answer = q[key] && q[key].trim() ? q[key] : "—";
-      const group = el("g", { class: "map-node q" });
-      group.style.setProperty("--i", i);
-      group.appendChild(el("circle", { cx: qx, cy: qy, r: 7, class: "map-node-circle q" }));
-      group.appendChild(
-        el(
-          "text",
-          { x: qx + dx, y: qy + dy, "text-anchor": anchor, class: "map-label map-label-q" },
-          `${i + 1}. ${truncate(answer, 26)}`
-        )
-      );
-      group.appendChild(el("title", {}, `${label}\n${answer}`));
-      svg.__flowerLayer.appendChild(group);
-    });
+  function buildExportSvg(record, theme = "dark") {
+    return buildSunburstSvg(record, { theme, interactive: false });
   }
 
   // ---------- Pan / Zoom ----------
@@ -484,7 +713,10 @@ const SymbolMap = (() => {
     }
 
     svg.addEventListener("pointerdown", (e) => {
-      if (e.target.closest(".map-node")) return; // düğüm kendi click'ini yönetsin
+      // Altın çağrışım hücresine basıldıysa pan başlatma ve pointer'ı
+      // yakalama — yoksa setPointerCapture click olayını SVG'ye taşıyıp
+      // hücrenin kendi tıklamasını (4 soruyu açma) yutuyor.
+      if (e.target.closest && e.target.closest(".map-assoc-hit")) return;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       svg.setPointerCapture(e.pointerId);
 
@@ -552,41 +784,7 @@ const SymbolMap = (() => {
     });
   }
 
-  // ---------- PNG dışa aktarma ----------
-  //
-  // Etkileşimli haritada aynı anda tek bir çağrışımın 4 soru-cevap yaprağı
-  // açık olabiliyor (ekranda yer yok). PNG'de bu kısıt yok — dışa aktarılan
-  // görüntüde HER sembolün altın çağrışımı ve 4 soru cevabı aynı anda,
-  // sembolün etrafında açık halde çiziliyor. Etkileşimli render()'dan bağımsız,
-  // kendi geometrisini kuran ayrı bir çizim: tüm stiller CSS sınıflarına değil
-  // satır-içi (inline) SVG özniteliklerine dayanıyor — <img>/canvas'a
-  // rasterize ederken sayfanın harici stylesheet'ine (ve Google Fonts gibi
-  // dış kaynaklara, olası canvas "tainting" riskine karşı) bağımlı olmamak
-  // için bilinçli bir tercih.
-
-  // Taban ölçüler ~8 sembole göre kalibre edildi. Sembol sayısı arttıkça
-  // (özellikle 4 soru cevabı + altın çağrışım aynı anda çizildiği için)
-  // düğümler birbirinin içine geçmeye başlıyordu — çünkü sabit yarıçapta bir
-  // sembole düşen açısal yay payı sembol sayısıyla ters orantılı küçülüyor,
-  // ama etiket genişliği sabit kalıyor. Çözüm: yarıçapı (ve tuvali) sembol
-  // sayısıyla ORANTILI büyütmek — bu, sembol başına düşen yay UZUNLUĞUNU
-  // (açı × yarıçap) sembol sayısından bağımsız, sabit tutar.
-  const BASE_N = 8;
-  // 4 soru-cevap yaprağı PNG'den kaldırılınca en dış halka artık altın
-  // çağrışım (ASSOC_R) oldu — tuval de ona göre daraltıldı, eskiden Q_R'a
-  // göre ayrılmış geniş boş kenar boşluğu kalmasın diye.
-  //
-  // 1200 değeri (kenar boşluğu 240px) uzun çağrışım etiketleriyle (26 karakter,
-  // 17px font, start/end hizalı) yetersiz kaldı — metin kenardan taşıp kesildi
-  // (Kaan'ın bulduğu hata, 2026-09-10). EX_ASSOC_R/EXPORT_SIZE oranı sembol
-  // sayısından bağımsız sabit kaldığı için bu, her ölçekte aynı oranda
-  // yaşanıyordu. 1440'a çıkarmak kenar boşluğunu 360px'e çıkarıyor — en kötü
-  // durum metin genişliğinin (~300px) güvenle üzerinde.
-  const BASE_EXPORT_SIZE = 1440;
-  const BASE_CENTER_R = 66;
-  const BASE_SYMBOL_R = 230;
-  const BASE_ASSOC_R = 360;
-  const MAX_RADIAL_SCALE = 3; // aşırı sembol sayısında (25+) tuvali sınırsız büyütmeyi engelle
+  // ---------- Renk paletleri ----------
 
   const PALETTE = {
     bg: "#0e1015",
@@ -621,244 +819,21 @@ const SymbolMap = (() => {
   const EX_FONT_HEAD = "Georgia, 'Times New Roman', serif";
   const EX_FONT_BODY = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
-  function exportPointAt(cx, cy, radius, angleDeg) {
-    const rad = (angleDeg * Math.PI) / 180;
-    return {
-      x: cx + radius * Math.cos(rad),
-      y: cy + radius * Math.sin(rad),
-      cos: Math.cos(rad),
-      sin: Math.sin(rad),
-    };
-  }
-
-  function labelAttrs(extra, P = PALETTE) {
-    // Halo stroke-width font-size'a göre orantılı olmalı — sabit 5px, küçük
-    // fontta (özellikle "—" gibi ince glifli kısa metinlerde) harfi bir
-    // yumruya dönüştürüp okunmaz kılıyordu.
-    const fontSize = extra["font-size"] || 14;
-    return Object.assign(
-      {
-        "font-family": EX_FONT_BODY,
-        "paint-order": "stroke",
-        stroke: P.bg,
-        "stroke-width": Math.max(2.5, fontSize * 0.3),
-        "stroke-linejoin": "round",
-      },
-      extra
-    );
-  }
-
-  function buildExportSvg(record, theme = "dark") {
-    const P = theme === "paper" ? PALETTE_PAPER : PALETTE;
-    const symbols = record.symbols || [];
-    const n = symbols.length || 1;
-
-    // Sembol sayısı taban değerin (8) üzerindeyse yarıçapları (ve tuvali)
-    // orantılı büyüt — bkz. yukarıdaki BASE_N yorumu.
-    const radialScale = Math.min(MAX_RADIAL_SCALE, Math.max(1, n / BASE_N));
-    const EXPORT_SIZE = Math.round(BASE_EXPORT_SIZE * radialScale);
-    const EX_CX = EXPORT_SIZE / 2;
-    const EX_CY = EXPORT_SIZE / 2;
-    const EX_CENTER_R = BASE_CENTER_R * radialScale;
-    const EX_SYMBOL_R = BASE_SYMBOL_R * radialScale;
-    const EX_ASSOC_R = BASE_ASSOC_R * radialScale;
-    const pt = (radius, angleDeg) => exportPointAt(EX_CX, EX_CY, radius, angleDeg);
-
-    const svg = document.createElementNS(NS, "svg");
-    svg.setAttribute("viewBox", `0 0 ${EXPORT_SIZE} ${EXPORT_SIZE}`);
-    svg.setAttribute("width", EXPORT_SIZE);
-    svg.setAttribute("height", EXPORT_SIZE);
-
-    svg.appendChild(el("rect", { x: 0, y: 0, width: EXPORT_SIZE, height: EXPORT_SIZE, fill: P.bg }));
-
-    // Filtre id'si render()'daki gibi uid'li değil, sabit "sm-gold-glow" —
-    // ama exportPng her çağrıda yeni, DOM'a hiç eklenmeyen bağımsız bir <svg>
-    // üretiyor (bkz. svgToPngDownload), o yüzden aynı sayfada iki export SVG'i
-    // aynı anda bulunmuyor ve çakışma riski yok (render()'daki interaktif
-    // haritadan farklı olarak, o ikisi aynı DOM'da birlikte durabiliyor).
-    const defs = el("defs", {});
-    const glow = el("filter", { id: "sm-gold-glow", x: "-60%", y: "-60%", width: "220%", height: "220%" });
-    glow.appendChild(el("feGaussianBlur", { stdDeviation: 5, result: "blur" }));
-    const merge = el("feMerge", {});
-    merge.appendChild(el("feMergeNode", { in: "blur" }));
-    merge.appendChild(el("feMergeNode", { in: "SourceGraphic" }));
-    glow.appendChild(merge);
-    defs.appendChild(glow);
-    // Etkileşimli haritadaki (render()) "boncuk" gradyanlarının export eşdeğeri —
-    // düğümler düz renk yerine hafif hacimli, tutarlı görünsün diye.
-    const nodeGrad = el("radialGradient", { id: "sm-ex-node", cx: "32%", cy: "28%", r: "75%" });
-    nodeGrad.appendChild(el("stop", { offset: "0%", "stop-color": theme === "paper" ? "#efe6cf" : "#3c434d" }));
-    nodeGrad.appendChild(el("stop", { offset: "100%", "stop-color": P.bg }));
-    const goldNodeGrad = el("radialGradient", { id: "sm-ex-gold-node", cx: "32%", cy: "28%", r: "75%" });
-    goldNodeGrad.appendChild(el("stop", { offset: "0%", "stop-color": P.gold }));
-    goldNodeGrad.appendChild(el("stop", { offset: "100%", "stop-color": P.accent }));
-    defs.appendChild(nodeGrad);
-    defs.appendChild(goldNodeGrad);
-    svg.appendChild(defs);
-
-    svg.appendChild(
-      el("circle", { cx: EX_CX, cy: EX_CY, r: EX_CENTER_R, fill: P.card, stroke: P.accent, "stroke-width": 2.5 })
-    );
-    svg.appendChild(
-      el(
-        "text",
-        {
-          x: EX_CX,
-          y: EX_CY + 8,
-          "text-anchor": "middle",
-          fill: P.ink,
-          "font-family": EX_FONT_HEAD,
-          "font-size": 26,
-          "font-weight": 600,
-        },
-        I18N.t("map.center")
-      )
-    );
-    const slot = 360 / n;
-
-    symbols.forEach((sym, i) => {
-      const angleDeg = -90 + slot * i;
-      const { x: sx, y: sy, cos, sin } = pt(EX_SYMBOL_R, angleDeg);
-      const anchor = anchorFor(cos);
-      const dx = anchor === "start" ? 16 : anchor === "end" ? -16 : 0;
-      // pushOut 24 (önceden 20) — etiketler artık 2 satıra kadar sarabiliyor.
-      const dy = verticalNudge(anchor, sin, 5, 24);
-
-      svg.appendChild(
-        el("line", { x1: EX_CX, y1: EX_CY, x2: sx, y2: sy, stroke: P.accent, "stroke-width": 1.75, opacity: 0.6 })
-      );
-      svg.appendChild(
-        el("circle", { cx: sx, cy: sy, r: 13, fill: "url(#sm-ex-node)", stroke: P.accent, "stroke-width": 2.5 })
-      );
-      svg.appendChild(
-        multilineText(
-          labelAttrs(
-            {
-              x: sx + dx,
-              y: sy + dy,
-              "text-anchor": anchor,
-              fill: P.accentStrong,
-              "font-size": 16,
-              "font-weight": 600,
-            },
-            P
-          ),
-          wrapForLabel(sym.name, 16, 2),
-          19
-        )
-      );
-
-      if (!sym.selected_association) return;
-
-      const { x: ax, y: ay } = pt(EX_ASSOC_R, angleDeg);
-      svg.appendChild(
-        el("line", {
-          x1: sx,
-          y1: sy,
-          x2: ax,
-          y2: ay,
-          stroke: P.gold,
-          "stroke-width": 1.25,
-          opacity: 0.45,
-        })
-      );
-      svg.appendChild(
-        el("circle", {
-          cx: ax,
-          cy: ay,
-          r: 15,
-          fill: "url(#sm-ex-gold-node)",
-          stroke: P.gold,
-          "stroke-width": 2,
-          filter: "url(#sm-gold-glow)",
-        })
-      );
-      svg.appendChild(
-        multilineText(
-          labelAttrs(
-            {
-              x: ax + dx,
-              // pushOut 30 (önceden 24) — 2 satıra kadar sarabilen daha uzun
-              // çağrışım etiketi için ek pay.
-              y: ay + verticalNudge(anchor, sin, 6, 30),
-              "text-anchor": anchor,
-              fill: P.ink,
-              "font-size": 17,
-              "font-weight": 700,
-            },
-            P
-          ),
-          wrapForLabel(sym.selected_association, 18, 2),
-          20
-        )
-      );
-      // Kaan'ın isteğiyle: PNG'de 4 soru-cevap yaprağı artık çizilmiyor —
-      // yoğun rüyalarda (çok sembollü) görsel gürültü yapıyordu. Harita
-      // artık sadece rüya → sembol → altın çağrışım üçlüsünü gösteriyor;
-      // 4 soru cevapları hâlâ uygulama içinde (interaktif haritada,
-      // düğüme tıklayınca) ve çalışma sayfasında (bkz. buildWorksheetSvg)
-      // görülebiliyor.
-    });
-
-    const dreamSnippet = truncate((record.dream_text || "").replace(/\s+/g, " ").trim(), 100);
-    svg.appendChild(
-      el(
-        "text",
-        {
-          x: EX_CX,
-          y: EXPORT_SIZE - 34,
-          "text-anchor": "middle",
-          fill: P.muted,
-          "font-family": EX_FONT_BODY,
-          "font-size": 15,
-        },
-        dreamSnippet
-      )
-    );
-    svg.appendChild(
-      el(
-        "text",
-        {
-          x: EXPORT_SIZE - 24,
-          y: EXPORT_SIZE - 14,
-          "text-anchor": "end",
-          fill: P.muted,
-          "font-family": EX_FONT_BODY,
-          "font-size": 12,
-          opacity: 0.7,
-        },
-        I18N.t("map.watermark")
-      )
-    );
-
-    return svg;
-  }
-
   // ---------- Sembol Çalışma Sayfası ----------
   //
-  // Harita "bütünü" taşır (sembol → altın çağrışım), bu ise "parçaları":
+  // Çember "bütünü" taşır (sembol → altın çağrışım → 4 soru, hepsi tek
+  // bakışta), bu ise "parçaları" okumak/üzerine not almak isteyenler için:
   // her sembolün kendi kartı, bağlamı, altın çağrışımı, diğer çağrışımları
-  // ve 4 sorunun cevabıyla birlikte. Radyal değil — okunmak ve üzerine kafa
-  // yorulmak için tek sütun, kart kart akan bir sayfa. Aynı satır-içi
-  // öznitelik / harici-kaynak-yok felsefesini paylaşıyor (bkz. buildExportSvg
-  // başındaki not) çünkü PNG dışa aktarımında kullanılıyor.
+  // ve 4 sorunun cevabıyla birlikte. Radyal değil — tek sütun, kart kart
+  // akan bir sayfa. Aynı satır-içi öznitelik / harici-kaynak-yok
+  // felsefesini paylaşıyor (bkz. buildSunburstSvg başındaki not) çünkü PNG
+  // dışa aktarımında kullanılıyor.
 
   const WS_WIDTH = 900;
   const WS_OUTER_PAD = 44;
   const WS_CARD_PAD = 28;
   const WS_CARD_GAP = 22;
   const WS_TITLE_H = 92;
-
-  // Canvas ölçüm API'sine bağımlı olmadan (dışa aktarılan SVG bağımsız bir
-  // data-URI olduğu için) kaba bir karakter-genişliği tahmini — mevcut
-  // truncate() fonksiyonunun kullandığı karakter-sayımı yaklaşımıyla aynı
-  // düzeyde pragmatik.
-  function charsPerLine(fontSize, widthPx) {
-    return Math.max(12, Math.floor(widthPx / (fontSize * 0.54)));
-  }
-
-  // wrapLines dosyanın başında (truncate()'in yanında) tanımlı — harita
-  // düğüm etiketleri de aynı fonksiyonu kullanıyor.
 
   // Bir "alan"ın (mikro-etiket + değer) kaç satıra saracağını ve ne kadar
   // dikey yer tutacağını önceden hesaplar — kart arka planının yüksekliğini

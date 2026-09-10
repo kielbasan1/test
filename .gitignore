@@ -8,3 +8,6 @@ scripts/test_gemini_quota_output.txt
 # Gerçek, kişisel rüya verisi — asla commit edilmez. Şema örneği için
 # scripts/test_ruya.example.json'a bak.
 scripts/test_ruya.json
+
+# Önizleme için üretilen geçici çember görselleri (paylaşım/kontrol amaçlı)
+scripts/cember-*.svg

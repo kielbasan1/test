@@ -37,9 +37,11 @@ analizin en çok bilgi taşıyan üç verisi ise rüyanın bütününe ait:
 Dokunulacak yerler: `templates/index.html` (step-dream'e üç alan), `static/js/main.js`
 (payload'a üç alan), `services/gemini_client.py` (veri katmanları listesine ekle).
 
-**1.2 Ritüel adımı.** Yorumdan sonra ayrı bir ekran: önerilen ritüel + "yaptım"
-işareti + sonrasında ne olduğuna dair kısa not. Rüya kaydına yazılır. Johnson'ın
-yönteminde ritüel opsiyonel bir süs değil, yorumu bedene bağlayan adımdır.
+**1.2 Ritüel adımı — terk edildi (2026-09-10).** ~~Yorumdan sonra ayrı bir
+ekran: önerilen ritüel + "yaptım" işareti + not.~~ Kaan bunu uygulamanın
+kapsamı dışında tutmaya karar verdi — ritüeli kendisi, uygulamanın dışında
+geliştirecek (bkz. Kurallar.md). Johnson'ın yönteminde ritüel gerçek bir
+adım olmaya devam ediyor, sadece bu uygulamanın işi değil.
 
 **1.3 Rezonans geri bildirimi.** Yorum ekranına "oturdu / kısmen / oturmadı" + tek
 cümle not. Johnson'ın rezonans testi: bir yorum ancak bedensel bir tanıma

@@ -1089,9 +1089,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 .map-glow-bg,
-.map-glow-bg-gold,
-.map-rim,
-.map-rim-inner {
+.map-rim {
   pointer-events: none;
 }
 
@@ -1101,14 +1099,11 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   stroke-width: 1.25;
   stroke-dasharray: 2 5;
   opacity: 0.7;
-  transform-origin: 320px 320px;
-}
-
-.map-rim-inner {
-  fill: none;
-  stroke: var(--ring-soft);
-  stroke-width: 1;
-  opacity: 0.5;
+  /* Piksel sabiti değil "center" — harita artık sembol sayısına göre
+     dinamik boyutlanıyor (bkz. buildSunburstSvg), sabit 320px eski, tek
+     boyutlu (640×640) haritadan kalmaydı ve yeni boyutlarda dönüşü
+     merkezden kaydırıyordu. */
+  transform-origin: center;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1131,131 +1126,29 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   text-anchor: middle;
 }
 
-.map-edge {
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  opacity: 0.55;
-  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+/* Harita artık nokta-düğüm + tıklayınca açılan yaprak değil, sunburst
+   (çember) — her sembol dilimi 6 halkasıyla (isim/çağrışım/4 soru) birlikte
+   satır-içi SVG öznitelikleriyle çiziliyor (bkz. symbolmap.js
+   buildSunburstSvg), CSS'e bağımlı değil. Burada sadece giriş animasyonu
+   kalıyor: her dilim sırayla belirsin, harita açılırken dışa doğru büyüyen
+   bir his versin. */
+@media (prefers-reduced-motion: no-preference) {
+  .map-sector-group {
+    animation: itemIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+
+  /* Tıklanınca açılan 4 soru kutusu bloğu tek parça olarak belirir. */
+  .map-question-band {
+    animation: itemIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
 }
 
-/* Çekirdek → sembol → altın çağrışım tek bir ışının devamı gibi okunsun diye
-   ikinci kolun da kesikli değil düz çizgi, ama daha ince/soluk — hiyerarşiyi
-   (sembol ışını "ana", çağrışım ışını onun devamı) kesiklikle değil
-   kalınlık/opaklıkla veriyoruz. */
-.map-edge-assoc {
-  stroke: var(--gold);
-  stroke-width: 1;
-  opacity: 0.4;
-}
-
-.map-edge-q {
-  stroke: var(--gold);
-  stroke-width: 1.25;
-  stroke-dasharray: 2 4;
-  opacity: 0.7;
-}
-
-.map-node {
+/* Altın çağrışım hücresinin üzerindeki görünmez tıklama alanı — 4 soru
+   kutusunu açıp kapatır (bkz. symbolmap.js drawOneCircle). */
+.map-assoc-hit {
   cursor: pointer;
   touch-action: manipulation;
-}
-
-.map-node-circle {
-  /* fill artık burada değil, SVG özniteliği olarak (bkz. symbolmap.js
-     makeNode) — düğümler düz bir renk yerine hafif hacimli bir gradyan
-     alıyor; .assoc.expanded gibi daha spesifik kurallar hâlâ üzerine yazabiliyor
-     çünkü öznitelikler CSS sınıflarından düşük öncelikli. */
-  stroke: var(--accent);
-  stroke-width: 2;
-  transition: fill 0.15s ease, stroke 0.15s ease, r 0.2s ease;
-}
-
-.map-node-circle.symbol {
-  filter: drop-shadow(0 0 2px rgba(156, 122, 74, 0.4));
-}
-
-.map-node-circle.assoc {
-  stroke: var(--gold);
-}
-
-.map-node-circle.q {
-  fill: var(--bg-sunken);
-  stroke: var(--gold);
-  stroke-width: 1.5;
-  opacity: 0.9;
-}
-
-.map-label {
-  fill: var(--muted);
-  font-size: 12px;
-  font-family: var(--font-body);
-  paint-order: stroke;
-  stroke: var(--card-bg);
-  stroke-width: 5px;
-  stroke-linejoin: round;
-  transition: fill 0.15s ease, font-weight 0.15s ease;
-}
-
-/* Sembol adı birincil kademe, çağrışım ondan türeyen ikincil kademe — bu
-   fark artık sadece "tıklanınca" değil dururken de okunsun diye. */
-.map-label-symbol {
-  fill: var(--text);
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.map-label-assoc {
-  font-size: 11px;
-}
-
-.map-label-q {
-  font-size: 11px;
-  fill: var(--muted);
-}
-
-.map-node:hover .map-node-circle {
-  stroke-width: 3;
-}
-
-/* Tıklanan çağrışım düğümü "öne çıkar": büyür, altın dolgu + hafif parıltı
-   alır — 4 soru düğümü ondan dallanıyor gibi hissettirir. */
-.map-node-circle.assoc.expanded {
-  r: 13;
-  fill: var(--gold);
-  filter: drop-shadow(0 0 6px var(--gold-soft));
-}
-
-.map-node.assoc.expanded .map-label {
-  fill: var(--text);
-  font-weight: 600;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .map-flower-layer .map-node {
-    animation: itemIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-    animation-delay: calc(var(--i, 0) * 40ms);
-  }
-
-  /* İlk çizimde çekirdek/çağrışım halkası da (yaprak düğümleri gibi) sırayla
-     belirsin — harita açılırken cansız bir "hazır kurulmuş" hisse değil,
-     dışa doğru büyüyen bir hisse sahip olsun. */
-  .map-entrance {
-    animation: itemIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-    animation-delay: calc(var(--i, 0) * 55ms);
-  }
-
-  /* Henüz açılmamış altın çağrışım düğümleri hafifçe "nefes alır" — tıklanabilir
-     olduklarını sessizce hissettirir, expanded olunca (r geçişli büyüme + sabit
-     parıltı) bu döngü yerini o duruma bırakır. */
-  .map-node-circle.assoc:not(.expanded) {
-    animation: goldBreathe 3.2s ease-in-out infinite;
-    animation-delay: calc(var(--i, 0) * 220ms);
-  }
-}
-
-@keyframes goldBreathe {
-  0%, 100% { filter: drop-shadow(0 0 0 transparent); }
-  50% { filter: drop-shadow(0 0 4px var(--gold-soft)); }
 }
 
 /* ---------- Giriş ekranı ---------- */
