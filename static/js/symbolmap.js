@@ -348,7 +348,7 @@ const SymbolMap = (() => {
     return { x: rect.x + rect.w / 2 - side / 2, y: rect.y + rect.h / 2 - side / 2, w: side, h: side };
   }
 
-  function drawQuestionBoxes(svg, sym, cx, cy, outerR, a0, a1, block, P, fonts) {
+  function drawQuestionBoxes(svg, sym, cx, cy, outerR, a0, a1, block, P, fonts, wobbleId) {
     const metrics = questionBoxMetrics(sym, fonts);
     if (!metrics) return;
     const { boxes, fq, fa } = metrics;
@@ -379,6 +379,7 @@ const SymbolMap = (() => {
         stroke: P.gold,
         "stroke-width": 1.25,
         "stroke-dasharray": "4 4",
+        filter: `url(#${wobbleId})`,
       })
     );
 
@@ -397,7 +398,8 @@ const SymbolMap = (() => {
           rx: 8,
           fill: P.card,
           stroke: P.gold,
-          "stroke-width": 1.25,
+          "stroke-width": 1.4,
+          filter: `url(#${wobbleId})`,
         })
       );
       let cursor = by + Q_BOX_PAD;
@@ -423,7 +425,7 @@ const SymbolMap = (() => {
   // Bir dilim çemberini tam olarak çizer (kadran halkası + tüm sembol
   // dilimleri + merkez göbek) — 15'ten fazla sembolde birden fazla kez
   // çağrılıp alt alta dizilir (bkz. buildSunburstSvg).
-  function drawOneCircle(svg, defs, arcPrefix, symbols, cx, cy, unit, P, fonts, interactive, centerGradId, ambientGradId, centerLabel, expandedIndex, onExpand, qBlock) {
+  function drawOneCircle(svg, defs, arcPrefix, symbols, cx, cy, unit, P, fonts, interactive, centerGradId, ambientGradId, centerLabel, expandedIndex, onExpand, qBlock, wobbleId) {
     const n = symbols.length || 1;
     const hubR = HUB_WEIGHT * unit;
     const { radii, outerR } = ringRadii(hubR, unit);
@@ -437,7 +439,18 @@ const SymbolMap = (() => {
     // Gravürlü dış kadran halkası — Astrolab dilinin bu haritada da
     // sürmesi için (bkz. .map-rim CSS'i, yavaşça dönen kesikli çizgi).
     svg.appendChild(
-      el("circle", { cx, cy, r: outerR + 14, fill: "none", stroke: P.ring, "stroke-width": 1, class: interactive ? "map-rim" : "" })
+      el("circle", {
+        cx,
+        cy,
+        r: outerR + 14,
+        fill: "none",
+        stroke: P.ring,
+        "stroke-width": 1.4,
+        "stroke-dasharray": "7 9",
+        "stroke-linecap": "round",
+        filter: `url(#${wobbleId})`,
+        class: interactive ? "map-rim" : "",
+      })
     );
 
     const slot = 360 / n;
@@ -508,7 +521,7 @@ const SymbolMap = (() => {
       svg.appendChild(group);
 
       if (isOpen && interactive && qBlock) {
-        drawQuestionBoxes(svg, sym, cx, cy, outerR, a0, a1, qBlock, P, fonts);
+        drawQuestionBoxes(svg, sym, cx, cy, outerR, a0, a1, qBlock, P, fonts, wobbleId);
       }
     });
 
@@ -520,6 +533,7 @@ const SymbolMap = (() => {
         class: interactive ? "map-center-circle" : "",
         stroke: P.accent,
         "stroke-width": 2.5,
+        filter: `url(#${wobbleId})`,
         style: `fill:url(#${centerGradId})`,
       })
     );
@@ -610,6 +624,11 @@ const SymbolMap = (() => {
     const uid = `sm${++uidCounter}`;
     const centerGradId = `${uid}-center`;
     const ambientGradId = `${uid}-ambient`;
+    // Elle çizilmiş sapma: dilim hücrelerine DEĞİL (yayları zaten cetvel
+    // hissi vermiyor, üstelik 15 hücreye ayrı filtre pahalı), sadece düz
+    // kenarlı/dekoratif elemanlara — kadran halkası, göbek, soru kutuları ve
+    // bağlantı çizgisi. Metne hiç uygulanmıyor.
+    const wobbleId = `${uid}-wobble`;
 
     const defs = el("defs", {});
     const centerGrad = el("radialGradient", { id: centerGradId, cx: "35%", cy: "30%", r: "75%" });
@@ -624,6 +643,7 @@ const SymbolMap = (() => {
       ambientGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#8c764e", "stop-opacity": "0" }));
       defs.appendChild(ambientGrad);
     }
+    defs.appendChild(Ink.handDrawnFilter(wobbleId, 1.4));
     svg.appendChild(defs);
 
     // Tıklanınca (veya kapanınca) haritayı aynı elemanın içine yeniden çiz;
@@ -661,7 +681,8 @@ const SymbolMap = (() => {
         centerLabel,
         localExpanded,
         onExpand ? (localIdx) => onExpand(localIdx === null ? null : offset + localIdx) : null,
-        pc.qBlock
+        pc.qBlock,
+        wobbleId
       );
     });
 
@@ -1165,11 +1186,27 @@ const SymbolMap = (() => {
     await svgToPngDownload(buildWorksheetSvg(record, "dark"), "calisma-sayfasi");
   }
 
+  // Markdown raporuna gömülebilen, kendi kendine yeten görsel: kâğıt paletli
+  // SVG'nin data-URI'si. base64 değil yüzde-kodlama — SVG metin olduğu için
+  // base64 dosyayı ~%33 şişiriyor, ayrıca encodeURIComponent Türkçe
+  // karakterleri UTF-8 olarak doğru kaçırıyor (btoa Latin-1 dışına çıkamıyor).
+  function mapDataUri(record) {
+    const svg = buildExportSvg(record, "paper");
+    const markup = new XMLSerializer().serializeToString(svg);
+    // encodeURIComponent parantezleri KAÇIRMAZ, ama SVG içinde `url(#...)`
+    // (gradyan/filtre referansları) geçiyor. Markdown'da `![alt](url)` biçimi
+    // ilk kapanan parantezde biter — kaçırılmazsa görsel bağlantısı tam
+    // ortasından kopuyor ve harita bozuk görünüyor. Elle kaçırıyoruz.
+    const encoded = encodeURIComponent(markup).replace(/\(/g, "%28").replace(/\)/g, "%29");
+    return `data:image/svg+xml;charset=utf-8,${encoded}`;
+  }
+
   return {
     render,
     buildMapSvg: buildExportSvg,
     buildWorksheetSvg,
     exportWorksheetPng,
+    mapDataUri,
     svgToString: (svg) => new XMLSerializer().serializeToString(svg),
     questionLabels: QUESTIONS,
     fonts: { head: EX_FONT_HEAD, body: EX_FONT_BODY },

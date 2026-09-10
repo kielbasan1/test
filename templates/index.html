@@ -170,6 +170,20 @@
         </label>
       </div>
 
+      <!-- ADIM 3c: sembol üzerine serbest notlar -->
+      <div id="symbol-notes" class="symbol-notes hidden">
+        <label class="notes-private">
+          <span data-i18n="notes.meditation">Meditasyonlar / notlar</span>
+          <span class="notes-tag" data-i18n="notes.privateTag">rapora girmez</span>
+          <textarea data-note="meditation" rows="4" data-i18n-placeholder="notes.meditationPlaceholder" placeholder="Bu sembolle otururken aklına ne geldiyse — yarım düşünceler, hatırladıkların, hislerin…"></textarea>
+        </label>
+        <label class="notes-public">
+          <span data-i18n="notes.report">Rapora eklenmesini istediğin şey</span>
+          <span class="notes-tag notes-tag-in" data-i18n="notes.publicTag">rapora girer</span>
+          <textarea data-note="report_note" rows="3" data-i18n-placeholder="notes.reportPlaceholder" placeholder="Bu semboldeki notlarından raporda kalmasını istediğin kısım…"></textarea>
+        </label>
+      </div>
+
       <div class="row">
         <button id="btn-next-symbol" class="btn-primary hidden" data-i18n="wheel.nextSymbol">Sonraki Sembol →</button>
       </div>
@@ -182,7 +196,28 @@
       </button>
       <h2 data-i18n="finalize.heading">Kendi Yorumun</h2>
       <p class="hint" data-i18n="finalize.hint">Yorumu yazan sensin. Sembollerinin, çağrışımlarının ve dört sorunun cevaplarının üstüne otur: bu rüya sana ne söylüyor? Acele etme — günlerce açık bırakabilirsin, yazdıkların kayıtlı kalır.</p>
-      <textarea id="my-interpretation" rows="12" data-i18n-placeholder="finalize.placeholder" placeholder="Bu rüya bana şunu söylüyor…"></textarea>
+
+      <details class="johnson-rules">
+        <summary data-i18n="johnson.summary">Johnson'ın yorum için verdiği ölçütler</summary>
+        <ol>
+          <li data-i18n="johnson.r1">Egonun zaten bildiğini değil, bilmediğini gösteren yorumu seç. Tanıdık gelen ama yeni hiçbir şey söylemeyen yorum büyük ihtimalle rüyanın değil, senin tekrarındır.</li>
+          <li data-i18n="johnson.r2">Seni yücelten, haklı çıkaran, öven yorumdan şüphelen. Rüyalar bitmiş işe değil bitmemiş işe bakar.</li>
+          <li data-i18n="johnson.r3">Sorumluluğu eşine, patronuna, "onlara" atan yorumdan kaçın. Rüyadaki figürlerin neredeyse tamamı senin kendi iç parçalarındır.</li>
+          <li data-i18n="johnson.r4">Bazı rüyalar hemen çözülmez. Belirsizlikle bir süre yaşamayı öğren — zorlama bir anlam, anlamsızlıktan kötüdür.</li>
+          <li data-i18n="johnson.r5">Ölçüt duygudadır: doğru yorum yazıldığında "cuk oturan" bir enerji ve yeni bir görme açar. Sönük kalıyorsa yanlıştır, tekrar bak.</li>
+        </ol>
+        <p class="johnson-ritual" data-i18n="johnson.ritual">Johnson'ın yönteminde bundan sonraki adım ritüel: yorumu somut, sembolik bir eylemle hayata bağlamak — anlaşılmakla kalmayıp yaşanması. Ama ritüeli sana bu uygulama öneremez. Neyin sende gerçekten karşılığı olduğunu yalnızca sen bilirsin; dışarıdan verilen bir ritüel tam da yöntemin kaçındığı şey olur. Yorumunu yazdıktan sonra onu kendin kur.</p>
+      </details>
+
+      <div class="finalize-map">
+        <h3 data-i18n="finalize.mapHeading">Sembol Haritası</h3>
+        <p class="hint small" data-i18n="finalize.mapHint">Yazarken buradan bakabilirsin. Altın çağrışıma tıkla — o sembolün dört sorusu ve cevapları açılır. Haritanın köşesindeki düğmelerle haritayı ve çalışma sayfasını PNG olarak indirebilirsin.</p>
+        <div class="symbol-map-wrap">
+          <svg id="finalize-map-svg" viewBox="0 0 640 640" width="640" height="640"></svg>
+        </div>
+      </div>
+
+      <textarea id="my-interpretation" rows="14" data-i18n-placeholder="finalize.placeholder" placeholder="Bu rüya bana şunu söylüyor…"></textarea>
       <p class="hint small" id="finalize-gate" data-i18n="finalize.gate">Yapay zeka yardımı ancak kendi yorumunu yazdıktan sonra açılır — sonra ne göremediğine bakar, senin yerine yorumlamaz.</p>
       <div class="row">
         <button id="btn-finish" class="btn-primary" disabled>
@@ -195,6 +230,12 @@
           <svg class="icon icon-sm"><use href="#icon-download"/></svg><span data-i18n="finalize.saveDraft">Taslak Kaydet (.json)</span>
         </button>
         <span id="finalize-status" class="status"></span>
+      </div>
+
+      <div class="finalize-data">
+        <h3 data-i18n="finalize.dataHeading">Çalışman</h3>
+        <p class="hint small" data-i18n="finalize.dataHint">Bu rüya için topladığın her şey burada — yukarı çıkmadan bakıp yazmaya devam edebilirsin.</p>
+        <div id="finalize-cards" class="finalize-cards"></div>
       </div>
     </section>
 
@@ -262,6 +303,7 @@
   </main>
 
   <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/ink.js') }}"></script>
   <script src="{{ url_for('static', filename='js/wheel.js') }}"></script>
   <script src="{{ url_for('static', filename='js/symbolmap.js') }}"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>

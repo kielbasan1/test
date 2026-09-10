@@ -3,7 +3,8 @@
     dreamText: "",
     dreamContext: "",
     myInterpretation: "", // kullanıcının KENDİ yorumu — asıl olan bu, AI ondan sonra gelir
-    symbols: [], // { name, name_en, context, associations: [{id,text,selected}], questions: {q1..q4} }
+    symbols: [], // { name, name_en, context, associations: [{id,text,selected}], questions: {q1..q4},
+    //            meditation (rapora girmez), report_note (rapora girer) }
     activeIndex: null,
     resultReady: false,
     lastMainStep: null, // geçmiş ekranından geri dönülecek adım
@@ -36,6 +37,7 @@
     btnAmplify: document.getElementById("btn-amplify"),
     amplifyResult: document.getElementById("amplify-result"),
     fourQuestions: document.getElementById("four-questions"),
+    symbolNotes: document.getElementById("symbol-notes"),
     btnNextSymbol: document.getElementById("btn-next-symbol"),
     stepFinalize: document.getElementById("step-finalize"),
     btnFinalizeBack: document.getElementById("btn-finalize-back"),
@@ -43,6 +45,8 @@
     btnFinish: document.getElementById("btn-finish"),
     myInterpretation: document.getElementById("my-interpretation"),
     finalizeGate: document.getElementById("finalize-gate"),
+    finalizeMapSvg: document.getElementById("finalize-map-svg"),
+    finalizeCards: document.getElementById("finalize-cards"),
     finalizeStatus: document.getElementById("finalize-status"),
     stepResult: document.getElementById("step-result"),
     myInterpBlock: document.getElementById("my-interpretation-block"),
@@ -153,8 +157,12 @@
     const finish = () => {
       allSteps().forEach((s) => s.classList.toggle("hidden", s !== section));
       // Yorum adımına her girişte metin alanı state ile eşitlenir — kullanıcı
-      // sembollere geri dönüp tekrar geldiğinde yazdığı yorum kaybolmasın.
-      if (section === el.stepFinalize) el.myInterpretation.value = state.myInterpretation || "";
+      // sembollere geri dönüp tekrar geldiğinde yazdığı yorum kaybolmasın —
+      // ve harita/veri paneli o anki veriyle yeniden çizilir.
+      if (section === el.stepFinalize) {
+        el.myInterpretation.value = state.myInterpretation || "";
+        renderFinalizeWorkspace();
+      }
       if (section !== el.stepHistory) {
         state.lastMainStep = section;
         updateStepLabel(section);
@@ -404,6 +412,8 @@
         context: s.context,
         associations: [],
         questions: { q1: "", q2: "", q3: "", q4: "" },
+        meditation: "",
+        report_note: "",
       }));
       setStatus(el.extractStatus, I18N.t("dream.status.found", { n: state.symbols.length }));
       renderChips();
@@ -512,6 +522,8 @@
       context: "",
       associations: [],
       questions: { q1: "", q2: "", q3: "", q4: "" },
+      meditation: "",
+      report_note: "",
     });
     el.manualSymbolInput.value = "";
     renderChips();
@@ -739,11 +751,15 @@
     const sym = currentSymbol();
     const hasSelection = sym && sym.associations.some((a) => a.selected);
     el.fourQuestions.classList.toggle("hidden", !hasSelection);
+    el.symbolNotes.classList.toggle("hidden", !hasSelection);
     el.btnNextSymbol.classList.toggle("hidden", !hasSelection);
     if (!hasSelection) return;
 
     el.fourQuestions.querySelectorAll("textarea[data-q]").forEach((ta) => {
       ta.value = sym.questions[ta.dataset.q] || "";
+    });
+    el.symbolNotes.querySelectorAll("textarea[data-note]").forEach((ta) => {
+      ta.value = sym[ta.dataset.note] || "";
     });
 
     const anotherIncomplete = state.symbols.some(
@@ -759,6 +775,19 @@
       const sym = currentSymbol();
       if (!sym) return;
       sym.questions[ta.dataset.q] = ta.value;
+      saveProgress();
+    });
+  });
+
+  // Serbest notlar: "meditation" kişiye özel kalır (rapora hiç girmez),
+  // "report_note" rapora girer. Ayrım bilinçli — kullanıcı sembolle otururken
+  // yazdığı her şeyi paylaşmak zorunda kalmasın, ama işine yarayan kısmı
+  // rapora taşıyabilsin (Kaan'ın isteği, 2026-09-11).
+  el.symbolNotes.querySelectorAll("textarea[data-note]").forEach((ta) => {
+    ta.addEventListener("input", () => {
+      const sym = currentSymbol();
+      if (!sym) return;
+      sym[ta.dataset.note] = ta.value;
       saveProgress();
     });
   });
@@ -787,6 +816,49 @@
     saveProgress();
   });
 
+  // Yorum adımı, yazarken bakılacak her şeyi taşır: üstte harita, ortada
+  // yazma kutusu, altta toplanan verinin tamamı (Kaan'ın isteği,
+  // 2026-09-11 — "bakıp bakıp yazabileyim"). Harita, sonuç ekranındakiyle
+  // aynı bileşen: kendi yakınlaştırma ve PNG indirme düğmeleriyle geliyor.
+  function renderFinalizeWorkspace() {
+    const record = buildRecord("");
+    if (!record.symbols.length) return;
+    SymbolMap.render(el.finalizeMapSvg, record);
+
+    el.finalizeCards.innerHTML = "";
+    record.symbols.forEach((sym) => {
+      const card = document.createElement("article");
+      card.className = "finalize-card";
+
+      const h = document.createElement("h4");
+      h.textContent = sym.name || "";
+      card.appendChild(h);
+
+      const addField = (label, value, muted) => {
+        if (!value || !String(value).trim()) return;
+        const l = document.createElement("div");
+        l.className = "field-label";
+        l.textContent = label;
+        const v = document.createElement("div");
+        v.className = muted ? "field-value muted" : "field-value";
+        v.textContent = value;
+        card.appendChild(l);
+        card.appendChild(v);
+      };
+
+      addField(I18N.t("worksheet.context"), sym.context, true);
+      addField(I18N.t("worksheet.goldAssoc"), sym.selected_association);
+      const others = (sym.all_associations || []).filter((a) => a && a !== sym.selected_association);
+      addField(I18N.t("worksheet.otherAssoc"), others.join(", "), true);
+      SymbolMap.questionLabels.forEach(([key, label]) => {
+        addField(label, (sym.questions || {})[key]);
+      });
+      addField(I18N.t("notes.report"), sym.report_note);
+
+      el.finalizeCards.appendChild(card);
+    });
+  }
+
   function buildRecord(interpretation) {
     return {
       dream_text: state.dreamText,
@@ -799,6 +871,7 @@
         selected_association: (s.associations.find((a) => a.selected) || {}).text || "",
         all_associations: s.associations.map((a) => a.text),
         questions: s.questions,
+        report_note: s.report_note || "",
       })),
       interpretation: interpretation || "",
     };
@@ -929,6 +1002,11 @@
         return `<div class="field-label">${escapeHtml(label)}</div><div class="field-value">${escapeHtml(answer)}</div>`;
       })
       .join("");
+    // Sembol notlarının SADECE "rapora eklensin" kutusu basılır; meditasyon
+    // notu kayıtta kalır ama hiçbir çıktıya girmez.
+    const noteHtml = (sym.report_note || "").trim()
+      ? `<div class="field-label">${escapeHtml(I18N.t("notes.report"))}</div><div class="field-value note-text">${escapeHtml(sym.report_note.trim())}</div>`
+      : "";
     return `<article class="report-card">
       <h3>${escapeHtml(sym.name || "")}</h3>
       ${contextHtml}
@@ -936,6 +1014,7 @@
       <div class="field-value">${escapeHtml(sym.selected_association || "—")}</div>
       ${othersHtml}
       ${questionsHtml}
+      ${noteHtml}
     </article>`;
   }
 
@@ -994,6 +1073,17 @@
     out.push("");
     out.push(mdBlock(record.dream_text || ""));
     out.push("");
+    // Harita, kâğıt paletli SVG'nin data-URI'si olarak gömülüyor: Markdown
+    // dosyası tek parça kalıyor (yanında bir görsel klasörü taşımak gerekmez)
+    // ve Obsidian gibi okuyucular data-URI'li <img>'yi doğrudan gösteriyor.
+    // Metin düzenleyicide sadece uzun bir satır olarak görünür, o yüzden
+    // rüya metninden SONRA, kendi başlığı altında duruyor.
+    if (symbols.length) {
+      out.push(`## ${I18N.t("report.mapHeading")}`);
+      out.push("");
+      out.push(`![${I18N.t("report.mapHeading")}](${SymbolMap.mapDataUri(record)})`);
+      out.push("");
+    }
     if (record.personal_context) {
       out.push(`**${I18N.t("report.contextHeading")}**`);
       out.push("");
@@ -1022,6 +1112,12 @@
           out.push(`- **${label}** ${answer}`);
         });
         out.push("");
+        if ((sym.report_note || "").trim()) {
+          out.push(`**${I18N.t("notes.report")}**`);
+          out.push("");
+          out.push(mdBlock(sym.report_note));
+          out.push("");
+        }
       });
     }
 
@@ -1446,6 +1542,8 @@
         q3: (s.questions && s.questions.q3) || "",
         q4: (s.questions && s.questions.q4) || "",
       },
+      meditation: s.meditation || "",
+      report_note: s.report_note || "",
     }));
     state.activeIndex = null;
     state.resultReady = false;

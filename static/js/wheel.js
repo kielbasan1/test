@@ -46,19 +46,21 @@ const SymbolWheel = (() => {
       cy: "30%",
       r: "75%",
     });
-    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#262b34" }));
-    centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#0e1015" }));
+    // Kâğıt & kalem: göbek koyu metal değil, sayfanın kendisi.
+    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#fbf7ed" }));
+    centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#efe8d8" }));
 
+    // Seçili ok ucu: parlayan altın değil, ikinci kalemin sepya mürekkebi.
     const goldGrad = el("radialGradient", {
       id: "wheelGoldGrad",
       cx: "35%",
       cy: "30%",
       r: "70%",
     });
-    goldGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#f3d9a8" }));
-    goldGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#a97b3f" }));
+    goldGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#b0793d" }));
+    goldGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#7d4f24" }));
 
-    // Aletin gövdesi: sıcak mor değil, soğuk çelik/gunmetal ambient parıltı.
+    // Kâğıdın üstüne düşen çok hafif gölge — "parıltı" değil.
     const ambientGrad = el("radialGradient", {
       id: "wheelAmbientGrad",
       cx: "50%",
@@ -66,14 +68,12 @@ const SymbolWheel = (() => {
       r: "50%",
     });
     ambientGrad.appendChild(
-      el("stop", { offset: "0%", "stop-color": "#5a6472", "stop-opacity": "0.18" })
+      el("stop", { offset: "0%", "stop-color": "#8c764e", "stop-opacity": "0.1" })
     );
     ambientGrad.appendChild(
-      el("stop", { offset: "100%", "stop-color": "#5a6472", "stop-opacity": "0" })
+      el("stop", { offset: "100%", "stop-color": "#8c764e", "stop-opacity": "0" })
     );
 
-    // İkinci, pirinç tonlu ve merkezden kaydırılmış ışık lekesi — çelik
-    // zemine karşı tek, sıcak bir kadran ışığı hissi verir.
     const ambientGoldGrad = el("radialGradient", {
       id: "wheelAmbientGoldGrad",
       cx: "68%",
@@ -81,30 +81,17 @@ const SymbolWheel = (() => {
       r: "55%",
     });
     ambientGoldGrad.appendChild(
-      el("stop", { offset: "0%", "stop-color": "#c49a5f", "stop-opacity": "0.12" })
+      el("stop", { offset: "0%", "stop-color": "#8a5a2b", "stop-opacity": "0.07" })
     );
     ambientGoldGrad.appendChild(
-      el("stop", { offset: "100%", "stop-color": "#c49a5f", "stop-opacity": "0" })
+      el("stop", { offset: "100%", "stop-color": "#8a5a2b", "stop-opacity": "0" })
     );
-
-    const glowFilter = el("filter", {
-      id: "wheelArrowGlow",
-      x: "-60%",
-      y: "-60%",
-      width: "220%",
-      height: "220%",
-    });
-    glowFilter.appendChild(el("feGaussianBlur", { stdDeviation: "3.2", result: "blur" }));
-    const merge = el("feMerge", {});
-    merge.appendChild(el("feMergeNode", { in: "blur" }));
-    merge.appendChild(el("feMergeNode", { in: "SourceGraphic" }));
-    glowFilter.appendChild(merge);
 
     defs.appendChild(centerGrad);
     defs.appendChild(goldGrad);
     defs.appendChild(ambientGrad);
     defs.appendChild(ambientGoldGrad);
-    defs.appendChild(glowFilter);
+    defs.appendChild(Ink.handDrawnFilter("wheelInkWobble", 1.6));
     svg.appendChild(defs);
   }
 
@@ -155,7 +142,12 @@ const SymbolWheel = (() => {
       "aria-label": assoc.text || "",
     });
     const hitArea = el("line", { class: "wheel-arrow-hitarea" });
-    const line = el("line", { class: "wheel-arrow-line" });
+    // Düz <line> yerine hafifçe yaylı bir <path>: kalemle çekilmiş bir çizgi
+    // hiçbir zaman tam düz olmaz. Ayrıca teknik bir zorunluluk — dikey/yatay
+    // bir <line>'ın sınırlayıcı kutusu sıfır genişlikte olduğu için üzerine
+    // uygulanan SVG filtresi (elle çizilmiş sapma) onu tamamen görünmez
+    // yapıyordu; yay bu sorunu da ortadan kaldırıyor.
+    const line = el("path", { class: "wheel-arrow-line", fill: "none" });
     const tip = el("circle", { r: 7, class: "wheel-arrow-tip" });
     const tipHitArea = el("circle", { r: 18, class: "wheel-arrow-hitarea" });
     const label = el("text", { class: "wheel-arrow-label" });
@@ -176,6 +168,16 @@ const SymbolWheel = (() => {
     return { group, hitArea, line, tip, tipHitArea, label };
   }
 
+  // Basit, kararlı bir string→sayı karması: aynı çağrışım her zaman aynı
+  // eğriyi alsın diye (Math.random olsaydı her çizimde değişirdi).
+  function hashSeed(str) {
+    let h = 0;
+    for (let i = 0; i < String(str).length; i++) {
+      h = (h * 31 + String(str).charCodeAt(i)) % 100000;
+    }
+    return h;
+  }
+
   function positionArrow(refs, assoc, angleDeg) {
     const rad = (angleDeg * Math.PI) / 180;
     const cos = Math.cos(rad);
@@ -192,12 +194,20 @@ const SymbolWheel = (() => {
     if (cos > 0.25) anchor = "start";
     else if (cos < -0.25) anchor = "end";
 
-    for (const node of [refs.hitArea, refs.line]) {
-      node.setAttribute("x1", x1);
-      node.setAttribute("y1", y1);
-      node.setAttribute("x2", x2);
-      node.setAttribute("y2", y2);
-    }
+    refs.hitArea.setAttribute("x1", x1);
+    refs.hitArea.setAttribute("y1", y1);
+    refs.hitArea.setAttribute("x2", x2);
+    refs.hitArea.setAttribute("y2", y2);
+
+    // Okun yayı: orta noktadan çizgiye DİK yönde küçük bir sapma. Sapmanın
+    // yönü ve miktarı çağrışımın id'sinden türetiliyor — böylece her ok kendi
+    // eğrisini korur (her yeniden çizimde zıplamaz) ama oklar birbirinin
+    // kopyası da olmaz.
+    const seed = hashSeed(assoc.id);
+    const bow = ((seed % 100) / 100 - 0.5) * 22; // ±11 birim — eğri fark edilsin
+    const mx = (x1 + x2) / 2 - sin * bow;
+    const my = (y1 + y2) / 2 + cos * bow;
+    refs.line.setAttribute("d", `M ${x1} ${y1} Q ${mx} ${my} ${x2} ${y2}`);
     for (const node of [refs.tip, refs.tipHitArea]) {
       node.setAttribute("cx", x2);
       node.setAttribute("cy", y2);
