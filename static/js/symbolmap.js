@@ -37,7 +37,7 @@ const SymbolMap = (() => {
   // Çemberde SADECE bu iki alan var (Kaan'ın son kararı, 2026-09-11):
   // "less is more" — her hücre bol yer bulsun, metinler kesilmeden tam
   // görünsün. 4 soru ve tam cevapları, bir altın çağrışıma TIKLANINCA
-  // dışarıda açılan 4 kutuda görünüyor (bkz. Q_BAND / expandedIndex);
+  // dışarıda açılan 2×2 dörtgen kutuda görünüyor (bkz. drawQuestionBoxes);
   // resim olarak dışa aktarılırken bu kutular hiç çizilmiyor.
   const RING_ORDER = ["assoc", "name"];
   // Halkanın iç/dış kenarından ne kadarını metin için "kullanılamaz" pay
@@ -225,14 +225,18 @@ const SymbolMap = (() => {
   // buna göre yukarı çekildi.
   const RING_WEIGHT = { assoc: 2.3, name: 1.25 };
   const HUB_WEIGHT = 1.15;
-  // Tıklanınca açılan 4 soru kutusu: en dış halkanın dışında, dört eş
-  // kalınlıkta bant. Sadece etkileşimli haritada ve sadece açık olan
-  // sembol için çizilir; PNG/rapor çıktısında hiç yer almaz.
-  const Q_BAND_WEIGHT = 2.1; // her soru kutusunun kalınlığı (unit cinsinden)
-  const Q_BAND_MIN_DEG = 140; // dar dilimlerde bile kutular bu kadar geniş açılır
-  // Kutunun ne kadarı cevaba ayrılacak — cevap sorudan uzun olduğu için
-  // aslan payı cevapta (ilk denemede tersiydi, cevaplar kesiliyordu).
-  const Q_ANSWER_SHARE = 0.66;
+  // Tıklanınca açılan 4 soru kutusu: en dış halkanın dışında, 2×2 dizilmiş
+  // DÖRTGEN kutular (Kaan'ın kararı, 2026-09-11 — önceki yay/bant biçimi
+  // istenmedi). Yatay metin, düz kenar; sadece etkileşimli haritada ve
+  // sadece açık olan sembol için çizilir, PNG/rapor çıktısında hiç yer almaz.
+  const Q_BOX_W = 232; // tek kutunun genişliği (px)
+  const Q_BOX_GAP = 16; // kutular arası boşluk
+  const Q_BOX_PAD = 12; // kutu içi kenar boşluğu
+  const Q_BOX_MIN_H = 96;
+  const Q_BOX_GRACE_H = 320; // bu yüksekliği aşarsa önce fontu küçültmeyi dene
+  const Q_LINE_GAP = 1.35; // soru satırları arası (font katı)
+  const Q_ANSWER_LINE_GAP = 1.45;
+  const Q_LEAD_GAP = 8; // soru bloğu ile cevap bloğu arası boşluk
   // Font boyutu BİLEREK unit'e (yarıçapa) bağlı değil, sabit — sembol
   // sayısı arttıkça unit'i (ve yarıçapı) büyütüp fontu SABİT tutmak, bir
   // dilime düşen karakter bütçesini gerçekten artıran tek şey. İkisi
@@ -247,7 +251,7 @@ const SymbolMap = (() => {
   // rüya) bir satırın çemberin üçte birini kaplamasını engellemek için var;
   // asıl sınırlayıcı yay uzunluğu hesabı (bkz. fitCellText). Otomatik font
   // küçültme bu tavana takılıp boşa çalışmasın diye cömert tutuldu.
-  const RING_MAXCHARS = { name: 36, assoc: 46, question: 52, answer: 52 };
+  const RING_MAXCHARS = { name: 36, assoc: 46 };
 
   // Sembol sayısı taban değerin (8) üzerindeyse yarıçapı (ve tuvali)
   // orantılı büyüt — bir sembole düşen yay uzunluğunu sembol sayısından
@@ -267,45 +271,159 @@ const SymbolMap = (() => {
     return { radii, outerR: r };
   }
 
+  function questionAnswer(sym, key) {
+    const answer = (sym.questions || {})[key];
+    return answer && answer.trim() ? answer.trim() : "—";
+  }
+
+  // Bir sembolün dört kutusunun, metni HİÇ kesmeden sığdığı kutu yüksekliğini
+  // ve font ölçeğini hesaplar. Önce fontu kademeli küçültmeyi dener; kabul
+  // edilebilir bir küçültmeyle bile sığmıyorsa kutu uzar (tam metin, kesme
+  // yasak — Kaan'ın kuralı).
+  function questionBoxMetrics(sym, fonts) {
+    const innerW = Q_BOX_W - 2 * Q_BOX_PAD;
+    for (let scale = 1; scale >= 0.7; scale -= 0.05) {
+      const fq = fonts.question * scale;
+      const fa = fonts.answer * scale;
+      let tallest = 0;
+      const boxes = QUESTIONS.map(([key, label]) => {
+        const qLines = wrapLines(label, charsPerLine(fq, innerW));
+        const aLines = wrapLines(questionAnswer(sym, key), charsPerLine(fa, innerW));
+        const h =
+          2 * Q_BOX_PAD +
+          qLines.length * fq * Q_LINE_GAP +
+          Q_LEAD_GAP +
+          aLines.length * fa * Q_ANSWER_LINE_GAP;
+        tallest = Math.max(tallest, h);
+        return { key, qLines, aLines };
+      });
+      const boxH = Math.max(Q_BOX_MIN_H, Math.ceil(tallest));
+      if (boxH <= Q_BOX_GRACE_H || scale <= 0.7) {
+        return { boxes, boxH, fq, fa };
+      }
+    }
+    return null; // erişilmez; döngü scale<=0.7'de zaten dönüyor
+  }
+
+  // Bir çemberdeki TÜM sembollerin kutu bloğu için ortak boyut. Tek tek
+  // hesaplanırsa açılan sembole göre tuval boyutu zıplardı — en büyüğüne göre
+  // bir kere yer ayrılıyor, harita hiç yeniden ölçeklenmiyor.
+  function questionBlockSize(symbols, fonts) {
+    let boxH = Q_BOX_MIN_H;
+    (symbols || []).forEach((sym) => {
+      const m = questionBoxMetrics(sym, fonts);
+      if (m && m.boxH > boxH) boxH = m.boxH;
+    });
+    const blockW = 2 * Q_BOX_W + Q_BOX_GAP;
+    const blockH = 2 * boxH + Q_BOX_GAP;
+    return { blockW, blockH, halfDiag: Math.hypot(blockW / 2, blockH / 2) };
+  }
+
+  // Yatay (düz) çok satırlı metin — kutu içi için. Halka hücrelerindeki yay
+  // metninin (drawRadialCellText) aksine burada eğrilik yok, kutular dörtgen.
+  function drawBoxText(parent, x, y, lines, fontSize, lineGap, fill, weight, family) {
+    if (!lines.length) return y;
+    const text = el("text", {
+      x,
+      y: y + fontSize * 0.85,
+      fill,
+      "font-family": family,
+      "font-size": fontSize,
+      "font-weight": weight,
+    });
+    lines.forEach((line, i) => {
+      text.appendChild(el("tspan", { x, dy: i === 0 ? 0 : fontSize * lineGap }, line));
+    });
+    parent.appendChild(text);
+    return y + lines.length * fontSize * lineGap;
+  }
+
   // Bir altın çağrışıma tıklandığında, o sembolün dört sorusunu ve TAM
-  // cevaplarını dış halkanın dışında dört kutu olarak çizer. Kutular
-  // dilimden daha geniş bir açıya yayılabilir (Q_BAND_MIN_DEG) — aynı anda
-  // sadece bir sembol açık olduğu için komşu dilimlerle çakışma riski yok,
-  // bu da uzun cevaplara bol yer bırakıyor. Her kutu iki parçaya bölünür:
-  // dışta soru (küçük punto, vurgu rengi), içte cevap (normal punto).
-  function drawQuestionBand(svg, defs, arcPrefix, sym, cx, cy, outerR, unit, a0, a1, P, fonts) {
+  // cevaplarını dış halkanın dışında 2×2 dizilmiş dört DÖRTGEN kutuda çizer.
+  // Blok, dilimin orta açısı yönünde dışarı taşınıyor ve dilime ince bir
+  // çizgiyle bağlanıyor; aynı anda yalnızca bir sembol açık olduğu için
+  // komşu dilimlerle çakışma riski yok.
+  function squarify(rect) {
+    const side = Math.max(rect.w, rect.h);
+    return { x: rect.x + rect.w / 2 - side / 2, y: rect.y + rect.h / 2 - side / 2, w: side, h: side };
+  }
+
+  function drawQuestionBoxes(svg, sym, cx, cy, outerR, a0, a1, block, P, fonts) {
+    const metrics = questionBoxMetrics(sym, fonts);
+    if (!metrics) return;
+    const { boxes, fq, fa } = metrics;
+    const boxH = (block.blockH - Q_BOX_GAP) / 2;
     const amid = (a0 + a1) / 2;
-    const span = Math.max(a1 - a0, Q_BAND_MIN_DEG);
-    const qa0 = amid - span / 2;
-    const qa1 = amid + span / 2;
-    const t = Q_BAND_WEIGHT * unit;
-    const band = el("g", { class: "map-question-band" });
+    const dx = Math.cos((amid * Math.PI) / 180);
+    const dy = Math.sin((amid * Math.PI) / 180);
 
-    QUESTIONS.forEach(([key, label], qi) => {
-      const r0 = outerR + 22 + qi * t;
-      const r1 = r0 + t * 0.9; // kutular arasında ince boşluk
-      const path = sectorPath(cx, cy, r0, r1, qa0, qa1);
-      band.appendChild(
-        el("path", { d: path, fill: P.card, stroke: P.gold, "stroke-width": 1.25, "fill-opacity": 0.96 })
+    // Blok merkezi: dilimin dışından, bloğun yarı-köşegeni kadar uzakta —
+    // böylece hangi açıda olursa olsun blok tamamen halkanın dışında kalıyor.
+    const bcx = cx + dx * (outerR + 26 + block.halfDiag);
+    const bcy = cy + dy * (outerR + 26 + block.halfDiag);
+
+    const g = el("g", { class: "map-question-band" });
+
+    // Bağlantı çizgisi: dilimin dış kenarından bloğun kenarına (ışının
+    // dikdörtgeni kestiği nokta).
+    const tx = dx === 0 ? Infinity : Math.abs(block.blockW / 2 / dx);
+    const ty = dy === 0 ? Infinity : Math.abs(block.blockH / 2 / dy);
+    const tEdge = Math.min(tx, ty);
+    const from = polar(cx, cy, outerR + 14, amid);
+    g.appendChild(
+      el("line", {
+        x1: from.x,
+        y1: from.y,
+        x2: bcx - dx * tEdge,
+        y2: bcy - dy * tEdge,
+        stroke: P.gold,
+        "stroke-width": 1.25,
+        "stroke-dasharray": "4 4",
+      })
+    );
+
+    const left = bcx - block.blockW / 2;
+    const top = bcy - block.blockH / 2;
+
+    boxes.forEach((box, qi) => {
+      const bx = left + (qi % 2) * (Q_BOX_W + Q_BOX_GAP);
+      const by = top + Math.floor(qi / 2) * (boxH + Q_BOX_GAP);
+      g.appendChild(
+        el("rect", {
+          x: bx,
+          y: by,
+          width: Q_BOX_W,
+          height: boxH,
+          rx: 8,
+          fill: P.card,
+          stroke: P.gold,
+          "stroke-width": 1.25,
+        })
       );
-
-      const answer = (sym.questions || {})[key];
-      const shownAnswer = answer && answer.trim() ? answer : "—";
-      // Kutunun içi cevap (büyük pay), dış şeridi soru.
-      const split = r0 + (r1 - r0) * Q_ANSWER_SHARE;
-      const qFit = fitCellText(label, split, r1, qa0, qa1, fonts.question, RING_MAXCHARS.question, 0.4);
-      drawRadialCellText(band, defs, `${arcPrefix}-${qi}-s`, qFit.lines, cx, cy, split, r1, qa0, qa1, qFit.fontSize, P.accentStrong, P.card);
-      const aFit = fitCellText(shownAnswer, r0, split, qa0, qa1, fonts.answer, RING_MAXCHARS.answer, 0.4);
-      drawRadialCellText(band, defs, `${arcPrefix}-${qi}-c`, aFit.lines, cx, cy, r0, split, qa0, qa1, aFit.fontSize, P.ink, P.card);
+      let cursor = by + Q_BOX_PAD;
+      cursor = drawBoxText(g, bx + Q_BOX_PAD, cursor, box.qLines, fq, Q_LINE_GAP, P.gold, 600, EX_FONT_BODY);
+      drawBoxText(g, bx + Q_BOX_PAD, cursor + Q_LEAD_GAP, box.aLines, fa, Q_ANSWER_LINE_GAP, P.ink, 400, EX_FONT_BODY);
     });
 
-    svg.appendChild(band);
+    svg.appendChild(g);
+
+    // Açılan kutuların okunabilir bir ölçekte görünmesi için istenen çerçeve:
+    // kutu bloğu + bağlantı çizgisinin dilimden çıktığı nokta. Tüm tuvale
+    // (çember + her yöne ayrılmış boş pay) sığdırılırsa metin okunamayacak
+    // kadar küçülüyor; buraya sığdırılınca hem kutular okunuyor hem dilimin
+    // kenarı görünmeye devam ediyor.
+    const pad = 24;
+    const minX = Math.min(left, from.x) - pad;
+    const minY = Math.min(top, from.y) - pad;
+    const maxX = Math.max(left + block.blockW, from.x) + pad;
+    const maxY = Math.max(top + block.blockH, from.y) + pad;
+    svg.__pendingFit = squarify({ x: minX, y: minY, w: maxX - minX, h: maxY - minY });
   }
 
   // Bir dilim çemberini tam olarak çizer (kadran halkası + tüm sembol
   // dilimleri + merkez göbek) — 15'ten fazla sembolde birden fazla kez
   // çağrılıp alt alta dizilir (bkz. buildSunburstSvg).
-  function drawOneCircle(svg, defs, arcPrefix, symbols, cx, cy, unit, P, fonts, interactive, centerGradId, ambientGradId, centerLabel, expandedIndex, onExpand) {
+  function drawOneCircle(svg, defs, arcPrefix, symbols, cx, cy, unit, P, fonts, interactive, centerGradId, ambientGradId, centerLabel, expandedIndex, onExpand, qBlock) {
     const n = symbols.length || 1;
     const hubR = HUB_WEIGHT * unit;
     const { radii, outerR } = ringRadii(hubR, unit);
@@ -389,8 +507,8 @@ const SymbolMap = (() => {
 
       svg.appendChild(group);
 
-      if (isOpen && interactive) {
-        drawQuestionBand(svg, defs, `${arcPrefix}-q${i}`, sym, cx, cy, outerR, unit, a0, a1, P, fonts);
+      if (isOpen && interactive && qBlock) {
+        drawQuestionBoxes(svg, sym, cx, cy, outerR, a0, a1, qBlock, P, fonts);
       }
     });
 
@@ -456,9 +574,12 @@ const SymbolMap = (() => {
       const { outerR } = ringRadii(HUB_WEIGHT * unit, unit);
       // Etkileşimli haritada soru kutuları için dışarıda yer AYRILIR (hiçbir
       // şey açık değilken boş durur ama tuval yeniden boyutlanmasın diye
-      // baştan hesaba katılıyor); dışa aktarımda böyle bir bant hiç yok.
-      const qBandR = interactive ? 22 + 4 * Q_BAND_WEIGHT * unit : 0;
-      return { chunk, unit, outerR, reachR: outerR + 14 + qBandR };
+      // baştan hesaba katılıyor); dışa aktarımda böyle bir blok hiç yok.
+      // Blok merkezi outerR+26+halfDiag'da, bloğun kendisi oradan halfDiag
+      // daha uzağa taşabildiği için pay iki katı halfDiag.
+      const qBlock = interactive ? questionBlockSize(chunk, fonts) : null;
+      const qBandR = qBlock ? 26 + 2 * qBlock.halfDiag : 0;
+      return { chunk, unit, outerR, qBlock, reachR: outerR + 14 + qBandR };
     });
 
     const width = Math.round(Math.max(...geoms.map((g) => g.reachR * 2)) + marginBase * 2);
@@ -472,6 +593,9 @@ const SymbolMap = (() => {
 
     const svg = existingSvg || document.createElementNS(NS, "svg");
     while (svg.firstChild) svg.removeChild(svg.firstChild);
+    // Önceki açılıştan kalan çerçeve isteği temizlenmezse kutular kapatılınca
+    // görünüm eski kutu bloğuna sıkışmış kalır.
+    svg.__pendingFit = null;
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     svg.setAttribute("width", width);
     svg.setAttribute("height", height);
@@ -489,27 +613,28 @@ const SymbolMap = (() => {
 
     const defs = el("defs", {});
     const centerGrad = el("radialGradient", { id: centerGradId, cx: "35%", cy: "30%", r: "75%" });
-    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": theme === "paper" ? "#fffdf7" : "#262b34" }));
+    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": P.card }));
     centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": P.bg }));
     defs.appendChild(centerGrad);
     if (interactive) {
+      // Kâğıtta "parıltı" yok — merkeze doğru çok hafif bir gölgelenme,
+      // sayfanın üstüne konmuş bir çizim hissi versin diye.
       const ambientGrad = el("radialGradient", { id: ambientGradId, cx: "50%", cy: "50%", r: "50%" });
-      ambientGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#5a6472", "stop-opacity": "0.14" }));
-      ambientGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#5a6472", "stop-opacity": "0" }));
+      ambientGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#8c764e", "stop-opacity": "0.09" }));
+      ambientGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#8c764e", "stop-opacity": "0" }));
       defs.appendChild(ambientGrad);
     }
     svg.appendChild(defs);
 
     // Tıklanınca (veya kapanınca) haritayı aynı elemanın içine yeniden çiz;
-    // aynı anda yalnızca tek bir sembolün soru kutuları açık kalır.
+    // aynı anda yalnızca tek bir sembolün soru kutuları açık kalır. Görünüm
+    // kullanıcının kaydırdığı yerde bırakılmıyor, otomatik çerçeveleniyor
+    // (bkz. aşağıdaki fit mantığı): açılınca kutular, kapanınca çemberin
+    // tamamı. Kullanıcının eski kaydırması korunsaydı kutular çoğu zaman
+    // ekran dışında kalırdı.
     const onExpand = interactive
       ? (globalIdx) => {
-          const vb = svg.__vb ? { ...svg.__vb } : null;
           buildSunburstSvg(record, { theme, interactive: true, existingSvg: svg, expandedIndex: globalIdx });
-          if (vb) {
-            svg.__vb = vb;
-            svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
-          }
         }
       : null;
 
@@ -535,7 +660,8 @@ const SymbolMap = (() => {
         ambientGradId,
         centerLabel,
         localExpanded,
-        onExpand ? (localIdx) => onExpand(localIdx === null ? null : offset + localIdx) : null
+        onExpand ? (localIdx) => onExpand(localIdx === null ? null : offset + localIdx) : null,
+        pc.qBlock
       );
     });
 
@@ -560,6 +686,28 @@ const SymbolMap = (() => {
     if (interactive) {
       svg.__record = record;
       initPanZoom(svg);
+
+      // Varsayılan (ve "sıfırla" düğmesinin döndüğü) görünüm, tuvalin tamamı
+      // DEĞİL çemberlerin kendisi: soru kutuları için her yöne ayrılan pay
+      // hiçbir şey açık değilken boş duruyor, ona da sığdırmak çemberi
+      // okunamayacak kadar küçültüyordu.
+      const fitPad = 26;
+      const closed = squarify({
+        x: Math.min(...placed.map((p) => p.cx - p.outerR)) - fitPad,
+        y: Math.min(...placed.map((p) => p.cy - p.outerR)) - fitPad,
+        w:
+          Math.max(...placed.map((p) => p.cx + p.outerR)) -
+          Math.min(...placed.map((p) => p.cx - p.outerR)) +
+          2 * fitPad,
+        h:
+          Math.max(...placed.map((p) => p.cy + p.outerR)) -
+          Math.min(...placed.map((p) => p.cy - p.outerR)) +
+          2 * fitPad,
+      });
+      svg.__vbBase = closed;
+      svg.__vb = svg.__pendingFit ? { ...svg.__pendingFit } : { ...closed };
+      svg.__pendingFit = null;
+      setViewBox(svg);
     }
 
     return svg;
@@ -786,31 +934,33 @@ const SymbolMap = (() => {
 
   // ---------- Renk paletleri ----------
 
+  // Ekran paleti — style.css'teki kâğıt & kalem tokenlarıyla birebir aynı.
+  // Eskiden koyu (gunmetal) bir paletti; tema kâğıda dönünce harita ekranda
+  // okunmaz hale gelmişti (Kaan: "karanlık vs görünmüyor").
   const PALETTE = {
-    bg: "#0e1015",
-    card: "#1c1f27",
-    ink: "#e9e4d8",
-    muted: "#9d9788",
-    accent: "#9c7a4a",
-    accentStrong: "#c49a5f",
-    gold: "#e0ab52",
-    ring: "#3a352b",
-    ringSoft: "#26221a",
+    bg: "#efe8d8",
+    card: "#fbf7ed",
+    ink: "#1e2739",
+    muted: "#5d6474",
+    accent: "#2f3a52",
+    accentStrong: "#16203a",
+    gold: "#8a5a2b",
+    ring: "#c9c0aa",
+    ringSoft: "#ddd5c2",
   };
-  // Rapor/yazdırma için ayrı, aydınlık palet — koyu zeminli export kâğıda
-  // basılınca hem mürekkep israf eder hem kötü görünür. Aynı yapı, ters
-  // kontrast: gravür çizgileri koyu, altın çağrışım koyulaştırılmış (açık
-  // kâğıtta okunabilir kalsın diye).
+  // Rapor/yazdırma paleti: aynı kâğıt & kalem dili, sadece biraz daha yüksek
+  // kontrast — basılı kâğıtta ekrandaki krem zemin gereksiz mürekkep yakıyor,
+  // zemin beyaza yaklaşıyor ve çizgiler koyulaşıyor.
   const PALETTE_PAPER = {
-    bg: "#f8f4e9",
-    card: "#fffdf7",
-    ink: "#241f16",
-    muted: "#6b6252",
-    accent: "#7a5a2e",
-    accentStrong: "#5e4322",
-    gold: "#96692a",
-    ring: "#cdbfa0",
-    ringSoft: "#e2d6b8",
+    bg: "#fbf8f0",
+    card: "#ffffff",
+    ink: "#151d2e",
+    muted: "#565d6c",
+    accent: "#28324a",
+    accentStrong: "#101828",
+    gold: "#7d4f24",
+    ring: "#c2b8a1",
+    ringSoft: "#ded6c4",
   };
   // Google Fonts (Cormorant Garamond/Inter) sayfanın <link>'i üzerinden
   // yükleniyor; dışa aktarılan SVG bağımsız bir data-URI olarak

@@ -1,36 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Yön: Pirinç Astrolab. Yüzeyler artık mor/erguvan değil, gravürlü bir
-     aletin içine bakıyormuş gibi soğuk gunmetal/arduvaz — sıcaklık mordan
-     değil pirinçten geliyor. Bkz. .impeccable/surfaces/templates-index-html.md
-     (Direction contract, seed dc7fd291). */
-  --bg: #13151b;
-  --bg-elevated: #1c1f27;
-  --bg-sunken: #0e1015;
-  --card-bg: #1c1f27;
-  --input-bg: #0e1015;
+  /* Yön: Kâğıt & Kalem (pen and paper). Uygulama artık bir "alet" değil, açık
+     duran bir defter: krem kâğıt zemin, lacivert mürekkep, ince kalem çizgisi.
+     Altın/pirinç dekor kaldırıldı — tek ikinci renk, altın çağrışımı işaretleyen
+     sepya mürekkep (ikinci bir kalem gibi). Kaan'ın gönderdiği referansa göre
+     (Desktop/coUkys/inner_work_app_ui_dream_journal.png). */
+  --bg: #efe8d8;
+  --bg-elevated: #fbf7ed;
+  --bg-sunken: #e6ddc9;
+  --card-bg: #fbf7ed;
+  --input-bg: #fdfaf3;
 
-  /* Metin — sıcak fildişi/kağıt tonu, soğuk zeminle kontrast kurar */
-  --text: #e9e4d8;
-  --muted: #9d9788;
-  --muted-2: #6c665a;
+  /* Metin — lacivert mürekkep, kâğıt üstünde okunur ama saf siyah değil */
+  --text: #1e2739;
+  --muted: #5d6474;
+  --muted-2: #8b8f9b;
 
-  /* Marka: eskitilmiş pirinç/bronz. Altın (--gold) artık dekoratif değil,
-     aletin tek "aktif kadran" ışığı — sadece seçili/odaklı durumda yanar. */
-  --accent: #9c7a4a;
-  --accent-strong: #c49a5f;
-  --accent-soft: rgba(156, 122, 74, 0.18);
-  --gold: #e0ab52;
-  --gold-soft: rgba(224, 171, 82, 0.16);
-  --green: #4ade9c;
+  /* Marka: mürekkep. Vurgu parlaklıkla değil koyulukla kuruluyor. */
+  --accent: #2f3a52;
+  --accent-strong: #16203a;
+  --accent-soft: rgba(47, 58, 82, 0.12);
+  /* Altın çağrışım artık "parlayan altın" değil, ikinci kalemin sepya mürekkebi */
+  --gold: #8a5a2b;
+  --gold-soft: rgba(138, 90, 43, 0.14);
+  --green: #2f7d5a;
 
-  --ring: #3a352b;
-  --ring-soft: #26221a;
-  --danger: #f0705a;
-  --danger-soft: rgba(240, 112, 90, 0.14);
+  --ring: #c9c0aa;
+  --ring-soft: #ddd5c2;
+  --danger: #a5372a;
+  --danger-soft: rgba(165, 55, 42, 0.12);
 
   --font-heading: "Cormorant Garamond", Georgia, serif;
   --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
@@ -65,20 +66,18 @@ body {
   -webkit-tap-highlight-color: transparent;
   min-height: 100dvh;
 
-  /* Alet muhafazasının içine bakıyormuş hissi: sabit bir vinyet + göbekten
-     dışa doğru gravürlü, çok ince ok/derece çizgileri (bir pusulanın taksimatı
-     gibi). Nebula/yıldız değil — bu artık bir "aletin içi", gökyüzü değil. */
+  /* Kâğıt yüzeyi: gravür/vinyet yok. Çok ince, düzensiz aralıklı lif dokusu
+     (elde yapılmış kâğıdın taraması) + kenarlara doğru hafif bir sararma —
+     ekranda "üzerine yazılabilir bir sayfa" hissi bırakacak kadar, deseni
+     fark ettirmeyecek kadar zayıf. */
   background-attachment: fixed;
   background-repeat: no-repeat;
   background-color: var(--bg);
   background-image:
-    repeating-conic-gradient(
-      from 0deg at 50% 50%,
-      rgba(156, 122, 74, 0.05) 0deg 0.6deg,
-      transparent 0.6deg 6deg
-    ),
-    radial-gradient(ellipse 1400px 1000px at 50% 8%, rgba(156, 122, 74, 0.07), transparent 60%),
-    radial-gradient(circle at 50% 45%, transparent 0%, transparent 45%, rgba(0, 0, 0, 0.35) 100%);
+    repeating-linear-gradient(90deg, rgba(120, 100, 66, 0.035) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg, rgba(120, 100, 66, 0.028) 0 1px, transparent 1px 4px),
+    radial-gradient(ellipse 1200px 900px at 50% 0%, rgba(255, 253, 246, 0.75), transparent 65%),
+    radial-gradient(circle at 50% 45%, transparent 0%, transparent 55%, rgba(140, 118, 78, 0.16) 100%);
 }
 
 h1, h2, h3 {
@@ -166,7 +165,7 @@ a { color: var(--accent-strong); }
   z-index: 10;
   padding: 20px 20px 14px;
   text-align: center;
-  background: rgba(18, 15, 29, 0.86);
+  background: rgba(239, 232, 216, 0.9);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--ring-soft);
@@ -185,7 +184,6 @@ a { color: var(--accent-strong); }
 
 .brand .icon {
   color: var(--gold);
-  filter: drop-shadow(0 0 10px var(--gold-soft));
 }
 
 .subtitle {
@@ -297,17 +295,12 @@ main {
   border: 1px solid var(--ring);
   border-radius: var(--radius-lg);
   padding: 28px 24px 24px;
-  /* Alet paneli hissi: köşelerde perçin noktaları + üstte ince pirinç
-     bevel çizgisi + zemin gölgesi. Yumuşak bir "glow" değil, mekanik bir
-     panel — kartın kendisi bir alet parçası gibi duruyor. */
-  background-image:
-    radial-gradient(circle 2px at 14px 14px, rgba(196, 154, 95, 0.55), transparent 60%),
-    radial-gradient(circle 2px at calc(100% - 14px) 14px, rgba(196, 154, 95, 0.55), transparent 60%),
-    radial-gradient(circle 2px at 14px calc(100% - 14px), rgba(196, 154, 95, 0.4), transparent 60%),
-    radial-gradient(circle 2px at calc(100% - 14px) calc(100% - 14px), rgba(196, 154, 95, 0.4), transparent 60%);
+  /* Deftere iliştirilmiş bir yaprak: perçin/bevel yok, sadece üstte kâğıdın
+     kendi açık kenarı ve altında yumuşak bir kağıt gölgesi. */
+  background-image: none;
   box-shadow:
-    inset 0 1px 0 rgba(196, 154, 95, 0.12),
-    0 24px 60px -28px rgba(0, 0, 0, 0.7);
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 10px 24px -18px rgba(90, 74, 46, 0.55);
 }
 
 .card.hidden { display: none; }
@@ -337,8 +330,11 @@ h3 {
 
 .hint.small { font-size: 0.82em; }
 
+/* Kenar notu: mavimsi bir gri yıkama kâğıt zeminde soğuk duruyordu —
+   sıcak kâğıt tonu + solda ikinci kalemin (sepya) çizgisi. */
 .onboard-intro {
-  background: var(--accent-soft);
+  background: var(--bg-sunken);
+  border-left: 3px solid var(--gold);
   border-radius: var(--radius-md);
   padding: 16px 18px;
   margin-bottom: 18px;
@@ -410,21 +406,18 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   transform: scale(0.97) translateY(1px);
 }
 
+/* Mürekkeple basılmış düğme: kâğıdın üstünde koyu bir blok, yazısı kâğıt rengi. */
 .btn-primary {
-  background: linear-gradient(180deg, var(--accent-strong), var(--accent));
-  color: #17130b;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 240, 210, 0.35),
-    0 1px 0 rgba(0, 0, 0, 0.4);
+  background: var(--accent-strong);
+  color: #fbf7ed;
+  box-shadow: 0 2px 0 rgba(30, 39, 57, 0.25);
   transition: transform 0.1s ease, background-color 0.15s ease, opacity 0.15s ease,
     border-color 0.15s ease, box-shadow 0.2s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #d3a968, var(--accent-strong));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 240, 210, 0.45),
-    0 2px 10px -2px rgba(196, 154, 95, 0.5);
+  background: var(--accent);
+  box-shadow: 0 2px 0 rgba(30, 39, 57, 0.35);
 }
 
 .btn-primary:disabled {
@@ -893,7 +886,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   border: 1px solid var(--ring);
   border-radius: var(--radius-md);
   background: var(--card-bg);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 12px 28px -14px rgba(90, 74, 46, 0.55);
 }
 
 .report-menu-title {
@@ -1028,7 +1021,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 .wheel-arrow-line {
-  stroke: #5c5a52;
+  stroke: var(--ring);
   stroke-width: 2;
   cursor: pointer;
   touch-action: manipulation;
@@ -1048,7 +1041,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 .wheel-arrow-tip {
-  fill: #5c5a52;
+  fill: var(--ring);
   cursor: pointer;
   transition: fill 0.2s ease, r 0.2s ease, cx 0.35s ease, cy 0.35s ease, filter 0.2s ease;
 }
@@ -1219,8 +1212,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 
 .map-center-circle {
   stroke: var(--accent-strong);
-  stroke-width: 2.5;
-  filter: drop-shadow(0 0 10px var(--gold-soft));
+  stroke-width: 2;
 }
 
 .map-center-text {
@@ -1325,7 +1317,8 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   height: 560px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  /* Kâğıtta "parıltı" değil, sayfanın üstüne düşen ışık lekesi. */
+  background: radial-gradient(circle, rgba(255, 253, 246, 0.85) 0%, transparent 70%);
   pointer-events: none;
   z-index: -1;
 }
