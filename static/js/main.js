@@ -143,6 +143,7 @@
         updateStepLabel(section);
       }
       window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+      saveProgress();
     };
 
     // Adım değişiminde önceki kart kısa bir "çıkış" animasyonuyla solur, sonra
@@ -194,12 +195,150 @@
     el.progressLabel.textContent = state.resultReady
       ? I18N.t("step.done", { prefix: stepPrefix })
       : I18N.t("step.symbolsDone", { prefix: stepPrefix, done: doneSymbols, total: state.symbols.length });
+    saveProgress();
   }
 
   function resetProgress() {
     el.progressWrap.classList.add("hidden");
     el.progressFill.style.width = "0%";
     state.currentStepMeta = null;
+  }
+
+  // ---------- Otomatik ilerleme kaydı (yarım bırak, sonra dön) ----------
+  //
+  // Rüya işi tek oturumda bitmek zorunda değil — "cuk oturan" anlam bazen
+  // günler sonra gelir, takılmak bir başarısızlık değil yöntemin normal
+  // hâli. Bu yüzden akış her adımda sessizce tarayıcıya yazılıyor ve sayfa
+  // yeniden açıldığında kaldığı adımdan devam ediyor: kullanıcıya tek bir
+  // düğme, tek bir "kaydet" işi bile yüklemeden (PRODUCT.md: angarya yok,
+  // akışkan olacak).
+  //
+  // Sunucuya gitmiyor, kayıt kullanıcının kendi tarayıcısında kalıyor
+  // (Kaan'ın tercihi) — yani başka cihazdan görünmez, tarayıcı verisi
+  // silinirse gider. Kalıcı kopya hâlâ .json yedeği / rapor.
+  const PROGRESS_KEY = "symbolcarki:inprogress";
+  const STEP_KEYS = { stepDream: "dream", stepSymbols: "symbols", stepWheel: "wheel", stepFinalize: "finalize" };
+  let progressSaveTimer = null;
+  let restoringProgress = false;
+
+  function currentStepKey() {
+    const visible = allSteps().find((s) => !s.classList.contains("hidden"));
+    const entry = Object.entries(STEP_KEYS).find(([key]) => el[key] === visible);
+    return entry ? entry[1] : null;
+  }
+
+  function clearProgress() {
+    clearTimeout(progressSaveTimer);
+    try {
+      localStorage.removeItem(PROGRESS_KEY);
+    } catch (_e) {
+      /* gizli mod / kapalı depolama: yapacak bir şey yok */
+    }
+  }
+
+  function saveProgress() {
+    if (restoringProgress) return;
+    // Sonuç ekranına gelindiyse iş bitti; yarım kayıt tutmanın anlamı yok.
+    if (state.resultReady) {
+      clearProgress();
+      return;
+    }
+    const step = currentStepKey();
+    if (!step) return; // geçmiş paneli gibi ana akış dışı ekranlar
+    const dreamText = el.dreamText.value || state.dreamText || "";
+    if (!dreamText.trim() && !state.symbols.length) {
+      clearProgress();
+      return;
+    }
+    clearTimeout(progressSaveTimer);
+    progressSaveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          PROGRESS_KEY,
+          JSON.stringify({
+            v: 1,
+            saved_at: new Date().toISOString(),
+            step,
+            activeIndex: state.activeIndex,
+            dream_text: dreamText,
+            personal_context: el.dreamContext.value || state.dreamContext || "",
+            symbols: state.symbols,
+          })
+        );
+      } catch (_e) {
+        /* kota dolu ya da depolama kapalı — sessizce vazgeç, akışı bozma */
+      }
+    }, 400);
+  }
+
+  function readProgress() {
+    try {
+      const raw = localStorage.getItem(PROGRESS_KEY);
+      if (!raw) return null;
+      const saved = JSON.parse(raw);
+      if (!saved || typeof saved.dream_text !== "string" || !Array.isArray(saved.symbols)) return null;
+      if (!saved.dream_text.trim() && !saved.symbols.length) return null;
+      return saved;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function daysAgoLabel(iso) {
+    const then = new Date(iso).getTime();
+    if (!then) return "";
+    const days = Math.floor((Date.now() - then) / 86400000);
+    if (days <= 0) return I18N.t("resume.today");
+    return I18N.t("resume.daysAgo", { days });
+  }
+
+  function showResumeNote(saved) {
+    const note = document.createElement("div");
+    note.className = "resume-note";
+    const text = document.createElement("span");
+    text.textContent = I18N.t("resume.text", { when: daysAgoLabel(saved.saved_at) });
+    const fresh = document.createElement("button");
+    fresh.type = "button";
+    fresh.className = "resume-note-action";
+    fresh.textContent = I18N.t("resume.startOver");
+    fresh.addEventListener("click", () => {
+      clearProgress();
+      note.remove();
+      el.btnNewDream.click();
+    });
+    const dismiss = document.createElement("button");
+    dismiss.type = "button";
+    dismiss.className = "resume-note-close";
+    dismiss.setAttribute("aria-label", I18N.t("resume.dismiss"));
+    dismiss.textContent = "×";
+    dismiss.addEventListener("click", () => note.remove());
+    note.appendChild(text);
+    note.appendChild(fresh);
+    note.appendChild(dismiss);
+    const main = document.querySelector("main");
+    if (main) main.insertBefore(note, main.firstChild);
+  }
+
+  function restoreProgress(saved) {
+    restoringProgress = true;
+    const draft = {
+      is_draft: true,
+      dream_text: saved.dream_text,
+      personal_context: saved.personal_context,
+      symbols: saved.symbols,
+    };
+    const hasSymbols = Array.isArray(saved.symbols) && saved.symbols.length > 0;
+    const wheelIndex =
+      saved.step === "wheel" && hasSymbols && saved.symbols[saved.activeIndex] ? saved.activeIndex : null;
+    let target = el.stepFinalize;
+    if (saved.step === "dream" || !hasSymbols) target = el.stepDream;
+    else if (saved.step === "symbols") target = el.stepSymbols;
+    else if (wheelIndex !== null) target = el.stepWheel;
+
+    loadDraftIntoState(draft, target);
+    if (wheelIndex !== null) selectSymbol(wheelIndex);
+    restoringProgress = false;
+    showResumeNote(saved);
   }
 
   // ---------- Adım: rüya + sembol çıkarma ----------
@@ -578,6 +717,7 @@
       const sym = currentSymbol();
       if (!sym) return;
       sym.questions[ta.dataset.q] = ta.value;
+      saveProgress();
     });
   });
 
@@ -983,7 +1123,12 @@
     );
   }
 
-  function loadDraftIntoState(record) {
+  // targetSection: taslak yüklendikten sonra açılacak adım. Varsayılan Yorum
+  // adımı (taslak dosyası yükleme akışı böyle çalışıyor), ama yarım kalmış
+  // ilerleme geri yüklenirken kaydedilen adım veriliyor — iki ayrı
+  // showOnlyStep çağrısı yapılırsa geçiş animasyonunun zamanlayıcısı yüzünden
+  // yanlış adım kazanıyor (yarış koşulu), o yüzden tek çağrı.
+  function loadDraftIntoState(record, targetSection) {
     state.dreamText = record.dream_text || "";
     state.dreamContext = record.personal_context || "";
     state.symbols = (record.symbols || []).map((s) => ({
@@ -1013,7 +1158,7 @@
     el.btnNewDream.classList.add("hidden");
     renderChips();
     updateProgress();
-    showOnlyStep(el.stepFinalize);
+    showOnlyStep(targetSection || el.stepFinalize);
   }
 
   el.btnSaveDraft.addEventListener("click", () => {
@@ -1075,6 +1220,7 @@
     setStatus(el.finalizeStatus, "");
     el.btnNewDream.classList.add("hidden");
     resetProgress();
+    clearProgress();
 
     showOnlyStep(el.stepDream);
   });
@@ -1226,9 +1372,20 @@
     }
   });
 
+  // Rüya metni/bağlamı henüz state'e işlenmeden (sembol çıkarımından önce)
+  // yazılıyor — yarım yazılmış bir rüya da kaybolmasın diye doğrudan
+  // alanları dinliyoruz.
+  el.dreamText.addEventListener("input", saveProgress);
+  el.dreamContext.addEventListener("input", saveProgress);
+
   // ---------- Başlangıç ----------
   // Sayfa "Rüyanı Yaz" adımıyla zaten açık geliyor; ilerleme göstergesini en
   // baştan "Adım 1/5" ile görünür kılıyoruz ki kullanıcı akışın ne kadar
   // sürdüğünü ilk andan itibaren görsün.
   updateStepLabel(el.stepDream);
+
+  // Yarım kalmış bir rüya varsa kaldığı adımdan devam et — hiçbir soru
+  // sormadan, tek tıkla geri dönülebilir bir bilgi notuyla.
+  const savedProgress = readProgress();
+  if (savedProgress) restoreProgress(savedProgress);
 })();

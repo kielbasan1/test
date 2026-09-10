@@ -1151,6 +1151,57 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   touch-action: manipulation;
 }
 
+/* "Kaldığın yerden devam ediyorsun" notu — yarım bırakılan bir rüya geri
+   yüklendiğinde bir kez görünür, akışı bloklamaz (modal değil), tek tıkla
+   sıfırdan başlanabilir. */
+.resume-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 880px;
+  margin: 0 auto 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--ring);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.resume-note span {
+  flex: 1;
+}
+
+.resume-note-action {
+  border: 1px solid var(--ring);
+  background: transparent;
+  color: var(--accent-strong);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.resume-note-action:hover {
+  border-color: var(--accent);
+}
+
+.resume-note-close {
+  border: none;
+  background: transparent;
+  color: var(--muted-2);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.resume-note-close:hover {
+  color: var(--text);
+}
+
 /* ---------- Giriş ekranı ---------- */
 /* Giriş, "boş bir kutu" değil çarkın kendi ambient parıltısının ilk esintisi
    olarak hissettirilsin diye kartı dikey ortalıyor ve arkasına yavaşça nefes
