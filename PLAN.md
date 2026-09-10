@@ -112,6 +112,37 @@ yeniden anlatıyordu — Kaan'ın gözlemi. Free tier'de flash-lite en yüksek g
 kotaya sahip ama en zayıf muhakemeye; flash bir üst kademe, hâlâ ücretsiz, günlük
 kota kişisel kullanım için fazlasıyla yeterli.
 
+**3.3b AI çağrı haritası (2026-09-10 eklendi, 2026-09-10 aynı gün ayrı oturumda
+güncellendi — provider değişince bu tablo da güncellenmeli).** `extract_symbols`
+artık `SYNTHESIS_PROVIDER`'ı hiç okumuyor, her zaman native Gemini kullanıyor —
+bkz. aşağıdaki "Kota testi doğrulandı" bulgusu. `synthesize_interpretation` ve
+`amplify_symbol` hâlâ aynı değişkeni kontrol ediyor (merkezi tek bir yönlendirme
+yok, bilerek — tek bir yerde toplamak istenirse `services/gemini_client.py`'de
+ortak bir `_resolve_provider()` helper'ı düşünülebilir, henüz yapılmadı):
+
+| Çağrı | Dosya | Provider |
+| --- | --- | --- |
+| `extract_symbols` | `services/gemini_client.py` | **Her zaman Gemini**, `GEMINI_MODEL` (flash-lite) — `SYNTHESIS_PROVIDER` etkisiz |
+| `synthesize_interpretation` | `services/gemini_client.py` → `groq_client.py` | `SYNTHESIS_PROVIDER=groq` ise Groq/`GROQ_SYNTHESIS_MODEL`, değilse Gemini/`GEMINI_SYNTHESIS_MODEL` |
+| `amplify_symbol` | aynı | `SYNTHESIS_PROVIDER=groq` ise Groq/`GROQ_EXTRACT_MODEL` (yoksa sentez modeliyle aynı), değilse Gemini/`GEMINI_MODEL` |
+
+`groq_client.extract_symbols` (ve sadece onun kullandığı `_parse_symbols_json`/
+`_strip_json_fence` OTPM-kesilme kurtarma mantığı) artık hiçbir yerden
+çağrılmadığı için silindi — geçmişi git'te duruyor, tekrar gerekirse commit
+`02663a4` civarından geri alınabilir.
+
+Not: local `.env`'de `SYNTHESIS_PROVIDER=groq` tanımlı (bir önceki oturumda
+eklendi), Render dashboard'unda da `groq` set edilmiş durumda — ikisi artık
+tutarlı, ama bu ayrımı unutmamak hâlâ gerekiyor (local ile canlı env'in
+birbirinden bağımsız olduğu daha önce iki kez bulunmuştu).
+
+**Model seçimi tercihi (2026-09-10):** Pareto/less-is-more'a göre sıfırdan
+yazılan yeni `SYNTHESIS_PROMPT`, Groq/`qwen3.6-27b` (reasoning modeli) ile
+test edilince Kaan sonuçları "çok beğendim" dedi. Buradan çıkan kural:
+**ileride sentez için başka bir model değerlendirilecekse, ya aynı model
+ailesinden (Qwen serisi) ya da reasoning yapabilen bir model olsun** — düz,
+reasoning'siz modellerle karşılaştırma yapılmayacak.
+
 ## Faz 3.4 — Sembol Haritası (eklendi)
 
 Kaan'ın isteği: yorumu okumadan önce rüyayı "bütün + parça" olarak görüp kendi
@@ -125,6 +156,30 @@ olarak dar tutuldu — yeni AI çağrısı yok, elimizdeki veriden statik çizim
 gösteren gerçek bir graph (örn. "şu 3 sembol aynı kaçış temasına bağlı") —
 bunun için Gemini'nin sentez çıktısına ayrı bir "temalar + hangi sembolleri
 bağladığı" alanı eklemesi gerekir, prompt/şema tarafında ayrı bir iş.
+
+## Rapor + Çalışma Sayfası — yapıldı (2026-09-10)
+
+Plan: `C:\Users\USER\.claude\plans\fuzzy-growing-hickey.md`. Ham `.txt`
+export'u kalktı, yerine "Rapor" (yeni pencere + tarayıcı yazdır/PDF akışı,
+`main.js: buildReportHtml/openReport`) ve bağımsız bir "Çalışma Sayfası PNG"
+export'u (`symbolmap.js: buildWorksheetSvg`, her sembol kendi kartında,
+bağlam+altın çağrışım+diğer çağrışımlar+4 soru) geldi. Harita export'u
+(sadece sembol+altın çağrışım, 4 soru YOK) değişmedi. Rapor için haritanın
+aydınlık/kâğıt paleti eklendi (`PALETTE_PAPER`, `buildMapSvg(record, "paper")`).
+
+Doğrulama: Chrome uzantısı bu makinede bağlı değildi, canlı tıklama testi
+yapılamadı. Bunun yerine: (1) sunucudan render edilen HTML'de yeni
+buton/ikonların varlığı `curl` ile doğrulandı, (2) `buildMapSvg`/
+`buildWorksheetSvg`'in gerçek SVG kurulum mantığı Node'da bir DOM taslağı
+içinde (15 sembollü gerçekçi test verisi + 1 sembollü + 0 sembollü uç
+durumlar, hem koyu hem kâğıt tema) çalıştırılıp hatasız/geçerli boyutlar
+ürettiği doğrulandı. **Gerçek tarayıcıda "Rapor" ve "Çalışma Sayfası PNG"
+düğmelerine tıklayarak görsel/işlevsel doğrulama henüz yapılmadı — Kaan'ın
+kendi tarayıcısında denemesi gerekiyor.**
+
+Sırada: C (haritanın görsel kalite yükseltmesi) — Kaan'ın göndereceği ekran
+görüntüsü/video referansı bekleniyor, kendi başıma tasarım turuna
+girilmeyecek.
 
 ## Faz 4 — Vault entegrasyonu
 

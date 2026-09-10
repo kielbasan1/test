@@ -7,7 +7,7 @@
     resultReady: false,
     lastMainStep: null, // geçmiş ekranından geri dönülecek adım
     currentStepMeta: null, // { index, name } — ilerleme etiketi için
-    lastRecord: null, // son sentezlenen kayıt — .txt indirmede kullanılır
+    lastRecord: null, // son sentezlenen kayıt — rapor/harita/çalışma sayfası bundan üretilir
   };
 
   const el = {
@@ -43,7 +43,7 @@
     stepResult: document.getElementById("step-result"),
     resultText: document.getElementById("result-text"),
     btnCopyResult: document.getElementById("btn-copy-result"),
-    btnDownloadResult: document.getElementById("btn-download-result"),
+    btnReport: document.getElementById("btn-report"),
     btnDownloadJson: document.getElementById("btn-download-json"),
     symbolMapSvg: document.getElementById("symbol-map-svg"),
     btnShowHistory: document.getElementById("btn-show-history"),
@@ -641,53 +641,160 @@
     showOnlyStep(el.stepResult);
   }
 
-  // ---------- Dışa aktarma (.txt) ----------
-  // Kalıcı depolama (ruyalar/ klasörü) ücretsiz hosting'lerde sunucu her
-  // yeniden başladığında silinebilir; bu yüzden kullanıcı sonucu kendi
-  // cihazına indirip kalıcı hale getirebiliyor — sunucuya bağımlı değil.
+  // ---------- Rapor (yazdır/PDF) ----------
+  // Ham .txt dökümü yerine gerçek bir rapor: harici bağımlılık eklemeden
+  // (yeni pencere + tarayıcının kendi yazdır/PDF-olarak-kaydet akışı),
+  // metni seçilebilir/aranabilir kalan bir belge. Harita bölümü kâğıt
+  // paletiyle (bkz. symbolmap.js PALETTE_PAPER) gömülü SVG olarak basılıyor;
+  // sembol kartları gerçek HTML — böylece tarayıcı sayfa bölmesini
+  // (`break-inside: avoid`) doğru uyguluyor, SVG'de elle hesaplamaya gerek
+  // kalmıyor. "Yorum" bölümü şu an tek AI sentezini gösteriyor; ileride
+  // "yorumu genişlet" (kullanıcının kendi yorumu + AI'ın kör nokta notları)
+  // geldiğinde bu bölüm güncellenecek — veri yoksa (interpretation boşsa)
+  // bölüm hiç basılmıyor.
 
-  function buildExportText(record) {
-    const lines = [];
-    lines.push("SEMBOL ÇARKI — RÜYA KAYDI");
-    lines.push(`Tarih: ${new Date().toLocaleString("tr-TR")}`);
-    lines.push("");
-    lines.push("RÜYA");
-    lines.push(record.dream_text || "");
-    lines.push("");
-    lines.push("Bu rüyayı neden bu gece görmüş olabilirim:");
-    lines.push(record.personal_context || "—");
-    lines.push("");
-    lines.push("SEMBOLLER");
-    (record.symbols || []).forEach((s, i) => {
-      lines.push("");
-      lines.push(`${i + 1}. ${s.name}`);
-      if (s.context) lines.push(`   Bağlam: ${s.context}`);
-      lines.push(`   Seçilen çağrışım: ${s.selected_association || "—"}`);
-      if (s.all_associations && s.all_associations.length) {
-        lines.push(`   Diğer çağrışımlar: ${s.all_associations.join(", ")}`);
-      }
-      const q = s.questions || {};
-      lines.push(`   Bu içimde hangi parçam? ${q.q1 || "—"}`);
-      lines.push(`   Hayatımdaki işlevi ne / nereyi yönetiyor? ${q.q2 || "—"}`);
-      lines.push(`   Kişiliğimin neresinde bunu görüyorum? ${q.q3 || "—"}`);
-      lines.push(`   Kim içimde böyle davranıyor? ${q.q4 || "—"}`);
-    });
-    lines.push("");
-    lines.push("YORUM");
-    lines.push(record.interpretation || "");
-    return lines.join("\n");
+  function escapeHtml(str) {
+    return String(str ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    }[c]));
   }
 
-  function downloadText(filename, content) {
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  function buildReportCardHtml(sym) {
+    const q = sym.questions || {};
+    const others = (sym.all_associations || []).filter((a) => a && a !== sym.selected_association);
+    const contextHtml = sym.context
+      ? `<div class="field-label">${escapeHtml(I18N.t("worksheet.context"))}</div><div class="field-value muted">${escapeHtml(sym.context)}</div>`
+      : "";
+    const othersHtml = others.length
+      ? `<div class="field-label">${escapeHtml(I18N.t("worksheet.otherAssoc"))}</div><div class="field-value muted">${escapeHtml(others.join(", "))}</div>`
+      : "";
+    const questionsHtml = SymbolMap.questionLabels
+      .map(([key, label]) => {
+        const answer = q[key] && q[key].trim() ? q[key] : "—";
+        return `<div class="field-label">${escapeHtml(label)}</div><div class="field-value">${escapeHtml(answer)}</div>`;
+      })
+      .join("");
+    return `<article class="report-card">
+      <h3>${escapeHtml(sym.name || "")}</h3>
+      ${contextHtml}
+      <div class="field-label">${escapeHtml(I18N.t("worksheet.goldAssoc"))}</div>
+      <div class="field-value">${escapeHtml(sym.selected_association || "—")}</div>
+      ${othersHtml}
+      ${questionsHtml}
+    </article>`;
+  }
+
+  function buildReportHtml(record) {
+    const locale = I18N.getLang() === "en" ? "en-US" : "tr-TR";
+    const dateStr = new Date().toLocaleString(locale);
+    const dreamSnippet = (record.dream_text || "").replace(/\s+/g, " ").trim().slice(0, 220);
+    const symbols = record.symbols || [];
+    const mapSvgString = symbols.length ? SymbolMap.svgToString(SymbolMap.buildMapSvg(record, "paper")) : "";
+    const contextBlock = record.personal_context
+      ? `<div class="field-label">${escapeHtml(I18N.t("report.contextHeading"))}</div><p class="context-text">${escapeHtml(record.personal_context)}</p>`
+      : "";
+    const cardsHtml = symbols.map(buildReportCardHtml).join("\n");
+    const interpretationSection = record.interpretation
+      ? `<section class="section">
+          <h2>${escapeHtml(I18N.t("report.interpretationHeading"))}</h2>
+          <p class="interpretation-text">${escapeHtml(record.interpretation)}</p>
+        </section>`
+      : "";
+
+    return `<!doctype html>
+<html lang="${I18N.getLang()}">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(I18N.t("report.title"))}</title>
+<style>
+  :root {
+    --ink:#241f16; --muted:#6b6252; --accent:#7a5a2e; --accent-strong:#5e4322;
+    --gold:#96692a; --ring:#cdbfa0; --paper:#f8f4e9; --card:#fffdf7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; padding:32px 40px 60px; background:var(--paper); color:var(--ink);
+    font-family:${SymbolMap.fonts.body}; font-size:14px; line-height:1.6;
+  }
+  h1, h2, h3 { font-family:${SymbolMap.fonts.head}; color:var(--accent-strong); font-weight:600; margin:0 0 10px; }
+  h1 { font-size:30px; }
+  h2 { font-size:20px; margin-top:0; border-bottom:1px solid var(--ring); padding-bottom:8px; }
+  h3 { font-size:17px; color:var(--accent); margin-bottom:6px; }
+  .cover { text-align:center; padding:70px 0 44px; }
+  .cover .date { color:var(--muted); font-size:13px; margin-bottom:6px; }
+  .cover .snippet { font-style:italic; color:var(--muted); max-width:520px; margin:18px auto 0; }
+  .section { break-before: page; padding-top:8px; }
+  .section:first-of-type { break-before: auto; }
+  .dream-text, .context-text, .interpretation-text { white-space:pre-wrap; }
+  .map-wrap { display:flex; justify-content:center; margin-top:12px; }
+  .map-wrap svg { width:100%; max-width:600px; height:auto; }
+  .report-card {
+    break-inside: avoid; border:1px solid var(--ring); border-radius:10px;
+    padding:18px 22px; margin-bottom:16px; background:var(--card);
+    border-left:5px solid var(--gold);
+  }
+  .field-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-top:12px; }
+  .field-value { margin-top:2px; }
+  .field-value.muted { color:var(--muted); }
+  .print-bar { text-align:center; margin-bottom:24px; }
+  .print-bar button {
+    font-family:${SymbolMap.fonts.body}; font-size:13px; padding:8px 18px; border-radius:999px;
+    border:1px solid var(--ring); background:var(--card); color:var(--accent-strong); cursor:pointer;
+  }
+  @media print { .print-bar { display:none; } body { padding:0 20mm 20mm; } }
+  @page { margin:16mm; }
+</style>
+</head>
+<body>
+  <div class="print-bar">
+    <button type="button" onclick="window.print()">${escapeHtml(I18N.t("report.printButton"))}</button>
+  </div>
+  <div class="cover">
+    <div class="date">${escapeHtml(dateStr)}</div>
+    <h1>${escapeHtml(I18N.t("report.title"))}</h1>
+    <div class="snippet">${escapeHtml(dreamSnippet)}</div>
+    <div class="date">${symbols.length} ${escapeHtml(I18N.t("report.coverSymbolCount"))}</div>
+  </div>
+
+  <section class="section">
+    <h2>${escapeHtml(I18N.t("report.dreamHeading"))}</h2>
+    <p class="dream-text">${escapeHtml(record.dream_text || "")}</p>
+    ${contextBlock}
+  </section>
+
+  ${mapSvgString ? `<section class="section"><h2>${escapeHtml(I18N.t("report.mapHeading"))}</h2><div class="map-wrap">${mapSvgString}</div></section>` : ""}
+
+  ${cardsHtml ? `<section class="section"><h2>${escapeHtml(I18N.t("report.cardsHeading"))}</h2>${cardsHtml}</section>` : ""}
+
+  ${interpretationSection}
+</body>
+</html>`;
+  }
+
+  function openReport(record) {
+    if (!record) return;
+    const html = buildReportHtml(record);
+    const win = window.open("", "_blank");
+    if (!win) {
+      window.alert(I18N.t("report.popupBlocked"));
+      return;
+    }
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    // document.write üzerine bir "load" olayı güvenilir tetiklenmiyor
+    // (pencere about:blank olarak zaten bir kez yüklendi) — kısa bir
+    // gecikmeyle yazdırmayı tetikliyoruz; içerik tamamen satır-içi
+    // olduğu için (harici font/kaynak yok) render için uzun süre gerekmiyor.
+    // Otomatik tetiklenmezse sayfanın üstündeki "Yazdır" düğmesi yedek.
+    setTimeout(() => {
+      win.focus();
+      win.print();
+    }, 150);
   }
 
   function downloadJSON(filename, record) {
@@ -702,11 +809,7 @@
     URL.revokeObjectURL(url);
   }
 
-  el.btnDownloadResult.addEventListener("click", () => {
-    if (!state.lastRecord) return;
-    const slug = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-    downloadText(`ruya-${slug}.txt`, buildExportText(state.lastRecord));
-  });
+  el.btnReport.addEventListener("click", () => openReport(state.lastRecord));
 
   // ---------- Dışa/içe aktarma (.json) ----------
   // Render gibi ücretsiz hosting'lerde disk kalıcı değil — sunucudaki
@@ -730,10 +833,11 @@
     );
   }
 
-  // JSON eklenmeden önceki oturumlardan kalan .txt export'lar da (aynı
-  // "Dosyadan Aç" ile) açılabilsin diye buildExportText'in ürettiği formatı
-  // tersine çeviren bir metin ayrıştırıcı — bu iki fonksiyon aynı formatı
-  // paylaşıyor, biri değişirse öbürü de güncellenmeli.
+  // Rapor (yazdır/PDF) .txt export'un yerini almadan önceki oturumlardan
+  // kalan eski .txt dosyaları da (aynı "Dosyadan Aç" ile) açılabilsin diye —
+  // artık üretilmeyen ama geçmişte kullanılan formatı tersine çeviren bir
+  // metin ayrıştırıcı. Bu format burada sabit kodlanmıştır; geriye dönük
+  // uyumluluk için değiştirilmemeli.
   function parseExportText(text) {
     const DREAM_H = "\nRÜYA\n";
     const CTX_H = "\nBu rüyayı neden bu gece görmüş olabilirim:\n";
@@ -1037,12 +1141,9 @@
       downloadBtn.type = "button";
       downloadBtn.className = "btn-secondary";
       downloadBtn.style.marginBottom = "14px";
-      downloadBtn.appendChild(makeIcon("download", "icon-sm"));
-      downloadBtn.append(I18N.t("result.download"));
-      downloadBtn.addEventListener("click", () => {
-        const slug = (record.saved_at || fname).replace(/[^0-9]/g, "").slice(0, 14) || "ruya";
-        downloadText(`ruya-${slug}.txt`, buildExportText(record));
-      });
+      downloadBtn.appendChild(makeIcon("print", "icon-sm"));
+      downloadBtn.append(I18N.t("result.report"));
+      downloadBtn.addEventListener("click", () => openReport(record));
 
       const downloadJsonBtn = document.createElement("button");
       downloadJsonBtn.type = "button";

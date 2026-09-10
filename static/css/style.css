@@ -1050,11 +1050,18 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   transform: scale(0.92);
 }
 
-.map-export-btn {
+.map-export-controls {
   position: absolute;
   left: 10px;
   top: 10px;
   z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: calc(100% - 20px);
+}
+
+.map-export-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1092,8 +1099,8 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   fill: none;
   stroke: var(--ring);
   stroke-width: 1.25;
-  stroke-dasharray: 2 7;
-  opacity: 0.6;
+  stroke-dasharray: 2 5;
+  opacity: 0.7;
   transform-origin: 320px 320px;
 }
 
@@ -1111,9 +1118,9 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 .map-center-circle {
-  fill: var(--bg-sunken);
-  stroke: var(--accent);
-  stroke-width: 2;
+  stroke: var(--accent-strong);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 10px var(--gold-soft));
 }
 
 .map-center-text {
@@ -1125,14 +1132,20 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 .map-edge {
-  stroke: var(--ring);
+  stroke: var(--accent);
   stroke-width: 1.5;
+  opacity: 0.55;
   transition: stroke 0.2s ease, stroke-width 0.2s ease;
 }
 
+/* Çekirdek → sembol → altın çağrışım tek bir ışının devamı gibi okunsun diye
+   ikinci kolun da kesikli değil düz çizgi, ama daha ince/soluk — hiyerarşiyi
+   (sembol ışını "ana", çağrışım ışını onun devamı) kesiklikle değil
+   kalınlık/opaklıkla veriyoruz. */
 .map-edge-assoc {
-  stroke: var(--ring-soft);
-  stroke-dasharray: 3 4;
+  stroke: var(--gold);
+  stroke-width: 1;
+  opacity: 0.4;
 }
 
 .map-edge-q {
@@ -1148,10 +1161,17 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 .map-node-circle {
-  fill: var(--bg-sunken);
+  /* fill artık burada değil, SVG özniteliği olarak (bkz. symbolmap.js
+     makeNode) — düğümler düz bir renk yerine hafif hacimli bir gradyan
+     alıyor; .assoc.expanded gibi daha spesifik kurallar hâlâ üzerine yazabiliyor
+     çünkü öznitelikler CSS sınıflarından düşük öncelikli. */
   stroke: var(--accent);
   stroke-width: 2;
   transition: fill 0.15s ease, stroke 0.15s ease, r 0.2s ease;
+}
+
+.map-node-circle.symbol {
+  filter: drop-shadow(0 0 2px rgba(156, 122, 74, 0.4));
 }
 
 .map-node-circle.assoc {
@@ -1174,6 +1194,18 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   stroke-width: 5px;
   stroke-linejoin: round;
   transition: fill 0.15s ease, font-weight 0.15s ease;
+}
+
+/* Sembol adı birincil kademe, çağrışım ondan türeyen ikincil kademe — bu
+   fark artık sadece "tıklanınca" değil dururken de okunsun diye. */
+.map-label-symbol {
+  fill: var(--text);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.map-label-assoc {
+  font-size: 11px;
 }
 
 .map-label-q {

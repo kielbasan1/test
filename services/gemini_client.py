@@ -208,15 +208,14 @@ sonrasında hiçbir açıklama yazma.
 
 
 def extract_symbols(dream_text: str) -> list[dict]:
-    # Sentezdeki gibi Groq'a kaçış yolu — SYNTHESIS_PROVIDER tek anahtar,
-    # extraction ve sentez ayrı ayrı sağlayıcı seçmiyor (bkz. Threads.md,
-    # 2026-09-10: extraction'ın hiç kapsanmadığı bulundu).
-    provider = os.environ.get("SYNTHESIS_PROVIDER", "gemini").strip().lower()
-    if provider == "groq":
-        from services import groq_client
-
-        return groq_client.extract_symbols(dream_text)
-
+    # Groq'a yönlendirilmiyor (SYNTHESIS_PROVIDER burada okunmuyor) — bilerek:
+    # 2026-09-10'da gerçek test (scripts/test_gemini_quota.py, 25 art arda
+    # istek) flash-lite'ın kotasının artık sağlıklı olduğunu (~500/gün, eski
+    # "20/gün paylaşımlı" bulgusu bu modelde geçersiz hale gelmiş) doğruladı.
+    # Yan fayda: Groq'un dar dakikalık çıktı-token sınırı artık sadece
+    # sentezle paylaşılıyor, zengin rüyalarda extraction'ın onu tüketip
+    # JSON'u yarıda kesmesi riski azalıyor. synthesize_interpretation hâlâ
+    # Groq'ta kalıyor — Gemini flash aynı testte 503+429 ile başarısız oldu.
     client = _get_client()
     prompt = EXTRACT_PROMPT.replace("{dream_text}", dream_text)
     response = client.models.generate_content(

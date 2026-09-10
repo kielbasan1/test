@@ -12,7 +12,7 @@
 // anda sadece bir çağrışımın yaprağı açık kalır; tekrar tıklamak kapatır.
 //
 // Veri şekli (main.js'deki state.lastRecord / geçmişten gelen record ile
-// aynı — export/buildExportText'in beklediği şekille de örtüşür):
+// aynı — export/rapor/çalışma sayfasının beklediği şekille de örtüşür):
 //   { dream_text, symbols: [{ name, context, selected_association,
 //     all_associations, questions: {q1..q4} }] }
 
@@ -70,16 +70,26 @@ const SymbolMap = (() => {
     return sin < 0 ? -pushOut : pushOut;
   }
 
-  function makeNode(x, y, r, labelText, anchor, dx, cls, dy) {
+  function makeNode(x, y, r, labelText, anchor, dx, cls, dy, fillUrl) {
     const group = el("g", {
       class: `map-node ${cls}`,
       role: "button",
       tabindex: "0",
       "aria-label": labelText,
     });
-    group.appendChild(el("circle", { cx: x, cy: y, r, class: `map-node-circle ${cls}` }));
+    const circleAttrs = { cx: x, cy: y, r, class: `map-node-circle ${cls}` };
+    // fill CSS'te (.map-node-circle) değil öznitelik olarak veriliyor —
+    // öznitelikler CSS sınıf kurallarından daha düşük öncelikli, bu yüzden
+    // .assoc.expanded gibi daha spesifik bir kural (fill: var(--gold))
+    // tıklanınca bu gradyanın üzerine sorunsuz yazabiliyor.
+    if (fillUrl) circleAttrs.fill = fillUrl;
+    group.appendChild(el("circle", circleAttrs));
     group.appendChild(
-      el("text", { x: x + dx, y: y + dy, "text-anchor": anchor, class: "map-label" }, labelText)
+      el(
+        "text",
+        { x: x + dx, y: y + dy, "text-anchor": anchor, class: `map-label map-label-${cls}` },
+        labelText
+      )
     );
     return group;
   }
@@ -110,9 +120,21 @@ const SymbolMap = (() => {
     const ambientGoldGrad = el("radialGradient", { id: `${uid}-ambient-gold`, cx: "68%", cy: "72%", r: "55%" });
     ambientGoldGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#c49a5f", "stop-opacity": "0.11" }));
     ambientGoldGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#c49a5f", "stop-opacity": "0" }));
+    // Düğümler artık düz bir zemin rengi değil, hafif hacimli birer "boncuk" —
+    // objectBoundingBox varsayılanı sayesinde tek bir tanım her düğümde kendi
+    // konumuna göre aynı sol-üst vurgulu ışık yönünü veriyor, düğüm başına
+    // ayrı gradyan gerekmiyor.
+    const nodeGrad = el("radialGradient", { id: `${uid}-node`, cx: "32%", cy: "28%", r: "75%" });
+    nodeGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#3c434d" }));
+    nodeGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#14161c" }));
+    const goldNodeGrad = el("radialGradient", { id: `${uid}-gold-node`, cx: "32%", cy: "28%", r: "75%" });
+    goldNodeGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#4a3a20" }));
+    goldNodeGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#181209" }));
     defs.appendChild(ambientGrad);
     defs.appendChild(ambientGoldGrad);
     defs.appendChild(centerGrad);
+    defs.appendChild(nodeGrad);
+    defs.appendChild(goldNodeGrad);
     svg.appendChild(defs);
 
     svg.appendChild(
@@ -156,7 +178,7 @@ const SymbolMap = (() => {
       const symEdge = el("line", { x1: CX, y1: CY, x2: sx, y2: sy, class: "map-edge map-edge-symbol map-entrance" });
       symEdge.style.setProperty("--i", i);
       svg.appendChild(symEdge);
-      const symGroup = makeNode(sx, sy, 11, truncate(sym.name, 18), anchor, dx, "symbol", dy);
+      const symGroup = makeNode(sx, sy, 11, truncate(sym.name, 18), anchor, dx, "symbol", dy, `url(#${uid}-node)`);
       symGroup.classList.add("map-entrance");
       symGroup.style.setProperty("--i", i);
       symGroup.addEventListener("click", () => toggleExpand(svg, id));
@@ -177,7 +199,8 @@ const SymbolMap = (() => {
           anchor,
           dx,
           "assoc",
-          dy
+          dy,
+          `url(#${uid}-gold-node)`
         );
         assocGroup.classList.add("map-entrance");
         assocGroup.style.setProperty("--i", i + 0.3);
@@ -337,32 +360,43 @@ const SymbolMap = (() => {
     );
     wrap.appendChild(controls);
 
-    // ---- PNG dışa aktarma butonu ----
-    const exportBtn = document.createElement("button");
-    exportBtn.type = "button";
-    exportBtn.className = "map-export-btn";
-    exportBtn.title = I18N.t("map.exportPng");
-    exportBtn.setAttribute("aria-label", I18N.t("map.exportPng"));
-    exportBtn.setAttribute("data-i18n-title", "map.exportPng");
-    exportBtn.setAttribute("data-i18n-aria", "map.exportPng");
-    exportBtn.innerHTML =
-      '<svg class="icon icon-sm"><use href="#icon-download"/></svg><span data-i18n="map.exportPng">PNG indir</span>';
-    exportBtn.addEventListener("click", async () => {
-      if (!svg.__record) return;
-      exportBtn.disabled = true;
-      const original = exportBtn.innerHTML;
-      exportBtn.textContent = I18N.t("map.exportPreparing");
-      try {
-        await exportPng(svg.__record);
-      } catch (err) {
-        console.error("Sembol haritası PNG dışa aktarımı başarısız:", err);
-        window.alert(I18N.t("map.exportError"));
-      } finally {
-        exportBtn.disabled = false;
-        exportBtn.innerHTML = original;
-      }
-    });
-    wrap.appendChild(exportBtn);
+    // ---- Dışa aktarma düğmeleri (harita PNG + çalışma sayfası PNG) ----
+    const exportControls = document.createElement("div");
+    exportControls.className = "map-export-controls";
+
+    function makeExportBtn(labelKey, run, errorMessageKey) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "map-export-btn";
+      btn.title = I18N.t(labelKey);
+      btn.setAttribute("aria-label", I18N.t(labelKey));
+      btn.setAttribute("data-i18n-title", labelKey);
+      btn.setAttribute("data-i18n-aria", labelKey);
+      btn.innerHTML = `<svg class="icon icon-sm"><use href="#icon-download"/></svg><span data-i18n="${labelKey}"></span>`;
+      btn.querySelector("span").textContent = I18N.t(labelKey);
+      btn.addEventListener("click", async () => {
+        if (!svg.__record) return;
+        btn.disabled = true;
+        const original = btn.innerHTML;
+        btn.textContent = I18N.t("map.exportPreparing");
+        try {
+          await run(svg.__record);
+        } catch (err) {
+          console.error("Dışa aktarma başarısız:", err);
+          window.alert(I18N.t(errorMessageKey));
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = original;
+        }
+      });
+      return btn;
+    }
+
+    exportControls.appendChild(makeExportBtn("map.exportPng", exportPng, "map.exportError"));
+    exportControls.appendChild(
+      makeExportBtn("map.exportWorksheet", exportWorksheetPng, "map.exportWorksheetError")
+    );
+    wrap.appendChild(exportControls);
 
     // ---- Fare tekerleği ile yakınlaştırma ----
     svg.addEventListener(
@@ -481,7 +515,14 @@ const SymbolMap = (() => {
   // 4 soru-cevap yaprağı PNG'den kaldırılınca en dış halka artık altın
   // çağrışım (ASSOC_R) oldu — tuval de ona göre daraltıldı, eskiden Q_R'a
   // göre ayrılmış geniş boş kenar boşluğu kalmasın diye.
-  const BASE_EXPORT_SIZE = 1200;
+  //
+  // 1200 değeri (kenar boşluğu 240px) uzun çağrışım etiketleriyle (26 karakter,
+  // 17px font, start/end hizalı) yetersiz kaldı — metin kenardan taşıp kesildi
+  // (Kaan'ın bulduğu hata, 2026-09-10). EX_ASSOC_R/EXPORT_SIZE oranı sembol
+  // sayısından bağımsız sabit kaldığı için bu, her ölçekte aynı oranda
+  // yaşanıyordu. 1440'a çıkarmak kenar boşluğunu 360px'e çıkarıyor — en kötü
+  // durum metin genişliğinin (~300px) güvenle üzerinde.
+  const BASE_EXPORT_SIZE = 1440;
   const BASE_CENTER_R = 66;
   const BASE_SYMBOL_R = 230;
   const BASE_ASSOC_R = 360;
@@ -497,6 +538,21 @@ const SymbolMap = (() => {
     gold: "#e0ab52",
     ring: "#3a352b",
     ringSoft: "#26221a",
+  };
+  // Rapor/yazdırma için ayrı, aydınlık palet — koyu zeminli export kâğıda
+  // basılınca hem mürekkep israf eder hem kötü görünür. Aynı yapı, ters
+  // kontrast: gravür çizgileri koyu, altın çağrışım koyulaştırılmış (açık
+  // kâğıtta okunabilir kalsın diye).
+  const PALETTE_PAPER = {
+    bg: "#f8f4e9",
+    card: "#fffdf7",
+    ink: "#241f16",
+    muted: "#6b6252",
+    accent: "#7a5a2e",
+    accentStrong: "#5e4322",
+    gold: "#96692a",
+    ring: "#cdbfa0",
+    ringSoft: "#e2d6b8",
   };
   // Google Fonts (Cormorant Garamond/Inter) sayfanın <link>'i üzerinden
   // yükleniyor; dışa aktarılan SVG bağımsız bir data-URI olarak
@@ -515,7 +571,7 @@ const SymbolMap = (() => {
     };
   }
 
-  function labelAttrs(extra) {
+  function labelAttrs(extra, P = PALETTE) {
     // Halo stroke-width font-size'a göre orantılı olmalı — sabit 5px, küçük
     // fontta (özellikle "—" gibi ince glifli kısa metinlerde) harfi bir
     // yumruya dönüştürüp okunmaz kılıyordu.
@@ -524,7 +580,7 @@ const SymbolMap = (() => {
       {
         "font-family": EX_FONT_BODY,
         "paint-order": "stroke",
-        stroke: PALETTE.bg,
+        stroke: P.bg,
         "stroke-width": Math.max(2.5, fontSize * 0.3),
         "stroke-linejoin": "round",
       },
@@ -532,7 +588,8 @@ const SymbolMap = (() => {
     );
   }
 
-  function buildExportSvg(record) {
+  function buildExportSvg(record, theme = "dark") {
+    const P = theme === "paper" ? PALETTE_PAPER : PALETTE;
     const symbols = record.symbols || [];
     const n = symbols.length || 1;
 
@@ -552,8 +609,13 @@ const SymbolMap = (() => {
     svg.setAttribute("width", EXPORT_SIZE);
     svg.setAttribute("height", EXPORT_SIZE);
 
-    svg.appendChild(el("rect", { x: 0, y: 0, width: EXPORT_SIZE, height: EXPORT_SIZE, fill: PALETTE.bg }));
+    svg.appendChild(el("rect", { x: 0, y: 0, width: EXPORT_SIZE, height: EXPORT_SIZE, fill: P.bg }));
 
+    // Filtre id'si render()'daki gibi uid'li değil, sabit "sm-gold-glow" —
+    // ama exportPng her çağrıda yeni, DOM'a hiç eklenmeyen bağımsız bir <svg>
+    // üretiyor (bkz. svgToPngDownload), o yüzden aynı sayfada iki export SVG'i
+    // aynı anda bulunmuyor ve çakışma riski yok (render()'daki interaktif
+    // haritadan farklı olarak, o ikisi aynı DOM'da birlikte durabiliyor).
     const defs = el("defs", {});
     const glow = el("filter", { id: "sm-gold-glow", x: "-60%", y: "-60%", width: "220%", height: "220%" });
     glow.appendChild(el("feGaussianBlur", { stdDeviation: 5, result: "blur" }));
@@ -562,10 +624,20 @@ const SymbolMap = (() => {
     merge.appendChild(el("feMergeNode", { in: "SourceGraphic" }));
     glow.appendChild(merge);
     defs.appendChild(glow);
+    // Etkileşimli haritadaki (render()) "boncuk" gradyanlarının export eşdeğeri —
+    // düğümler düz renk yerine hafif hacimli, tutarlı görünsün diye.
+    const nodeGrad = el("radialGradient", { id: "sm-ex-node", cx: "32%", cy: "28%", r: "75%" });
+    nodeGrad.appendChild(el("stop", { offset: "0%", "stop-color": theme === "paper" ? "#efe6cf" : "#3c434d" }));
+    nodeGrad.appendChild(el("stop", { offset: "100%", "stop-color": P.bg }));
+    const goldNodeGrad = el("radialGradient", { id: "sm-ex-gold-node", cx: "32%", cy: "28%", r: "75%" });
+    goldNodeGrad.appendChild(el("stop", { offset: "0%", "stop-color": P.gold }));
+    goldNodeGrad.appendChild(el("stop", { offset: "100%", "stop-color": P.accent }));
+    defs.appendChild(nodeGrad);
+    defs.appendChild(goldNodeGrad);
     svg.appendChild(defs);
 
     svg.appendChild(
-      el("circle", { cx: EX_CX, cy: EX_CY, r: EX_CENTER_R, fill: PALETTE.card, stroke: PALETTE.accent, "stroke-width": 2.5 })
+      el("circle", { cx: EX_CX, cy: EX_CY, r: EX_CENTER_R, fill: P.card, stroke: P.accent, "stroke-width": 2.5 })
     );
     svg.appendChild(
       el(
@@ -574,7 +646,7 @@ const SymbolMap = (() => {
           x: EX_CX,
           y: EX_CY + 8,
           "text-anchor": "middle",
-          fill: PALETTE.ink,
+          fill: P.ink,
           "font-family": EX_FONT_HEAD,
           "font-size": 26,
           "font-weight": 600,
@@ -591,19 +663,26 @@ const SymbolMap = (() => {
       const dx = anchor === "start" ? 16 : anchor === "end" ? -16 : 0;
       const dy = verticalNudge(anchor, sin, 5, 20);
 
-      svg.appendChild(el("line", { x1: EX_CX, y1: EX_CY, x2: sx, y2: sy, stroke: PALETTE.ring, "stroke-width": 1.75 }));
-      svg.appendChild(el("circle", { cx: sx, cy: sy, r: 13, fill: PALETTE.bg, stroke: PALETTE.accent, "stroke-width": 2.5 }));
+      svg.appendChild(
+        el("line", { x1: EX_CX, y1: EX_CY, x2: sx, y2: sy, stroke: P.accent, "stroke-width": 1.75, opacity: 0.6 })
+      );
+      svg.appendChild(
+        el("circle", { cx: sx, cy: sy, r: 13, fill: "url(#sm-ex-node)", stroke: P.accent, "stroke-width": 2.5 })
+      );
       svg.appendChild(
         el(
           "text",
-          labelAttrs({
-            x: sx + dx,
-            y: sy + dy,
-            "text-anchor": anchor,
-            fill: PALETTE.accentStrong,
-            "font-size": 16,
-            "font-weight": 600,
-          }),
+          labelAttrs(
+            {
+              x: sx + dx,
+              y: sy + dy,
+              "text-anchor": anchor,
+              fill: P.accentStrong,
+              "font-size": 16,
+              "font-weight": 600,
+            },
+            P
+          ),
           truncate(sym.name, 24)
         )
       );
@@ -617,9 +696,9 @@ const SymbolMap = (() => {
           y1: sy,
           x2: ax,
           y2: ay,
-          stroke: PALETTE.ringSoft,
-          "stroke-width": 1.5,
-          "stroke-dasharray": "3 4",
+          stroke: P.gold,
+          "stroke-width": 1.25,
+          opacity: 0.45,
         })
       );
       svg.appendChild(
@@ -627,8 +706,8 @@ const SymbolMap = (() => {
           cx: ax,
           cy: ay,
           r: 15,
-          fill: PALETTE.gold,
-          stroke: PALETTE.gold,
+          fill: "url(#sm-ex-gold-node)",
+          stroke: P.gold,
           "stroke-width": 2,
           filter: "url(#sm-gold-glow)",
         })
@@ -636,22 +715,26 @@ const SymbolMap = (() => {
       svg.appendChild(
         el(
           "text",
-          labelAttrs({
-            x: ax + dx,
-            y: ay + verticalNudge(anchor, sin, 6, 24),
-            "text-anchor": anchor,
-            fill: PALETTE.ink,
-            "font-size": 17,
-            "font-weight": 700,
-          }),
-          truncate(sym.selected_association, 26)
+          labelAttrs(
+            {
+              x: ax + dx,
+              y: ay + verticalNudge(anchor, sin, 6, 24),
+              "text-anchor": anchor,
+              fill: P.ink,
+              "font-size": 17,
+              "font-weight": 700,
+            },
+            P
+          ),
+          truncate(sym.selected_association, 24)
         )
       );
       // Kaan'ın isteğiyle: PNG'de 4 soru-cevap yaprağı artık çizilmiyor —
       // yoğun rüyalarda (çok sembollü) görsel gürültü yapıyordu. Harita
       // artık sadece rüya → sembol → altın çağrışım üçlüsünü gösteriyor;
       // 4 soru cevapları hâlâ uygulama içinde (interaktif haritada,
-      // düğüme tıklayınca) görülebiliyor.
+      // düğüme tıklayınca) ve çalışma sayfasında (bkz. buildWorksheetSvg)
+      // görülebiliyor.
     });
 
     const dreamSnippet = truncate((record.dream_text || "").replace(/\s+/g, " ").trim(), 100);
@@ -662,7 +745,7 @@ const SymbolMap = (() => {
           x: EX_CX,
           y: EXPORT_SIZE - 34,
           "text-anchor": "middle",
-          fill: PALETTE.muted,
+          fill: P.muted,
           "font-family": EX_FONT_BODY,
           "font-size": 15,
         },
@@ -676,7 +759,7 @@ const SymbolMap = (() => {
           x: EXPORT_SIZE - 24,
           y: EXPORT_SIZE - 14,
           "text-anchor": "end",
-          fill: PALETTE.muted,
+          fill: P.muted,
           "font-family": EX_FONT_BODY,
           "font-size": 12,
           opacity: 0.7,
@@ -688,8 +771,186 @@ const SymbolMap = (() => {
     return svg;
   }
 
-  async function exportPng(record) {
-    const svg = buildExportSvg(record);
+  // ---------- Sembol Çalışma Sayfası ----------
+  //
+  // Harita "bütünü" taşır (sembol → altın çağrışım), bu ise "parçaları":
+  // her sembolün kendi kartı, bağlamı, altın çağrışımı, diğer çağrışımları
+  // ve 4 sorunun cevabıyla birlikte. Radyal değil — okunmak ve üzerine kafa
+  // yorulmak için tek sütun, kart kart akan bir sayfa. Aynı satır-içi
+  // öznitelik / harici-kaynak-yok felsefesini paylaşıyor (bkz. buildExportSvg
+  // başındaki not) çünkü PNG dışa aktarımında kullanılıyor.
+
+  const WS_WIDTH = 900;
+  const WS_OUTER_PAD = 44;
+  const WS_CARD_PAD = 28;
+  const WS_CARD_GAP = 22;
+  const WS_TITLE_H = 92;
+
+  // Canvas ölçüm API'sine bağımlı olmadan (dışa aktarılan SVG bağımsız bir
+  // data-URI olduğu için) kaba bir karakter-genişliği tahmini — mevcut
+  // truncate() fonksiyonunun kullandığı karakter-sayımı yaklaşımıyla aynı
+  // düzeyde pragmatik.
+  function charsPerLine(fontSize, widthPx) {
+    return Math.max(12, Math.floor(widthPx / (fontSize * 0.54)));
+  }
+
+  function wrapLines(text, maxChars) {
+    const words = (text || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+    if (!words.length) return [];
+    const lines = [];
+    let line = "";
+    words.forEach((w) => {
+      const candidate = line ? `${line} ${w}` : w;
+      if (candidate.length > maxChars && line) {
+        lines.push(line);
+        line = w;
+      } else {
+        line = candidate;
+      }
+    });
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  // Bir "alan"ın (mikro-etiket + değer) kaç satıra saracağını ve ne kadar
+  // dikey yer tutacağını önceden hesaplar — kart arka planının yüksekliğini
+  // metni çizmeden ÖNCE bilmemiz gerekiyor (bkz. buildWorksheetSvg'deki
+  // iki geçişli düzen: önce ölçüm, sonra çizim).
+  function layoutField(value, contentW, fontSize, lineHeight) {
+    const lines = wrapLines(value, charsPerLine(fontSize, contentW));
+    return { lines, height: lines.length ? 18 + lines.length * lineHeight + 12 : 0 };
+  }
+
+  function drawField(group, x, y, labelText, field, fontSize, lineHeight, fill, P, weight) {
+    if (!field.lines.length) return y;
+    group.appendChild(
+      el(
+        "text",
+        { x, y: y + 13, "font-family": EX_FONT_BODY, "font-size": 11, "font-weight": 700, fill: P.accent, "letter-spacing": "0.08em" },
+        labelText.toUpperCase()
+      )
+    );
+    let ty = y + 13 + lineHeight;
+    field.lines.forEach((line) => {
+      group.appendChild(
+        el(
+          "text",
+          { x, y: ty, "font-family": EX_FONT_BODY, "font-size": fontSize, "font-weight": weight || 400, fill },
+          line
+        )
+      );
+      ty += lineHeight;
+    });
+    return ty + 12;
+  }
+
+  function buildWorksheetSvg(record, theme = "dark") {
+    const P = theme === "paper" ? PALETTE_PAPER : PALETTE;
+    const symbols = record.symbols || [];
+    const contentW = WS_WIDTH - WS_OUTER_PAD * 2 - WS_CARD_PAD * 2;
+
+    // ---- Geçiş 1: sadece ölçüm — her kartın kaç satır tutacağını,
+    // dolayısıyla ne kadar yükseklik gerektireceğini hesapla.
+    const cardLayouts = symbols.map((sym) => {
+      const context = layoutField(sym.context, contentW, 14, 19);
+      const assoc = layoutField(sym.selected_association, contentW, 16, 21);
+      const others = (sym.all_associations || []).filter((a) => a && a !== sym.selected_association);
+      const othersField = layoutField(others.join(", "), contentW, 13, 18);
+      const questions = QUESTIONS.map(([key, label]) => ({
+        label,
+        field: layoutField((sym.questions || {})[key], contentW, 14, 19),
+      }));
+      const qHeight = questions.reduce((sum, q) => sum + q.field.height, 0);
+      const nameH = 40;
+      const height =
+        nameH + context.height + assoc.height + othersField.height + qHeight + WS_CARD_PAD * 2;
+      return { sym, context, assoc, othersField, questions, height };
+    });
+
+    const totalCardsH = cardLayouts.reduce((sum, c) => sum + c.height + WS_CARD_GAP, 0);
+    const totalHeight = WS_OUTER_PAD * 2 + WS_TITLE_H + totalCardsH;
+
+    // ---- Geçiş 2: çizim — artık her kartın yüksekliği belli, arka plan
+    // ve içeriği sırayla yerleştir.
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", `0 0 ${WS_WIDTH} ${totalHeight}`);
+    svg.setAttribute("width", WS_WIDTH);
+    svg.setAttribute("height", totalHeight);
+
+    svg.appendChild(el("rect", { x: 0, y: 0, width: WS_WIDTH, height: totalHeight, fill: P.bg }));
+    svg.appendChild(
+      el(
+        "text",
+        { x: WS_OUTER_PAD, y: WS_OUTER_PAD + 22, "font-family": EX_FONT_HEAD, "font-size": 28, "font-weight": 600, fill: P.ink },
+        I18N.t("worksheet.title")
+      )
+    );
+    const dreamSnippet = truncate((record.dream_text || "").replace(/\s+/g, " ").trim(), 110);
+    svg.appendChild(
+      el(
+        "text",
+        { x: WS_OUTER_PAD, y: WS_OUTER_PAD + 46, "font-family": EX_FONT_BODY, "font-size": 14, fill: P.muted },
+        dreamSnippet
+      )
+    );
+
+    let cardY = WS_OUTER_PAD + WS_TITLE_H;
+    cardLayouts.forEach((card) => {
+      const cardX = WS_OUTER_PAD;
+      const cardW = WS_WIDTH - WS_OUTER_PAD * 2;
+      const group = el("g", {});
+      group.appendChild(
+        el("rect", {
+          x: cardX,
+          y: cardY,
+          width: cardW,
+          height: card.height,
+          rx: 10,
+          fill: P.card,
+          stroke: P.ring,
+          "stroke-width": 1.5,
+        })
+      );
+      group.appendChild(
+        el("rect", { x: cardX, y: cardY, width: 5, height: card.height, rx: 2.5, fill: P.gold })
+      );
+
+      const tx = cardX + WS_CARD_PAD;
+      let ty = cardY + WS_CARD_PAD;
+      group.appendChild(
+        el(
+          "text",
+          { x: tx, y: ty + 12, "font-family": EX_FONT_HEAD, "font-size": 22, "font-weight": 600, fill: P.accentStrong },
+          truncate(card.sym.name, 46)
+        )
+      );
+      ty += 40;
+
+      ty = drawField(group, tx, ty, I18N.t("worksheet.context"), card.context, 14, 19, P.muted, P);
+      ty = drawField(group, tx, ty, I18N.t("worksheet.goldAssoc"), card.assoc, 16, 21, P.ink, P, 700);
+      ty = drawField(group, tx, ty, I18N.t("worksheet.otherAssoc"), card.othersField, 13, 18, P.muted, P);
+      card.questions.forEach((q) => {
+        ty = drawField(group, tx, ty, q.label, q.field, 14, 19, P.ink, P);
+      });
+
+      svg.appendChild(group);
+      cardY += card.height + WS_CARD_GAP;
+    });
+
+    svg.appendChild(
+      el(
+        "text",
+        { x: WS_WIDTH - WS_OUTER_PAD, y: totalHeight - 16, "text-anchor": "end", "font-family": EX_FONT_BODY, "font-size": 12, fill: P.muted, opacity: 0.7 },
+        I18N.t("map.watermark")
+      )
+    );
+
+    return svg;
+  }
+
+  // ---------- PNG dışa aktarma (ortak) ----------
+
+  async function svgToPngDownload(svg, filenamePrefix) {
     const xml = new XMLSerializer().serializeToString(svg);
     const dataUrl = "data:image/svg+xml;charset=utf-8;base64," + btoa(unescape(encodeURIComponent(xml)));
 
@@ -700,11 +961,12 @@ const SymbolMap = (() => {
       img.src = dataUrl;
     });
 
-    const exportSize = Number(svg.getAttribute("width"));
+    const exportW = Number(svg.getAttribute("width"));
+    const exportH = Number(svg.getAttribute("height"));
     const scale = 2; // yüksek çözünürlük için süper-örnekleme
     const canvas = document.createElement("canvas");
-    canvas.width = exportSize * scale;
-    canvas.height = exportSize * scale;
+    canvas.width = exportW * scale;
+    canvas.height = exportH * scale;
     const ctx = canvas.getContext("2d");
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
@@ -715,12 +977,28 @@ const SymbolMap = (() => {
     const a = document.createElement("a");
     const slug = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     a.href = url;
-    a.download = `sembol-haritasi-${slug}.png`;
+    a.download = `${filenamePrefix}-${slug}.png`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   }
 
-  return { render };
+  async function exportPng(record) {
+    await svgToPngDownload(buildExportSvg(record, "dark"), "sembol-haritasi");
+  }
+
+  async function exportWorksheetPng(record) {
+    await svgToPngDownload(buildWorksheetSvg(record, "dark"), "calisma-sayfasi");
+  }
+
+  return {
+    render,
+    buildMapSvg: buildExportSvg,
+    buildWorksheetSvg,
+    exportWorksheetPng,
+    svgToString: (svg) => new XMLSerializer().serializeToString(svg),
+    questionLabels: QUESTIONS,
+    fonts: { head: EX_FONT_HEAD, body: EX_FONT_BODY },
+  };
 })();
