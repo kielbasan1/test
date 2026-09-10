@@ -51,6 +51,53 @@ const SymbolMap = (() => {
     return text.length > max ? text.slice(0, max - 1) + "…" : text;
   }
 
+  // Kelime bazlı sarma — tek satırda kesip "…" ile boğmak yerine (eski
+  // davranış, Kaan'ın "isimler tam sığmıyor" şikayetinin kaynağıydı) etiketi
+  // birden fazla satıra yayar. Karakter sayımı yaklaşımı truncate() ile aynı
+  // pragmatizmde (gerçek metin genişliği ölçmüyor, bkz. charsPerLine).
+  function wrapLines(text, maxChars) {
+    const words = (text || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+    if (!words.length) return [];
+    const lines = [];
+    let line = "";
+    words.forEach((w) => {
+      const candidate = line ? `${line} ${w}` : w;
+      if (candidate.length > maxChars && line) {
+        lines.push(line);
+        line = w;
+      } else {
+        line = candidate;
+      }
+    });
+    if (line) lines.push(line);
+    return lines;
+  }
+
+  // wrapLines'ı en fazla maxLines satırla sınırlar; daha fazlası gerekiyorsa
+  // son gösterilen satırı "…" ile işaretler — truncate()'in çok satırlı
+  // karşılığı. Harita düğüm etiketlerinde (render + PNG export) kullanılıyor.
+  function wrapForLabel(text, maxCharsPerLine, maxLines) {
+    const all = wrapLines(text, maxCharsPerLine);
+    const shown = all.slice(0, maxLines);
+    if (all.length > shown.length && shown.length) {
+      shown[shown.length - 1] = shown[shown.length - 1] + "…";
+    }
+    return shown;
+  }
+
+  // Birden çok satırı tek bir <text> düğümünde, (attrs.x, attrs.y) referans
+  // noktası etrafında dikey ortalanmış <tspan>'lar olarak çizer.
+  function multilineText(attrs, lines, lineHeight) {
+    const text = el("text", attrs);
+    const shown = lines.length ? lines : [""];
+    const n = shown.length;
+    shown.forEach((line, i) => {
+      const dy = i === 0 ? -((n - 1) * lineHeight) / 2 : lineHeight;
+      text.appendChild(el("tspan", { x: attrs.x, dy }, line));
+    });
+    return text;
+  }
+
   function pointAt(radius, angleDeg) {
     const rad = (angleDeg * Math.PI) / 180;
     return {
@@ -70,6 +117,14 @@ const SymbolMap = (() => {
     return sin < 0 ? -pushOut : pushOut;
   }
 
+  // Etiket başına satır/karakter bütçesi — tek satır kesip "…" ile boğmak
+  // yerine (eski davranış) iki satıra kadar sarıyoruz, gerçek isim/çağrışım
+  // metninin tamamı okunabilsin diye.
+  const SYMBOL_LABEL_CHARS = 14;
+  const ASSOC_LABEL_CHARS = 16;
+  const LABEL_LINE_HEIGHT = 12.5;
+  const LABEL_MAX_LINES = 2;
+
   function makeNode(x, y, r, labelText, anchor, dx, cls, dy, fillUrl) {
     const group = el("g", {
       class: `map-node ${cls}`,
@@ -84,11 +139,13 @@ const SymbolMap = (() => {
     // tıklanınca bu gradyanın üzerine sorunsuz yazabiliyor.
     if (fillUrl) circleAttrs.fill = fillUrl;
     group.appendChild(el("circle", circleAttrs));
+    const maxChars = cls === "assoc" ? ASSOC_LABEL_CHARS : SYMBOL_LABEL_CHARS;
+    const lines = wrapForLabel(labelText, maxChars, LABEL_MAX_LINES);
     group.appendChild(
-      el(
-        "text",
+      multilineText(
         { x: x + dx, y: y + dy, "text-anchor": anchor, class: `map-label map-label-${cls}` },
-        labelText
+        lines,
+        LABEL_LINE_HEIGHT
       )
     );
     return group;
@@ -173,12 +230,15 @@ const SymbolMap = (() => {
       const { x: sx, y: sy, cos, sin } = pointAt(SYMBOL_R, angleDeg);
       const anchor = anchorFor(cos);
       const dx = anchor === "start" ? 14 : anchor === "end" ? -14 : 0;
-      const dy = verticalNudge(anchor, sin, 4, 18);
+      // pushOut 22 (önceden 18) — etiketler artık 2 satıra sarabiliyor,
+      // "middle" hizalı (tam tepe/alt) düğümlerde bloğun düğüm dairesine
+      // binmemesi için biraz daha pay gerekiyor.
+      const dy = verticalNudge(anchor, sin, 4, 22);
 
       const symEdge = el("line", { x1: CX, y1: CY, x2: sx, y2: sy, class: "map-edge map-edge-symbol map-entrance" });
       symEdge.style.setProperty("--i", i);
       svg.appendChild(symEdge);
-      const symGroup = makeNode(sx, sy, 11, truncate(sym.name, 18), anchor, dx, "symbol", dy, `url(#${uid}-node)`);
+      const symGroup = makeNode(sx, sy, 11, sym.name || "", anchor, dx, "symbol", dy, `url(#${uid}-node)`);
       symGroup.classList.add("map-entrance");
       symGroup.style.setProperty("--i", i);
       symGroup.addEventListener("click", () => toggleExpand(svg, id));
@@ -195,7 +255,7 @@ const SymbolMap = (() => {
           ax,
           ay,
           8,
-          truncate(sym.selected_association, 22),
+          sym.selected_association,
           anchor,
           dx,
           "assoc",
@@ -661,7 +721,8 @@ const SymbolMap = (() => {
       const { x: sx, y: sy, cos, sin } = pt(EX_SYMBOL_R, angleDeg);
       const anchor = anchorFor(cos);
       const dx = anchor === "start" ? 16 : anchor === "end" ? -16 : 0;
-      const dy = verticalNudge(anchor, sin, 5, 20);
+      // pushOut 24 (önceden 20) — etiketler artık 2 satıra kadar sarabiliyor.
+      const dy = verticalNudge(anchor, sin, 5, 24);
 
       svg.appendChild(
         el("line", { x1: EX_CX, y1: EX_CY, x2: sx, y2: sy, stroke: P.accent, "stroke-width": 1.75, opacity: 0.6 })
@@ -670,8 +731,7 @@ const SymbolMap = (() => {
         el("circle", { cx: sx, cy: sy, r: 13, fill: "url(#sm-ex-node)", stroke: P.accent, "stroke-width": 2.5 })
       );
       svg.appendChild(
-        el(
-          "text",
+        multilineText(
           labelAttrs(
             {
               x: sx + dx,
@@ -683,7 +743,8 @@ const SymbolMap = (() => {
             },
             P
           ),
-          truncate(sym.name, 24)
+          wrapForLabel(sym.name, 16, 2),
+          19
         )
       );
 
@@ -713,12 +774,13 @@ const SymbolMap = (() => {
         })
       );
       svg.appendChild(
-        el(
-          "text",
+        multilineText(
           labelAttrs(
             {
               x: ax + dx,
-              y: ay + verticalNudge(anchor, sin, 6, 24),
+              // pushOut 30 (önceden 24) — 2 satıra kadar sarabilen daha uzun
+              // çağrışım etiketi için ek pay.
+              y: ay + verticalNudge(anchor, sin, 6, 30),
               "text-anchor": anchor,
               fill: P.ink,
               "font-size": 17,
@@ -726,7 +788,8 @@ const SymbolMap = (() => {
             },
             P
           ),
-          truncate(sym.selected_association, 24)
+          wrapForLabel(sym.selected_association, 18, 2),
+          20
         )
       );
       // Kaan'ın isteğiyle: PNG'de 4 soru-cevap yaprağı artık çizilmiyor —
@@ -794,23 +857,8 @@ const SymbolMap = (() => {
     return Math.max(12, Math.floor(widthPx / (fontSize * 0.54)));
   }
 
-  function wrapLines(text, maxChars) {
-    const words = (text || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
-    if (!words.length) return [];
-    const lines = [];
-    let line = "";
-    words.forEach((w) => {
-      const candidate = line ? `${line} ${w}` : w;
-      if (candidate.length > maxChars && line) {
-        lines.push(line);
-        line = w;
-      } else {
-        line = candidate;
-      }
-    });
-    if (line) lines.push(line);
-    return lines;
-  }
+  // wrapLines dosyanın başında (truncate()'in yanında) tanımlı — harita
+  // düğüm etiketleri de aynı fonksiyonu kullanıyor.
 
   // Bir "alan"ın (mikro-etiket + değer) kaç satıra saracağını ve ne kadar
   // dikey yer tutacağını önceden hesaplar — kart arka planının yüksekliğini
