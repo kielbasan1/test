@@ -117,7 +117,7 @@ kota kişisel kullanım için fazlasıyla yeterli.
 **3.3b AI çağrı haritası (2026-09-10 eklendi, 2026-09-10 aynı gün ayrı oturumda
 güncellendi — provider değişince bu tablo da güncellenmeli).** `extract_symbols`
 artık `SYNTHESIS_PROVIDER`'ı hiç okumuyor, her zaman native Gemini kullanıyor —
-bkz. aşağıdaki "Kota testi doğrulandı" bulgusu. `synthesize_interpretation` ve
+bkz. aşağıdaki "Kota testi doğrulandı" bulgusu. `expand_interpretation` ve
 `amplify_symbol` hâlâ aynı değişkeni kontrol ediyor (merkezi tek bir yönlendirme
 yok, bilerek — tek bir yerde toplamak istenirse `services/gemini_client.py`'de
 ortak bir `_resolve_provider()` helper'ı düşünülebilir, henüz yapılmadı):
@@ -125,7 +125,7 @@ ortak bir `_resolve_provider()` helper'ı düşünülebilir, henüz yapılmadı)
 | Çağrı | Dosya | Provider |
 | --- | --- | --- |
 | `extract_symbols` | `services/gemini_client.py` | **Her zaman Gemini**, `GEMINI_MODEL` (flash-lite) — `SYNTHESIS_PROVIDER` etkisiz |
-| `synthesize_interpretation` | `services/gemini_client.py` → `groq_client.py` | `SYNTHESIS_PROVIDER=groq` ise Groq/`GROQ_SYNTHESIS_MODEL`, değilse Gemini/`GEMINI_SYNTHESIS_MODEL` |
+| `expand_interpretation` | `services/gemini_client.py` → `groq_client.py` | `SYNTHESIS_PROVIDER=groq` ise Groq/`GROQ_SYNTHESIS_MODEL`, değilse Gemini/`GEMINI_SYNTHESIS_MODEL` |
 | `amplify_symbol` | aynı | `SYNTHESIS_PROVIDER=groq` ise Groq/`GROQ_EXTRACT_MODEL` (yoksa sentez modeliyle aynı), değilse Gemini/`GEMINI_MODEL` |
 
 `groq_client.extract_symbols` (ve sadece onun kullandığı `_parse_symbols_json`/
@@ -208,3 +208,42 @@ Gerekçe: 3.1b (Tavily → DuckDuckGo) bu oturumda yapıldı. Sırada 1.1 var: y
 sentez promptunun beklediği veriyi (rüya-ego tutumu, duygusal ton, çözülüş) besler
 ve tek başına yorum kalitesini en çok artıran değişikliktir. 1.3 erken gelirse
 sonraki her değişikliği ölçebilir hale gelirsin.
+
+## Faz 3.6 — Kendi yorumun + "Yorumu Genişlet" (2026-09-11, uygulandı)
+
+Ürün yönü kararı burada koda döndü: **AI birincil değil.** Eski, her zaman
+çalışan `synthesize_interpretation` adımı kaldırıldı; yerine iki ayrı şey geldi.
+
+**1) Kendi yorumun asıl bölüm.** Yorum adımı artık bir metin alanı: kullanıcı
+kendi yorumunu yazıyor, `my_interpretation` olarak kayda ve otomatik ilerleme
+kaydına giriyor. Rüyayı bitirmenin asıl yolu "Yorumumu Kaydet" — yapay zekaya
+hiç sormadan.
+
+**2) "Yorumu Genişlet" kilitli.** Yapay zeka düğmesi kendi yorumun en az 120
+karaktere ulaşana kadar pasif (`MIN_OWN_INTERPRETATION_CHARS`). Gerekçe
+yavaşlık: anında cevap veren bir kutu, beklemesi gereken yerde kişiyi kısayola
+çeker (Threads.md'deki "trickster dürtüsü" tartışması). Sunucu tarafında da
+aynı kontrol var — `/api/expand-interpretation` yorumsuz isteği 400 ile
+reddediyor. Genişletme sonuç ekranından da istenebiliyor (kaydettikten sonra,
+istediği gün).
+
+**3) `SYNTHESIS_PROMPT` → `EXPAND_PROMPT`.** Görev değişti: yeni yorum yazmak
+değil, kullanıcının yorumuna girmemiş olanı göstermek. Beş kör nokta yeri
+(atlanan sembol, kendi cümlesinin ağırlığı, görülmeyen karşıtlık, rüya-ego'nun
+tutumu, rüyanın bitişi) ve beş kural (parafraz etme, not verme, imgede kal,
+gerilimi çözme, uydurma). Çıktı 200-350 kelime, son cümle bir soru. Prompt
+4.9k'dan 3.4k karaktere indi (Pareto). Ritüel önerisi kaldırıldı — ritüel
+kapsam dışı, Kaan kendisi geliştiriyor.
+
+**4) Rapor artık iki çıktı + bir seçenek.** Rapor düğmesi küçük bir menü açıyor:
+"Yapay zeka genişletmesi de girsin" onay kutusu (kayıtta genişletme yoksa
+gizli), sonra **.md indir** ya da **Yazdır / PDF**. Markdown asıl arşiv formatı —
+YAML frontmatter (tarih, sembol listesi, `has_ai_expansion`) ile Obsidian/
+Dataview'a doğrudan giriyor. Her iki çıktıda da kendi yorum bölümü var.
+Markdown'da harita YOK (SVG'yi nota gömmek dosyayı okunmaz hale getiriyor);
+harita yazdır/PDF çıktısında ve ayrı PNG export'ta duruyor.
+
+Yeniden adlandırmalar: `synthesize_interpretation` → `expand_interpretation`,
+`_synthesis_model_name` → `_expand_model_name`, `/api/synthesize` →
+`/api/expand-interpretation`, `scripts/test_synthesis.py` →
+`scripts/test_expand.py` (fixture'da artık `my_interpretation` zorunlu).

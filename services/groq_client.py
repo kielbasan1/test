@@ -3,7 +3,7 @@ import os
 
 from groq import Groq
 
-from services.gemini_client import AMPLIFY_PROMPT, SYNTHESIS_PROMPT
+from services.gemini_client import AMPLIFY_PROMPT, EXPAND_PROMPT
 
 _client = None
 
@@ -21,7 +21,7 @@ def _get_client() -> Groq:
     return _client
 
 
-def _synthesis_model_name() -> str:
+def _expand_model_name() -> str:
     # gpt-oss-120b bilinçli olarak elendi: psikolojik analiz içerikte
     # belgelenmiş aşırı-reddetme sorunu var, gerçek test rüyalarımızdaki
     # aile/cinsellik/din/utanç temalarıyla çakışma riski yüksek. Groq'un
@@ -34,33 +34,31 @@ def _synthesis_model_name() -> str:
 def _extract_model_name() -> str:
     # Gemini tarafında extraction ucuz/yüksek-kotalı bir modele (flash-lite)
     # ayrılmıştı ama Groq'ta ayrı bir "ucuz" model doğrulanmadı — kalite
-    # riskini almamak için sentezle aynı qwen3.6-27b kullanılıyor, ayrı ayarlanabilsin
-    # diye kendi env değişkeni var.
-    return os.environ.get("GROQ_EXTRACT_MODEL", _synthesis_model_name())
+    # riskini almamak için genişletmeyle aynı qwen3.6-27b kullanılıyor, ayrı
+    # ayarlanabilsin diye kendi env değişkeni var.
+    return os.environ.get("GROQ_EXTRACT_MODEL", _expand_model_name())
 
 
-def synthesize_interpretation(payload: dict) -> str:
+def expand_interpretation(payload: dict) -> str:
     client = _get_client()
-    prompt = SYNTHESIS_PROMPT.replace(
+    prompt = EXPAND_PROMPT.replace(
         "{payload_json}", json.dumps(payload, ensure_ascii=False, indent=2)
     )
     try:
         response = client.chat.completions.create(
-            model=_synthesis_model_name(),
+            model=_expand_model_name(),
             messages=[{"role": "user", "content": prompt}],
-            # Ücretsiz katmanda bu model dakikada 1000 çıktı-token ile
-            # sınırlı — tam (~700 kelime + ritüel kapanışı) bir yorum bunu
-            # nadiren aşıp son cümlede kesilebiliyor. SYNTHESIS_PROMPT'un
-            # ritüel/kapanış bölümü yakında kısalacağı için şimdilik
-            # düzeltilmedi, prompt kısalınca kendiliğinden çözülmesi
-            # bekleniyor.
+            # Ücretsiz katmanda bu model dakikada 1000 çıktı-token ile sınırlı.
+            # Eski sentez adımı (~700 kelime + ritüel kapanışı) bu sınırda son
+            # cümlede kesilebiliyordu; kör nokta çıktısı 200-350 kelime olduğu
+            # için artık rahatlıkla altında kalıyor.
             max_tokens=990,
             temperature=0.7,
             # qwen3.6-27b bir "reasoning" modeli — varsayılanda yanıttan önce
             # gizli bir <think> bloğu üretiyor ve bu, ücretsiz katmanın dar
             # dakikalık çıktı-token limitini (OTPM) tek başına tüketebiliyor.
-            # SYNTHESIS_PROMPT zaten kendi adım adım muhakemesini metne
-            # döküyor, ayrı bir gizli düşünme aşamasına ihtiyaç yok.
+            # EXPAND_PROMPT zaten nereye bakılacağını adım adım söylüyor,
+            # ayrı bir gizli düşünme aşamasına ihtiyaç yok.
             reasoning_effort="none",
         )
     except Exception as exc:  # Groq SDK'sının kendi hata sınıfları burada yakalanır.

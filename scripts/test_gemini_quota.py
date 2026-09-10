@@ -5,7 +5,7 @@ Kaan AI Studio dashboard'unda "gemini 3.5 flash lite: 28/500" gordu.
 2026-09-10'daki onceki bulgu ise bu anahtarda flash/flash-lite/2.5-flash-lite'in
 ucunun de aynı 20/gun paylasimli kovaya dustugunu soyluyordu (Threads.md).
 Bu script SYNTHESIS_PROVIDER'i gecici olarak (sadece bu process icinde,
-.env'e dokunmadan) gemini'ye zorlayip extract_symbols ve synthesize_interpretation'i
+.env'e dokunmadan) gemini'ye zorlayip extract_symbols ve expand_interpretation'i
 art arda cagirip kacinci istekte (varsa) 429/RESOURCE_EXHAUSTED aldigini sayar.
 
 Kisisel/gercek ruya verisi (test_ruya.json) kullanmiyor - sadece sayim
@@ -75,14 +75,14 @@ def main():
     )
 
     synth_ok, synth_other, synth_err = run(
-        "synthesize_interpretation (GEMINI_SYNTHESIS_MODEL / flash)",
-        lambda: gemini_client.synthesize_interpretation(payload),
-        gemini_client._synthesis_model_name(),
+        "expand_interpretation (GEMINI_SYNTHESIS_MODEL / flash)",
+        lambda: gemini_client.expand_interpretation(payload),
+        gemini_client._expand_model_name(),
     )
 
     print("\n=== OZET ===")
     print(f"extract_symbols: {extract_ok} basarili, {extract_other} kota-disi hata" + (f", KOTA HATASI: {extract_err[:150]}" if extract_err else " -- kota siniri gorulmedi"))
-    print(f"synthesize_interpretation: {synth_ok} basarili, {synth_other} kota-disi hata" + (f", KOTA HATASI: {synth_err[:150]}" if synth_err else " -- kota siniri gorulmedi"))
+    print(f"expand_interpretation: {synth_ok} basarili, {synth_other} kota-disi hata" + (f", KOTA HATASI: {synth_err[:150]}" if synth_err else " -- kota siniri gorulmedi"))
 
 
 if __name__ == "__main__":

@@ -7,7 +7,12 @@
       "name_en": "black dog",
       "context": "rüya boyunca beni takip ediyor, ürkütücü ama saldırmıyor, sonra kapıya doğru havlıyor",
       "selected_association": "vahşi ama sadık, kontrolsüz göründüğü halde bana zarar vermeyen bir parçam",
-      "all_associations": ["vahşi ama sadık", "korkutucu ama zararsız", "sezgi", "sadakat"],
+      "all_associations": [
+        "vahşi ama sadık",
+        "korkutucu ama zararsız",
+        "sezgi",
+        "sadakat"
+      ],
       "questions": {
         "q1": "Kontrolsüz, dizginlenmemiş ama aslında bana ihanet etmeyen bir parçam.",
         "q2": "Beni tehlikeye karşı uyaran ama kimseye anlatmadığım içgüdüsel tarafım.",
@@ -20,7 +25,12 @@
       "name_en": "locked door",
       "context": "önümde beliriyor, açmaya çalışıyorum ama açamıyorum, köpek havlayınca kendiliğinden aralanıyor",
       "selected_association": "geçemediğim, hep ertelediğim bir konuşma ya da karar",
-      "all_associations": ["engel", "geçiş", "bilinmeyen", "erteleme"],
+      "all_associations": [
+        "engel",
+        "geçiş",
+        "bilinmeyen",
+        "erteleme"
+      ],
       "questions": {
         "q1": "Kararsızlığımı, bir şeyle yüzleşmeye hazır olmayan tarafımı.",
         "q2": "Bir ilişkideki zor konuşmayı sürekli erteleten taraf.",
@@ -33,7 +43,12 @@
       "name_en": "mother's empty room",
       "context": "kapı aralanınca içeride görünüyor, eşyasız, boş",
       "selected_association": "geçmişin artık orada olmadığını ama hâlâ bir yer kapladığını hissettiren boşluk",
-      "all_associations": ["kayıp", "geçmiş", "boşluk", "özlem"],
+      "all_associations": [
+        "kayıp",
+        "geçmiş",
+        "boşluk",
+        "özlem"
+      ],
       "questions": {
         "q1": "Annemle ilişkimdeki tamamlanmamış, boşta kalan bir parçam.",
         "q2": "Onunla konuşamadığım şeyleri hâlâ taşıyan taraf.",
@@ -41,5 +56,6 @@
         "q4": ""
       }
     }
-  ]
+  ],
+  "my_interpretation": "Sanirim bu ruya beni surekli ertelemekle yuzlestiriyor. Kilitli kapi, yillardir baslamadigim isin kendisi; anahtari cebimde tasiyip da kullanmamam da bunu gosteriyor. Basaramayacagimdan degil, basarirsam artik bahanem kalmayacagindan korkuyorum. Ruyada kapinin onunde durup bekliyorum, sanki birinin gelip acmasini bekler gibi."
 }

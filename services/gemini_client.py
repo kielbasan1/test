@@ -25,8 +25,8 @@ def _extract_model_name() -> str:
     return os.environ.get("GEMINI_MODEL", "gemini-flash-lite-latest")
 
 
-def _synthesis_model_name() -> str:
-    # Jungiyen yorum gerçek bağ kurma ve hipotez üretme gerektiriyor. Prompt
+def _expand_model_name() -> str:
+    # Kör nokta bulmak gerçek bağ kurma ve hipotez üretme gerektiriyor. Prompt
     # flash-lite için yeniden yapılandırıldı (tek amaç cümlesi, daha az
     # eşzamanlı kısıt, soyut kural yerine somut örnek) ve gerçek bir rüyayla
     # test edilince belirgin bir iyileşme gösterdi — ama artık elimizde
@@ -98,87 +98,66 @@ Rüya metni:
 \"\"\"{dream_text}\"\"\"
 """
 
-SYNTHESIS_PROMPT = """Sen Jungiyen bir rüya analistisin. Elinde bir rüya ve rüya sahibinin \
-her sembol için kendi ürettiği çağrışımlar ve cevaplar var. Görevin tek parça, akıcı bir \
-yorum metni yazmak.
+EXPAND_PROMPT = """Sen Jungiyen bir analistsin. Rüya sahibi bu rüyayla kendi başına \
+çalıştı: sembollerini çıkardı, her biri için kendi çağrışımını seçti, dört soruyu \
+cevapladı ve sonunda kendi yorumunu yazdı (my_interpretation). Şimdi sana o yorumu \
+getiriyor.
 
-Yorum bir sembol sözlüğü değildir: rüyanın bu kişiye ne söylediğine dair TEK bir iddiadır. \
-Metni bitiren kişi "rüyam bana şunu söylüyormuş" diye kendi kelimeleriyle tek cümle \
-kurabilmeli ve o cümle bu rüyanın somut detaylarına dayanmalı. Ölçüt bu; güzel ya da derin \
-yazmak değil.
+Görevin yeni bir yorum yazmak DEĞİL. Onun yorumu yerinde kalır. Senin işin, verinin \
+içinde açıkça durup onun yorumuna hiç girmemiş olanı göstermek — kişi kendi kör \
+noktasına tanım gereği bakamaz, deneyimli bir analistin oradaki değeri de budur.
 
-## Verinin ağırlığı
+## Kör nokta nerede olur
 
-En ağır veri kişinin kendi seçtiği çağrışım (selected_association) ve onun açılımı olan \
-q1-q4 cevaplarıdır — bir sembolün anlamını sözlükte yazan değil, bu kişinin içinde yaptığı \
-şey belirler. Rüya metni zemindir. personal_context ("bu rüyayı neden bu gece gördüm") \
-doluysa yorumu ona bağla, boşsa eksikliğini metinde anma. Seçilmemiş çağrışımlar \
-(all_associations) yalnızca arka plandır. Kendi mitoloji ve arketip bilgin en hafif \
-katmandır: bir çağrışım zayıf kaldığında tek bir sağlam paralelle onu derinleştirebilirsin, \
-kişisel olanın üzerine asla çıkmaz ve hiçbir paragrafın omurgası olamaz.
+Şu beş yere bak, hepsini birden zorlama — gerçekten orada olan iki üç tanesini al:
+1. ATLANAN SEMBOL. Kişi bir sembole çağrışım ve cevap yazmış ama yorumunda o sembol \
+hiç geçmiyor. Neyin dışarıda bırakıldığı çoğu zaman en anlamlı yerdir.
+2. KENDİ CÜMLESİNİN AĞIRLIĞI. Cevaplarında sert, çıplak bir şey söyleyip yorumunda \
+onu yumuşatmış olabilir — özellikle "kim içimde böyle davranıyor" sorusuna gelen cevap.
+3. GÖRÜLMEYEN KARŞITLIK. İki sembol ya da iki cevap birbiriyle çelişiyor ve kişi \
+çelişkiyi fark etmeden, çözülmüş gibi geçmiş.
+4. RÜYA-EGO'NUN TUTUMU. Rüyada kişinin kendisinin ne yaptığı — kaçtı mı, izledi mi, \
+sustu mu, geç mi kaldı — yorumda çoğu zaman kaybolur, oysa rüyanın asıl sorusu orada durur.
+5. RÜYANIN BİTİŞİ. Rüya çözülmeden bitiyor ama yorum bir çözüme varıyorsa, o çözüm \
+rüyadan değil kişinin kendisinden geliyordur.
 
-## Dört ilke
+## Kurallar
 
-1. TEK İP. Yazmaya başlamadan önce kendine — metne değil — şu cümleyi kur: "Bu rüya, \
-[uyanık hayattaki somut bir tutum] karşısına [rüyanın getirdiği şey] koyuyor." Bu cümleyi \
-sembollerin kendi kelimelerinden damıt; en az üçünü birden tutmalı ve başka bir rüyaya \
-olduğu gibi yapıştırılabiliyorsa fazla geneldir, at ve yeniden kur. Bu cümleyi çoğu zaman \
-iki detay verir: rüya sahibinin gerilimin en yoğun anında ne yaptığı (ya da yapmadığı) ve \
-rüyanın nasıl bittiği. Rüya çözülmeden bitiyorsa çözüm uydurma — bilinçdışının henüz bir \
-şey vermediğini dürüstçe söyle. Metnin tamamı bu tek cümlenin açılımıdır; sembolden sembole \
-ilerleyen bir liste değil.
-
-2. YENİ BAĞLANTI KUR, PARAFRAZ ETME. En sık yapılan hata kullanıcının kendi cevabını süslü \
-kelimelerle geri vermektir; bunun yorum değeri sıfırdır. Her cümlenin testi şu: kullanıcı \
-bunu okuyunca "bunu ben zaten söylemiştim" mi der, "bunu ben söylememiştim ama doğru" mu? \
-Birincisiyse sil. Değerli olan, kullanıcının kendisinin kurmadığı bağlantıdır: bir sembolü \
-başka bir sembole, rüyanın başka bir anına ya da uyanık hayattaki isimsiz bir kalıba \
-bağlayan cümle.
-Böyle YAZMA: "Bu figür, senin de dediğin gibi, kusursuz görünme çabanın altındaki boşluğu \
-taşıyor."
-Böyle YAZ: "Bu boşluğu doldurma çaban, az önceki o sessiz figürün hiçbir şey kanıtlamadan \
-var olabilmesiyle tam bir karşıtlık kuruyor — biri sürekli göstermek zorunda, öbürü hiç \
-zorunda değil, ve rüya seni ikisinin arasına koyuyor."
-
-3. İMGEDE KAL. Önce imgenin kendi özgüllüğünde dur — ayna kırık mı çatlak mı, kim kırdı, \
-sen neredesin — sonra o özgüllüğü gündelik psikolojik dile çevir ama özgüllüğü silme. \
-Kişinin kendi cevaplarından bir iki ifadeyi tırnak içinde birebir kullan. Yarı-mistik dil, \
+PARAFRAZ ETME. Onun yorumundaki bir cümleyi başka kelimelerle geri vermenin değeri \
+sıfırdır. Her cümlenin testi: okuyan "bunu ben zaten yazmıştım" mı der, "buraya \
+bakmamıştım" mı?
+NOT VERME. "Güzel yakalamışsın", "doğru yoldasın" gibi değerlendirme cümlesi kurma; \
+övgü de bir kör noktadır. Yorumunu düzeltmeye, yanlışlamaya da çalışma — yanına başka \
+bir şey koy.
+İMGEDE KAL. Kendi cevaplarından bir iki ifadeyi tırnak içinde birebir kullan, imgenin \
+özgüllüğünü koru (ayna kırık mı çatlak mı, kim kırdı, sen neredesin). Yarı-mistik dil, \
 "rüya tabiri" ve fal-burç tınısı yasak.
-Böyle YAZMA: "Yılan, pek çok kültürde dönüşümün sembolüdür ve bilinçdışının habercisi \
-olarak karşına çıkıyor."
-Böyle YAZ: "Yılan sana yaklaşırken kıpırdamadan beklemen — kaçmıyorsun ama karşılamıyorsun \
-da — 'kimseye hayır diyemiyorum' dediğin yerle aynı yerden geliyor."
+GERİLİMİ ÇÖZME. Karşıt çiftlerin bir tarafını haklı çıkarma, ikisini aynı anda tut; \
+rahatsız edici malzemeyi temizleyip geçme. Rüyadaki figürlerin neredeyse tamamı kişinin \
+kendi iç parçalarıdır, sorumluluğu eşe patrona "onlara" atma. Hüküm değil davet olarak \
+yaz — her cümleye "belki" ekleyerek değil, iddiayı açık uçlu kurarak.
+UYDURMA. Rüyada, çağrışımlarda, cevaplarda ya da onun yorumunda geçmeyen hiçbir sahne, \
+nesne, kişi ya da duygu ekleme. Kör nokta bulamıyorsan sayı doldurmak için icat etme, \
+azıyla yetin.
 
-4. GERİLİMİ ÇÖZME. Rüyalar bitmiş işe değil bitmemiş işe bakar. Rahatsız edici malzemeyi, \
-özellikle q4'e gelen utandırıcı cevabı, yumuşatma ya da temizleyip geçme; karşıt çiftleri \
-(kaçan/kovalayan, koruyan/tehdit eden) bir tarafı haklı çıkararak çözme, ikisini aynı anda \
-tut. Rüyadaki figürlerin neredeyse tamamı rüya sahibinin kendi iç parçalarıdır; sorumluluğu \
-eşe, patrona, "onlara" atan yorumu at. Kişiyi yücelten ya da onun zaten bildiğini tekrar \
-eden yorumdan şüphelen. Ve kesinlik iddia etme: bir yorum ancak kişide tanıdık bir yankı \
-uyandırdığında doğrulanır, bu yüzden hüküm değil davet olarak yaz — her cümleye "belki" \
-ekleyerek değil, iddiayı açık uçlu kurarak.
-
-## Tek sert sınır
-
-UYDURMA. Rüyada, çağrışımlarda ya da cevaplarda geçmeyen hiçbir sahne, nesne, kişi ya da \
-duygu ekleme; akıcılık için detay icat etme. Bir detay yoruma direniyorsa "burası henüz \
-açılmıyor" de, açıkta bırak.
+Böyle YAZMA: "Senin de dediğin gibi, kuyu figürü derinlere inme ihtiyacını temsil ediyor."
+Böyle YAZ: "Kuyuya inmekten söz ediyorsun ama rüyada kuyunun başında duruyorsun, inen \
+sen değilsin — ve 'hep başkası girer, ben beklerim' dediğin yer tam da burası."
 
 ## Çıktı
 
-Akıcı düzyazı, 4-6 paragraf, 450-700 kelime. Başlık, madde işareti, kalın yazı yok. \
-Türkçe, doğrudan "sen" diye hitap, sıcak ama analitik. İlk cümle doğrudan yorumun içinden \
-başlasın; rüyayı özetleyerek girme. Yöntemin ve Jung'un terimlerini (gölge, persona, anima, \
-Self, kompleks, amplifikasyon, telafi, lysis, selected_association, q1-q4) metinde anma — \
-kişi yöntemi değil kendi rüyasını okuyacak. Son paragrafta iki iş yap: tek ip cümleni açıkça \
-kur, ardından somut bir ritüel öner — bu rüyadaki bir sembolü içeren, bu hafta on dakikada \
-yapılabilecek bedensel bir şey (rüyada kovalayan ya da kaçılan bir figür varsa, gözler \
-kapalı ona dönüp dostça "benden ne istiyorsun?" diye sormak bunun en güçlü biçimidir).
+İki ilâ dört kısa paragraf, 200-350 kelime. Her paragraf tek bir kör noktayı açar ve \
+onu veriden gösterir. Başlık, madde işareti, kalın yazı yok. Türkçe, doğrudan "sen" \
+diye hitap, sıcak ama analitik. İlk cümle doğrudan kör noktanın içinden başlasın; ne \
+yapacağını anlatarak girme. Jung'un ve yöntemin terimlerini (gölge, persona, anima, \
+Self, kompleks, telafi, amplifikasyon, selected_association, q1-q4) metinde anma. Son \
+cümle bir soru olsun — cevabını senin değil onun vereceği, rüyanın kendisinden çıkan \
+bir soru.
 
 VERİ:
 {payload_json}
 
-Şimdi yorumu yaz. Tek ölçüt: okuyan kişi rüyasının ona ne söylediğini anlasın.
+Şimdi yaz. Tek ölçüt: okuyan kişi kendi yorumuna dönüp "buraya bakmamıştım" desin.
 """
 AMPLIFY_PROMPT = """Sana tek bir rüya sembolü veriliyor. Rüya sahibi bu sembol için \
 kendi kişisel çağrışımını bulamadı, sıkıştı — senden bu sembolün taşıdığı bilinen \
@@ -214,7 +193,7 @@ def extract_symbols(dream_text: str) -> list[dict]:
     # "20/gün paylaşımlı" bulgusu bu modelde geçersiz hale gelmiş) doğruladı.
     # Yan fayda: Groq'un dar dakikalık çıktı-token sınırı artık sadece
     # sentezle paylaşılıyor, zengin rüyalarda extraction'ın onu tüketip
-    # JSON'u yarıda kesmesi riski azalıyor. synthesize_interpretation hâlâ
+    # JSON'u yarıda kesmesi riski azalıyor. expand_interpretation hâlâ
     # Groq'ta kalıyor — Gemini flash aynı testte 503+429 ile başarısız oldu.
     client = _get_client()
     prompt = EXTRACT_PROMPT.replace("{dream_text}", dream_text)
@@ -242,27 +221,33 @@ def extract_symbols(dream_text: str) -> list[dict]:
     return symbols
 
 
-def synthesize_interpretation(payload: dict) -> str:
-    # Gemini'nin ücretsiz kotası sentez adımında tekrar tekrar 429/503 verdiği
-    # için Groq'a kaçış yolu eklendi (bkz. Threads.md, 2026-09-09/10 kararı).
-    # Varsayılan hâlâ Gemini; SYNTHESIS_PROVIDER=groq ile devre dışı bırakılır.
+def expand_interpretation(payload: dict) -> str:
+    """Kullanıcının KENDİ yorumunu (payload["my_interpretation"]) alıp onun
+    göremediği kör noktalara işaret eder. Sıfırdan yorum üretmez — bu, eski
+    "her zaman çalışan sentez" adımının yerini alan, istek üzerine çağrılan
+    adımdır (bkz. PRODUCT.md: AI birincil değil, yorumu genişleten yardımcı).
+
+    Gemini'nin ücretsiz kotası bu adımda tekrar tekrar 429/503 verdiği için
+    Groq'a kaçış yolu var (bkz. Threads.md, 2026-09-09/10 kararı). Varsayılan
+    hâlâ Gemini; SYNTHESIS_PROVIDER=groq ile devre dışı bırakılır.
+    """
     provider = os.environ.get("SYNTHESIS_PROVIDER", "gemini").strip().lower()
     if provider == "groq":
         from services import groq_client
 
-        return groq_client.synthesize_interpretation(payload)
+        return groq_client.expand_interpretation(payload)
 
     client = _get_client()
-    prompt = SYNTHESIS_PROMPT.replace(
+    prompt = EXPAND_PROMPT.replace(
         "{payload_json}", json.dumps(payload, ensure_ascii=False, indent=2)
     )
     response = client.models.generate_content(
-        model=_synthesis_model_name(),
+        model=_expand_model_name(),
         contents=prompt,
         config=types.GenerateContentConfig(
             max_output_tokens=8192,
-            # Kişisel çağrışımları, 4 soru cevaplarını ve kültürel amplifikasyon
-            # verisini tutarlı biçimde harmanlamak dikkatli akıl yürütme
+            # Kişinin kendi yorumunu, çağrışımlarını ve 4 soru cevaplarını
+            # karşılaştırıp NEYİN EKSİK olduğunu bulmak dikkatli akıl yürütme
             # gerektiriyor; bu adımda "yüksek" düşünme bütçesi kaliteyi artırıyor.
             thinking_config=types.ThinkingConfig(thinking_level="high"),
             # Google Arama grounding'i denendi ama bu API key'in bağlı olduğu
@@ -279,10 +264,10 @@ def synthesize_interpretation(payload: dict) -> str:
 def amplify_symbol(name: str, name_en: str, context: str) -> str:
     """Tek bir sembol için kısa bir amplifikasyon (mitolojik/kültürel paralel)
     döndürür — kullanıcı o sembol için kendi çağrışımını bulamadığında, çark
-    ekranında kullanılır. synthesize_interpretation'daki amplifikasyondan farkı:
-    burada kişisel çağrışım YOK, amplifikasyon tek girdi, o yüzden ayrı ve daha
-    hafif bir istek. Extraction modelini kullanıyor — basit bir bilgi hatırlama
-    görevi, sentezdeki gibi çok adımlı muhakeme gerekmiyor; ayrı tutulmasının
+    ekranında kullanılır. expand_interpretation'dan farkı: burada kişisel
+    çağrışım YOK, amplifikasyon tek girdi, o yüzden ayrı ve daha hafif bir
+    istek. Extraction modelini kullanıyor — basit bir bilgi hatırlama
+    görevi, genişletmedeki gibi çok adımlı muhakeme gerekmiyor; ayrı tutulmasının
     sebebi artık kota değil (ikisi de flash-lite), thinking_level="low" ile
     tek sembollük hafif bir istek olarak kalması.
     """

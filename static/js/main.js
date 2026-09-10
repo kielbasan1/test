@@ -2,6 +2,7 @@
   const state = {
     dreamText: "",
     dreamContext: "",
+    myInterpretation: "", // kullanıcının KENDİ yorumu — asıl olan bu, AI ondan sonra gelir
     symbols: [], // { name, name_en, context, associations: [{id,text,selected}], questions: {q1..q4} }
     activeIndex: null,
     resultReady: false,
@@ -39,11 +40,24 @@
     stepFinalize: document.getElementById("step-finalize"),
     btnFinalizeBack: document.getElementById("btn-finalize-back"),
     btnFinalize: document.getElementById("btn-finalize"),
+    btnFinish: document.getElementById("btn-finish"),
+    myInterpretation: document.getElementById("my-interpretation"),
+    finalizeGate: document.getElementById("finalize-gate"),
     finalizeStatus: document.getElementById("finalize-status"),
     stepResult: document.getElementById("step-result"),
+    myInterpBlock: document.getElementById("my-interpretation-block"),
+    myInterpText: document.getElementById("my-interpretation-text"),
+    expandOffer: document.getElementById("expand-offer"),
+    btnExpandLater: document.getElementById("btn-expand-later"),
+    expandStatus: document.getElementById("expand-status"),
+    aiBlock: document.getElementById("ai-block"),
     resultText: document.getElementById("result-text"),
     btnCopyResult: document.getElementById("btn-copy-result"),
     btnReport: document.getElementById("btn-report"),
+    reportMenu: document.getElementById("report-menu"),
+    reportIncludeAi: document.getElementById("report-include-ai"),
+    btnReportMd: document.getElementById("btn-report-md"),
+    btnReportPrint: document.getElementById("btn-report-print"),
     btnDownloadJson: document.getElementById("btn-download-json"),
     symbolMapSvg: document.getElementById("symbol-map-svg"),
     btnShowHistory: document.getElementById("btn-show-history"),
@@ -138,6 +152,9 @@
 
     const finish = () => {
       allSteps().forEach((s) => s.classList.toggle("hidden", s !== section));
+      // Yorum adımına her girişte metin alanı state ile eşitlenir — kullanıcı
+      // sembollere geri dönüp tekrar geldiğinde yazdığı yorum kaybolmasın.
+      if (section === el.stepFinalize) el.myInterpretation.value = state.myInterpretation || "";
       if (section !== el.stepHistory) {
         state.lastMainStep = section;
         updateStepLabel(section);
@@ -170,10 +187,33 @@
     updateProgress();
   }
 
+  // Yapay zeka yardımının açılması için kendi yorumunun ulaşması gereken
+  // en az uzunluk. Amaç bir kalite ölçütü değil — tek kelime yazıp geçmeyi,
+  // yani yöntemin asıl işini (kendi yorumunu kurmayı) atlamayı zorlaştırmak.
+  // Rüya işinin değeri yavaşlıkta: AI'ın anında cevap vermesi, beklemesi
+  // gereken yerde kişiyi kısayola çeker (bkz. Threads.md, "trickster dürtüsü").
+  const MIN_OWN_INTERPRETATION_CHARS = 120;
+
+  function ownInterpretationText() {
+    return (el.myInterpretation.value || state.myInterpretation || "").trim();
+  }
+
+  function symbolsComplete() {
+    return state.symbols.length > 0 && state.symbols.every((s) => s.associations.some((a) => a.selected));
+  }
+
+  function updateFinalizeGate() {
+    const ready = symbolsComplete();
+    const own = ownInterpretationText();
+    el.btnFinish.disabled = !ready || own.length === 0;
+    el.btnFinalize.disabled = !ready || own.length < MIN_OWN_INTERPRETATION_CHARS;
+    const remaining = MIN_OWN_INTERPRETATION_CHARS - own.length;
+    el.finalizeGate.textContent =
+      remaining > 0 ? I18N.t("finalize.gate", { remaining }) : I18N.t("finalize.gateOpen");
+  }
+
   function updateProgress() {
-    el.btnFinalize.disabled = !(
-      state.symbols.length > 0 && state.symbols.every((s) => s.associations.some((a) => a.selected))
-    );
+    updateFinalizeGate();
     if (!state.currentStepMeta) return;
     const { index, nameKey } = state.currentStepMeta;
     const stepPrefix = I18N.t("step.label", { index, total: STEP_ORDER.length, name: I18N.t(nameKey) });
@@ -262,6 +302,7 @@
             activeIndex: state.activeIndex,
             dream_text: dreamText,
             personal_context: el.dreamContext.value || state.dreamContext || "",
+            my_interpretation: el.myInterpretation.value || state.myInterpretation || "",
             symbols: state.symbols,
           })
         );
@@ -325,6 +366,7 @@
       is_draft: true,
       dream_text: saved.dream_text,
       personal_context: saved.personal_context,
+      my_interpretation: saved.my_interpretation || "",
       symbols: saved.symbols,
     };
     const hasSymbols = Array.isArray(saved.symbols) && saved.symbols.length > 0;
@@ -739,59 +781,128 @@
     showOnlyStep(el.stepSymbols);
   });
 
-  el.btnFinalize.addEventListener("click", async () => {
-    el.btnFinalize.disabled = true;
-    try {
-      setStatus(el.finalizeStatus, I18N.t("finalize.status.synthesizing"));
-      el.finalizeStatus.classList.add("spinner");
-      const payload = {
-        dream_text: state.dreamText,
-        personal_context: state.dreamContext,
-        symbols: state.symbols.map((s) => ({
-          name: s.name,
-          name_en: s.name_en || "",
-          context: s.context,
-          selected_association: (s.associations.find((a) => a.selected) || {}).text || "",
-          all_associations: s.associations.map((a) => a.text),
-          questions: s.questions,
-        })),
-      };
-      const synthData = await postJSON("/api/synthesize", payload);
-
-      state.resultReady = true;
-      state.lastRecord = { ...payload, interpretation: synthData.interpretation };
-      updateProgress();
-      renderResult(synthData.interpretation);
-
-      await postJSON("/api/save-dream", state.lastRecord);
-
-      setStatus(el.finalizeStatus, I18N.t("finalize.status.done"));
-      el.btnNewDream.classList.remove("hidden");
-    } catch (err) {
-      setStatus(el.finalizeStatus, err.message, true);
-    } finally {
-      el.btnFinalize.disabled = false;
-      el.finalizeStatus.classList.remove("spinner");
-    }
+  el.myInterpretation.addEventListener("input", () => {
+    state.myInterpretation = el.myInterpretation.value;
+    updateFinalizeGate();
+    saveProgress();
   });
 
-  function renderResult(text) {
-    SymbolMap.render(el.symbolMapSvg, state.lastRecord);
-    el.resultText.textContent = text;
+  function buildRecord(interpretation) {
+    return {
+      dream_text: state.dreamText,
+      personal_context: state.dreamContext,
+      my_interpretation: ownInterpretationText(),
+      symbols: state.symbols.map((s) => ({
+        name: s.name,
+        name_en: s.name_en || "",
+        context: s.context,
+        selected_association: (s.associations.find((a) => a.selected) || {}).text || "",
+        all_associations: s.associations.map((a) => a.text),
+        questions: s.questions,
+      })),
+      interpretation: interpretation || "",
+    };
+  }
+
+  // Rüyayı bitirmenin ASIL yolu bu: kendi yorumunu kaydet, yapay zekaya hiç
+  // sorma. Genişletme sonuç ekranından istendiği an ayrıca çağrılabiliyor
+  // (bkz. btnExpandLater) — ürün kararı: AI birincil değil, istek üzerine.
+  async function finishWithOwnInterpretation() {
+    state.myInterpretation = ownInterpretationText();
+    state.resultReady = true;
+    state.lastRecord = buildRecord("");
+    updateProgress();
+    renderResult(state.lastRecord);
+    el.btnNewDream.classList.remove("hidden");
+    try {
+      await postJSON("/api/save-dream", state.lastRecord);
+      setStatus(el.finalizeStatus, I18N.t("finalize.status.saved"));
+    } catch (err) {
+      // Sunucuya yazamamak akışı bozmamalı — .json yedeği zaten asıl kopya.
+      setStatus(el.finalizeStatus, err.message, true);
+    }
+  }
+
+  el.btnFinish.addEventListener("click", () => {
+    el.btnFinish.disabled = true;
+    finishWithOwnInterpretation().finally(() => updateFinalizeGate());
+  });
+
+  // Genişletme: kullanıcının kendi yorumunu da göndererek kör noktaları ister.
+  // statusNode/button parametreleri, aynı işin hem Yorum adımından hem sonuç
+  // ekranından çağrılabilmesi için.
+  async function runExpansion(button, statusNode) {
+    button.disabled = true;
+    statusNode.classList.add("spinner");
+    setStatus(statusNode, I18N.t("finalize.status.expanding"));
+    try {
+      const payload = buildRecord("");
+      delete payload.interpretation;
+      const data = await postJSON("/api/expand-interpretation", payload);
+
+      state.resultReady = true;
+      state.lastRecord = buildRecord(data.interpretation);
+      updateProgress();
+      renderResult(state.lastRecord);
+      el.btnNewDream.classList.remove("hidden");
+
+      await postJSON("/api/save-dream", state.lastRecord);
+      setStatus(statusNode, I18N.t("finalize.status.done"));
+    } catch (err) {
+      setStatus(statusNode, err.message, true);
+    } finally {
+      button.disabled = false;
+      statusNode.classList.remove("spinner");
+      updateFinalizeGate();
+    }
+  }
+
+  el.btnFinalize.addEventListener("click", () => {
+    state.myInterpretation = ownInterpretationText();
+    runExpansion(el.btnFinalize, el.finalizeStatus);
+  });
+
+  el.btnExpandLater.addEventListener("click", () => {
+    // Sonuç ekranından çağrıldığında state, kayıttaki değerlerden tazelenir —
+    // geçmişten/dosyadan açılmış bir kayıtta form alanları boş olabilir.
+    const rec = state.lastRecord || {};
+    state.dreamText = rec.dream_text || state.dreamText;
+    state.dreamContext = rec.personal_context || state.dreamContext;
+    state.myInterpretation = rec.my_interpretation || state.myInterpretation;
+    runExpansion(el.btnExpandLater, el.expandStatus);
+  });
+
+  function renderResult(record) {
+    const rec = record && typeof record === "object" ? record : state.lastRecord || {};
+    SymbolMap.render(el.symbolMapSvg, rec);
+
+    const own = (rec.my_interpretation || "").trim();
+    el.myInterpText.textContent = own;
+    el.myInterpBlock.classList.toggle("hidden", !own);
+
+    const ai = (rec.interpretation || "").trim();
+    el.resultText.textContent = ai;
+    el.aiBlock.classList.toggle("hidden", !ai);
+    // Genişletme yoksa ama kendi yorumu varsa teklif göster — istek üzerine,
+    // hiçbir zaman otomatik.
+    el.expandOffer.classList.toggle("hidden", !!ai || !own);
+    setStatus(el.expandStatus, "");
+
     showOnlyStep(el.stepResult);
   }
 
-  // ---------- Rapor (yazdır/PDF) ----------
-  // Ham .txt dökümü yerine gerçek bir rapor: harici bağımlılık eklemeden
-  // (yeni pencere + tarayıcının kendi yazdır/PDF-olarak-kaydet akışı),
-  // metni seçilebilir/aranabilir kalan bir belge. Harita bölümü kâğıt
-  // paletiyle (bkz. symbolmap.js PALETTE_PAPER) gömülü SVG olarak basılıyor;
-  // sembol kartları gerçek HTML — böylece tarayıcı sayfa bölmesini
-  // (`break-inside: avoid`) doğru uyguluyor, SVG'de elle hesaplamaya gerek
-  // kalmıyor. "Yorum" bölümü şu an tek AI sentezini gösteriyor; ileride
-  // "yorumu genişlet" (kullanıcının kendi yorumu + AI'ın kör nokta notları)
-  // geldiğinde bu bölüm güncellenecek — veri yoksa (interpretation boşsa)
-  // bölüm hiç basılmıyor.
+  // ---------- Rapor (.md ve yazdır/PDF) ----------
+  // İki çıktı, tek kaynak: aynı kayıttan hem Markdown dosyası hem yazdırılabilir
+  // HTML üretiliyor. Markdown asıl arşiv formatı — düz metin, sürüm kontrolüne
+  // ve Obsidian gibi not sistemlerine doğrudan girer, yıllar sonra da açılır
+  // (PRODUCT.md: arşivleme birinci sınıf özellik). Yazdır/PDF ise okumak ve
+  // basmak için: harita kâğıt paletiyle (bkz. symbolmap.js PALETTE_PAPER)
+  // gömülü SVG olarak basılıyor, sembol kartları gerçek HTML — böylece
+  // tarayıcı sayfa bölmesini (`break-inside: avoid`) doğru uyguluyor.
+  //
+  // Her iki çıktıda da kullanıcının KENDİ yorumu asıl bölümdür; yapay zeka
+  // genişletmesi rapora girip girmeyeceği bir seçenektir (includeAi) — kişi
+  // raporu kendi yorumu olarak saklamak isteyebilir.
 
   function escapeHtml(str) {
     return String(str ?? "").replace(/[&<>"']/g, (c) => ({
@@ -828,7 +939,129 @@
     </article>`;
   }
 
-  function buildReportHtml(record) {
+  // --- Markdown ---
+  // Markdown'da kaçış minimumda tutuluyor: kullanıcının kendi yazdığı metin
+  // olduğu gibi okunabilir kalmalı. Sadece satır başındaki, paragrafı yanlışlıkla
+  // başlık/liste yapacak işaretler etkisizleştiriliyor.
+  function mdBlock(text) {
+    return String(text ?? "")
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.replace(/^(\s*)([#>*+-]|\d+\.)(\s)/, "$1\\$2$3"))
+      .join("\n")
+      .trim();
+  }
+
+  function mdInline(text) {
+    return String(text ?? "").replace(/\r?\n+/g, " ").trim();
+  }
+
+  // Yerel tarih/saat — toISOString() UTC'ye çevirdiği için gece yazılan bir
+  // rüyanın dosya adı ve frontmatter tarihi bir gün geriye kayabiliyordu.
+  function localStamp(date, withTime) {
+    const p = (n) => String(n).padStart(2, "0");
+    const d = `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
+    return withTime ? `${d}-${p(date.getHours())}-${p(date.getMinutes())}-${p(date.getSeconds())}` : d;
+  }
+
+  function buildReportMarkdown(record, options) {
+    const includeAi = !(options && options.includeAi === false);
+    const locale = I18N.getLang() === "en" ? "en-US" : "tr-TR";
+    const saved = record.saved_at ? new Date(record.saved_at) : new Date();
+    const symbols = record.symbols || [];
+    const out = [];
+
+    // YAML frontmatter: Obsidian/Dataview gibi araçlar rüyaları tarih ve
+    // sembollerine göre süzebilsin diye — "biriktir, sonra aralarında bağ kur"
+    // hedefinin en ucuz karşılığı.
+    out.push("---");
+    out.push(`title: ${JSON.stringify(I18N.t("report.title"))}`);
+    out.push(`date: ${localStamp(saved, false)}`);
+    out.push("type: dream");
+    if (symbols.length) {
+      out.push("symbols:");
+      symbols.forEach((s) => out.push(`  - ${JSON.stringify(mdInline(s.name || ""))}`));
+    }
+    out.push(`has_ai_expansion: ${includeAi && !!(record.interpretation || "").trim()}`);
+    out.push("---");
+    out.push("");
+    out.push(`# ${I18N.t("report.title")}`);
+    out.push("");
+    out.push(`*${saved.toLocaleString(locale)} — ${symbols.length} ${I18N.t("report.coverSymbolCount")}*`);
+    out.push("");
+
+    out.push(`## ${I18N.t("report.dreamHeading")}`);
+    out.push("");
+    out.push(mdBlock(record.dream_text || ""));
+    out.push("");
+    if (record.personal_context) {
+      out.push(`**${I18N.t("report.contextHeading")}**`);
+      out.push("");
+      out.push(mdBlock(record.personal_context));
+      out.push("");
+    }
+
+    if (symbols.length) {
+      out.push(`## ${I18N.t("report.cardsHeading")}`);
+      out.push("");
+      symbols.forEach((sym) => {
+        const q = sym.questions || {};
+        const others = (sym.all_associations || []).filter((a) => a && a !== sym.selected_association);
+        out.push(`### ${mdInline(sym.name || "")}`);
+        out.push("");
+        if (sym.context) out.push(`*${mdInline(sym.context)}*`);
+        out.push("");
+        out.push(`**${I18N.t("worksheet.goldAssoc")}:** ${mdInline(sym.selected_association) || "—"}`);
+        out.push("");
+        if (others.length) {
+          out.push(`**${I18N.t("worksheet.otherAssoc")}:** ${others.map(mdInline).join(", ")}`);
+          out.push("");
+        }
+        SymbolMap.questionLabels.forEach(([key, label]) => {
+          const answer = q[key] && q[key].trim() ? mdInline(q[key]) : "—";
+          out.push(`- **${label}** ${answer}`);
+        });
+        out.push("");
+      });
+    }
+
+    const own = (record.my_interpretation || "").trim();
+    if (own) {
+      out.push(`## ${I18N.t("result.myHeading")}`);
+      out.push("");
+      out.push(mdBlock(own));
+      out.push("");
+    }
+
+    const ai = (record.interpretation || "").trim();
+    if (includeAi && ai) {
+      out.push(`## ${I18N.t("result.aiHeading")}`);
+      out.push("");
+      out.push(`> ${I18N.t("result.frame")}`);
+      out.push("");
+      out.push(mdBlock(ai));
+      out.push("");
+    }
+
+    return out.join("\n").replace(/\n{3,}/g, "\n\n") + "\n";
+  }
+
+  function downloadText(filename, text, mime) {
+    const blob = new Blob([text], { type: `${mime};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // --- Yazdırılabilir HTML ---
+
+  function buildReportHtml(record, options) {
+    const includeAi = !(options && options.includeAi === false);
     const locale = I18N.getLang() === "en" ? "en-US" : "tr-TR";
     const dateStr = new Date().toLocaleString(locale);
     const dreamSnippet = (record.dream_text || "").replace(/\s+/g, " ").trim().slice(0, 220);
@@ -838,12 +1071,22 @@
       ? `<div class="field-label">${escapeHtml(I18N.t("report.contextHeading"))}</div><p class="context-text">${escapeHtml(record.personal_context)}</p>`
       : "";
     const cardsHtml = symbols.map(buildReportCardHtml).join("\n");
-    const interpretationSection = record.interpretation
+    const own = (record.my_interpretation || "").trim();
+    const ownSection = own
       ? `<section class="section">
-          <h2>${escapeHtml(I18N.t("report.interpretationHeading"))}</h2>
-          <p class="interpretation-text">${escapeHtml(record.interpretation)}</p>
+          <h2>${escapeHtml(I18N.t("result.myHeading"))}</h2>
+          <p class="interpretation-text">${escapeHtml(own)}</p>
         </section>`
       : "";
+    const ai = (record.interpretation || "").trim();
+    const interpretationSection =
+      includeAi && ai
+        ? `<section class="section">
+          <h2>${escapeHtml(I18N.t("result.aiHeading"))}</h2>
+          <p class="report-frame">${escapeHtml(I18N.t("result.frame"))}</p>
+          <p class="interpretation-text">${escapeHtml(ai)}</p>
+        </section>`
+        : "";
 
     return `<!doctype html>
 <html lang="${I18N.getLang()}">
@@ -880,6 +1123,7 @@
   .field-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-top:12px; }
   .field-value { margin-top:2px; }
   .field-value.muted { color:var(--muted); }
+  .report-frame { font-style:italic; color:var(--muted); margin:0 0 12px; }
   .print-bar { text-align:center; margin-bottom:24px; }
   .print-bar button {
     font-family:${SymbolMap.fonts.body}; font-size:13px; padding:8px 18px; border-radius:999px;
@@ -910,14 +1154,16 @@
 
   ${cardsHtml ? `<section class="section"><h2>${escapeHtml(I18N.t("report.cardsHeading"))}</h2>${cardsHtml}</section>` : ""}
 
+  ${ownSection}
+
   ${interpretationSection}
 </body>
 </html>`;
   }
 
-  function openReport(record) {
+  function openReport(record, options) {
     if (!record) return;
-    const html = buildReportHtml(record);
+    const html = buildReportHtml(record, options);
     const win = window.open("", "_blank");
     if (!win) {
       window.alert(I18N.t("report.popupBlocked"));
@@ -949,7 +1195,57 @@
     URL.revokeObjectURL(url);
   }
 
-  el.btnReport.addEventListener("click", () => openReport(state.lastRecord));
+  // Rapor menüsü: tek düğme, iki çıktı (.md / yazdır) ve tek seçenek
+  // (yapay zeka genişletmesi dahil mi). Kayıtta genişletme yoksa onay kutusu
+  // anlamsız — gizleniyor, ki seçenek gürültüsü olmasın.
+  function reportRecord() {
+    return state.lastRecord;
+  }
+
+  function closeReportMenu() {
+    el.reportMenu.classList.add("hidden");
+    el.btnReport.setAttribute("aria-expanded", "false");
+  }
+
+  function reportSlug(record) {
+    const base = record && record.saved_at ? new Date(record.saved_at) : new Date();
+    return localStamp(base, true);
+  }
+
+  el.btnReport.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const opening = el.reportMenu.classList.contains("hidden");
+    if (!opening) {
+      closeReportMenu();
+      return;
+    }
+    const hasAi = !!((reportRecord() || {}).interpretation || "").trim();
+    el.reportIncludeAi.closest(".report-menu-check").classList.toggle("hidden", !hasAi);
+    if (!hasAi) el.reportIncludeAi.checked = false;
+    el.reportMenu.classList.remove("hidden");
+    el.btnReport.setAttribute("aria-expanded", "true");
+  });
+
+  el.reportMenu.addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("click", closeReportMenu);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeReportMenu();
+  });
+
+  el.btnReportMd.addEventListener("click", () => {
+    const record = reportRecord();
+    if (!record) return;
+    const options = { includeAi: el.reportIncludeAi.checked };
+    downloadText(`ruya-${reportSlug(record)}.md`, buildReportMarkdown(record, options), "text/markdown");
+    closeReportMenu();
+  });
+
+  el.btnReportPrint.addEventListener("click", () => {
+    const record = reportRecord();
+    if (!record) return;
+    openReport(record, { includeAi: el.reportIncludeAi.checked });
+    closeReportMenu();
+  });
 
   // ---------- Dışa/içe aktarma (.json) ----------
   // Render gibi ücretsiz hosting'lerde disk kalıcı değil — sunucudaki
@@ -1099,8 +1395,9 @@
     state.lastRecord = record;
     state.resultReady = true;
     state.dreamText = record.dream_text || "";
+    state.myInterpretation = record.my_interpretation || "";
     resetProgress();
-    renderResult(record.interpretation || "");
+    renderResult(record);
     el.btnNewDream.classList.remove("hidden");
   });
 
@@ -1131,6 +1428,7 @@
   function loadDraftIntoState(record, targetSection) {
     state.dreamText = record.dream_text || "";
     state.dreamContext = record.personal_context || "";
+    state.myInterpretation = record.my_interpretation || "";
     state.symbols = (record.symbols || []).map((s) => ({
       name: s.name || "",
       name_en: s.name_en || "",
@@ -1155,6 +1453,7 @@
 
     el.dreamText.value = state.dreamText;
     el.dreamContext.value = state.dreamContext;
+    el.myInterpretation.value = state.myInterpretation;
     el.btnNewDream.classList.add("hidden");
     renderChips();
     updateProgress();
@@ -1167,6 +1466,7 @@
       is_draft: true,
       dream_text: state.dreamText,
       personal_context: state.dreamContext,
+      my_interpretation: ownInterpretationText(),
       symbols: state.symbols,
     });
     setStatus(el.finalizeStatus, I18N.t("finalize.draftSaved"));
@@ -1192,7 +1492,8 @@
 
   el.btnCopyResult.addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(el.resultText.textContent);
+      const parts = [el.myInterpText.textContent, el.resultText.textContent].filter((t) => t && t.trim());
+      await navigator.clipboard.writeText(parts.join("\n\n———\n\n"));
       const original = el.btnCopyResult.innerHTML;
       el.btnCopyResult.innerHTML = "";
       el.btnCopyResult.appendChild(makeIcon("check", "icon-sm"));
@@ -1208,6 +1509,7 @@
   el.btnNewDream.addEventListener("click", () => {
     state.dreamText = "";
     state.dreamContext = "";
+    state.myInterpretation = "";
     state.symbols = [];
     state.activeIndex = null;
     state.resultReady = false;
@@ -1215,6 +1517,7 @@
 
     el.dreamText.value = "";
     el.dreamContext.value = "";
+    el.myInterpretation.value = "";
     el.manualSymbolInput.value = "";
     setStatus(el.extractStatus, "");
     setStatus(el.finalizeStatus, "");
@@ -1277,18 +1580,37 @@
       const dreamPara = document.createElement("p");
       dreamPara.textContent = record.dream_text || "";
 
+      const ownHeading = document.createElement("h3");
+      ownHeading.textContent = I18N.t("result.myHeading");
+      const ownPara = document.createElement("div");
+      ownPara.textContent = record.my_interpretation || "";
+      ownPara.style.whiteSpace = "pre-wrap";
+
       const interpHeading = document.createElement("h3");
-      interpHeading.textContent = I18N.t("result.heading");
+      interpHeading.textContent = I18N.t("result.aiHeading");
       const interpPara = document.createElement("div");
       interpPara.textContent = record.interpretation || "";
       interpPara.style.whiteSpace = "pre-wrap";
+
+      // Geçmişteki bir kayıt için de aynı iki çıktı — burada menü yerine iki
+      // ayrı düğme, çünkü panel zaten dar ve kayıt sabit.
+      const mdBtn = document.createElement("button");
+      mdBtn.type = "button";
+      mdBtn.className = "btn-secondary";
+      mdBtn.style.marginBottom = "14px";
+      mdBtn.appendChild(makeIcon("file-text", "icon-sm"));
+      mdBtn.append(I18N.t("report.downloadMd"));
+      mdBtn.addEventListener("click", () =>
+        downloadText(`ruya-${reportSlug(record)}.md`, buildReportMarkdown(record), "text/markdown")
+      );
 
       const downloadBtn = document.createElement("button");
       downloadBtn.type = "button";
       downloadBtn.className = "btn-secondary";
       downloadBtn.style.marginBottom = "14px";
+      downloadBtn.style.marginLeft = "8px";
       downloadBtn.appendChild(makeIcon("print", "icon-sm"));
-      downloadBtn.append(I18N.t("result.report"));
+      downloadBtn.append(I18N.t("report.print"));
       downloadBtn.addEventListener("click", () => openReport(record));
 
       const downloadJsonBtn = document.createElement("button");
@@ -1303,6 +1625,7 @@
         downloadJSON(`ruya-${slug}.json`, record);
       });
 
+      el.historyDetailContent.appendChild(mdBtn);
       el.historyDetailContent.appendChild(downloadBtn);
       el.historyDetailContent.appendChild(downloadJsonBtn);
       el.historyDetailContent.appendChild(dreamHeading);
@@ -1323,8 +1646,14 @@
         SymbolMap.render(mapSvg, record);
       }
 
-      el.historyDetailContent.appendChild(interpHeading);
-      el.historyDetailContent.appendChild(interpPara);
+      if (record.my_interpretation) {
+        el.historyDetailContent.appendChild(ownHeading);
+        el.historyDetailContent.appendChild(ownPara);
+      }
+      if (record.interpretation) {
+        el.historyDetailContent.appendChild(interpHeading);
+        el.historyDetailContent.appendChild(interpPara);
+      }
     } catch (err) {
       el.historyDetailContent.textContent = err.message;
       el.historyDetail.classList.remove("hidden");

@@ -828,6 +828,111 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   border-top: 1px solid var(--ring);
 }
 
+/* ---------- Kendi yorumun / genişletme ----------
+   Sonuç ekranında kullanıcının kendi yorumu ASIL bölüm, yapay zeka
+   genişletmesi ondan sonra gelen ikinci bir katman — görsel ağırlık da bunu
+   söylüyor: kendi yorumu vurgulu bir kenarlıkla, genişletme sade. */
+.own-interpretation {
+  margin-top: 22px;
+  padding: 16px 18px;
+  border: 1px solid var(--ring);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+}
+
+.own-interpretation h3 {
+  margin: 0 0 10px;
+}
+
+#ai-block {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--ring);
+}
+
+#ai-block h3 {
+  margin: 0;
+}
+
+.expand-offer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--ring);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.expand-offer .hint {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+/* Yorum adımındaki kilit notu: yapay zeka butonu kendi yorumun yazılana
+   kadar pasif — bu satır ne kadar kaldığını söyleyip nedenini hatırlatıyor. */
+#finalize-gate {
+  margin-top: 10px;
+}
+
+/* ---------- Rapor menüsü ----------
+   Tek düğmenin altında açılan küçük seçenek kutusu: yapay zeka genişletmesi
+   rapora girsin mi, ve iki çıktı (.md / yazdır). */
+.report-menu-wrap {
+  position: relative;
+}
+
+.report-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  min-width: 260px;
+  padding: 14px 16px;
+  border: 1px solid var(--ring);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+.report-menu-title {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.report-menu-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.report-menu-check input {
+  width: auto;
+  accent-color: var(--accent);
+}
+
+.report-menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .report-menu {
+    right: auto;
+    left: 0;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
 /* ---------- Çark çerçevesi (frame): kadran halkası + ortam parıltısı ----------
    wheel.js'de sembolden bağımsız, bir kere kurulup hiç silinmeyen katman. */
 .wheel-glow-bg,

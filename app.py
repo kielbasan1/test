@@ -96,13 +96,18 @@ def extract_symbols():
     return jsonify({"symbols": symbols})
 
 
-@app.route("/api/synthesize", methods=["POST"])
-def synthesize():
+@app.route("/api/expand-interpretation", methods=["POST"])
+def expand_interpretation():
+    # Kullanıcının kendi yorumu zorunlu girdi: bu adım sıfırdan yorum üretmez,
+    # yazılmış bir yorumun kör noktalarına bakar. Yorum yoksa istek anlamsız —
+    # arayüz de butonu o yüzden kilitli tutuyor, bu sunucu tarafı yedeği.
     payload = request.get_json(force=True) or {}
     if not payload.get("dream_text") or not payload.get("symbols"):
         return jsonify({"error": "Eksik veri: rüya metni ve semboller gerekli."}), 400
+    if not (payload.get("my_interpretation") or "").strip():
+        return jsonify({"error": "Önce kendi yorumunu yazman gerekiyor."}), 400
     try:
-        interpretation = gemini_client.synthesize_interpretation(payload)
+        interpretation = gemini_client.expand_interpretation(payload)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": _friendly_error(exc)}), 500
     return jsonify({"interpretation": interpretation})
