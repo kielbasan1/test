@@ -141,6 +141,25 @@ def save_dream():
     return jsonify({"saved_as": filename})
 
 
+def dream_completion_pct(record: dict) -> int:
+    """Bir rüyanın çalışılma yüzdesi.
+
+    Bir sembol "tam" sayılır: q1-q4 sorularının hepsi doluysa VE bir
+    çağrışım seçilmişse. Yüzde = tam sembol sayısı / toplam sembol sayısı.
+    """
+    symbols = record.get("symbols") or []
+    if not symbols:
+        return 0
+    complete = 0
+    for sym in symbols:
+        questions = sym.get("questions") or {}
+        answered = all((questions.get(f"q{i}") or "").strip() for i in range(1, 5))
+        has_association = bool((sym.get("selected_association") or "").strip())
+        if answered and has_association:
+            complete += 1
+    return round(complete / len(symbols) * 100)
+
+
 @app.route("/api/dreams", methods=["GET"])
 def list_dreams():
     files = sorted(os.listdir(DREAMS_DIR), reverse=True)
@@ -155,9 +174,28 @@ def list_dreams():
                 "file": fname,
                 "saved_at": record.get("saved_at"),
                 "dream_text": record.get("dream_text", "")[:120],
+                "symbol_count": len(record.get("symbols") or []),
+                "completion_pct": dream_completion_pct(record),
+                "title": record.get("title", ""),
             }
         )
     return jsonify({"dreams": dreams})
+
+
+@app.route("/api/dreams/<fname>", methods=["PATCH"])
+def rename_dream(fname):
+    safe_name = os.path.basename(fname)
+    path = os.path.join(DREAMS_DIR, safe_name)
+    if not os.path.isfile(path):
+        return jsonify({"error": "Kayıt bulunamadı."}), 404
+    payload = request.get_json(force=True) or {}
+    title = str(payload.get("title", "")).strip()
+    with open(path, encoding="utf-8") as f:
+        record = json.load(f)
+    record["title"] = title
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(record, f, ensure_ascii=False, indent=2)
+    return jsonify({"file": safe_name, "title": title})
 
 
 @app.route("/api/dreams/<fname>", methods=["GET"])

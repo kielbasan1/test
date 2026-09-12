@@ -6,10 +6,12 @@
     symbols: [], // { name, name_en, context, associations: [{id,text,selected}], questions: {q1..q4},
     //            meditation (rapora girmez), report_note (rapora girer) }
     activeIndex: null,
+    workIndex: 0, // "Çalışman" bölümündeki tek-kart gezinmesinin hangi sembolde olduğu
     resultReady: false,
     lastMainStep: null, // geçmiş ekranından geri dönülecek adım
     currentStepMeta: null, // { index, name } — ilerleme etiketi için
     lastRecord: null, // son sentezlenen kayıt — rapor/harita/çalışma sayfası bundan üretilir
+    libraryDreams: [], // kütüphaneden son çekilen ham rüya özet listesi — sırala/filtrele yeniden çekmeden çalışır
   };
 
   const el = {
@@ -28,6 +30,10 @@
     btnStartSymbols: document.getElementById("btn-start-symbols"),
     stepWheel: document.getElementById("step-wheel"),
     btnWheelBack: document.getElementById("btn-wheel-back"),
+    btnWheelCyclePrev: document.getElementById("btn-wheel-cycle-prev"),
+    btnWheelCycleNext: document.getElementById("btn-wheel-cycle-next"),
+    wheelCycleLabel: document.getElementById("wheel-cycle-label"),
+    wheelSvgWrap: document.getElementById("wheel-svg-wrap"),
     wheelTitle: document.getElementById("wheel-symbol-title"),
     wheelContext: document.getElementById("wheel-symbol-context"),
     wheelSvg: document.getElementById("wheel-svg"),
@@ -46,6 +52,9 @@
     myInterpretation: document.getElementById("my-interpretation"),
     finalizeGate: document.getElementById("finalize-gate"),
     finalizeMapSvg: document.getElementById("finalize-map-svg"),
+    btnWorkCyclePrev: document.getElementById("btn-work-cycle-prev"),
+    btnWorkCycleNext: document.getElementById("btn-work-cycle-next"),
+    workCycleLabel: document.getElementById("work-cycle-label"),
     finalizeCards: document.getElementById("finalize-cards"),
     finalizeStatus: document.getElementById("finalize-status"),
     stepResult: document.getElementById("step-result"),
@@ -74,6 +83,9 @@
     stepHistory: document.getElementById("step-history"),
     historyEmpty: document.getElementById("history-empty"),
     historyList: document.getElementById("history-list"),
+    librarySort: document.getElementById("library-sort"),
+    libraryOnlyIncomplete: document.getElementById("library-only-incomplete"),
+    btnLibraryDownloadAll: document.getElementById("btn-library-download-all"),
     historyDetail: document.getElementById("history-detail"),
     btnHistoryBack: document.getElementById("btn-history-back"),
     historyDetailContent: document.getElementById("history-detail-content"),
@@ -120,9 +132,47 @@
     node.classList.toggle("error", !!isError);
   }
 
-  async function postJSON(url, body) {
+  // Dokunmatik kaydırma — ‹ › düğmeleriyle aynı gezinmeyi tetikler, sadece
+  // ek bir girdi yolu (Kaan'ın isteği, 2026-09-11: "telefonda parmakla
+  // kaydırma"). Düğmeler masaüstü için kalmaya devam ediyor. Dikey hareket
+  // yatay hareketten belirgin büyükse kaydırma sayılmaz — aksi halde sayfa
+  // kaydırmasıyla (veya kart içi metin seçimiyle) karışır.
+  const SWIPE_MIN_DISTANCE = 40;
+  const SWIPE_MAX_OFF_AXIS = 60;
+
+  function attachSwipe(node, { onLeft, onRight }) {
+    if (!node) return;
+    let startX = null;
+    let startY = null;
+    node.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length !== 1) return;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      },
+      { passive: true }
+    );
+    node.addEventListener(
+      "touchend",
+      (e) => {
+        if (startX === null) return;
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - startX;
+        const dy = touch.clientY - startY;
+        startX = null;
+        startY = null;
+        if (Math.abs(dy) > SWIPE_MAX_OFF_AXIS) return;
+        if (dx <= -SWIPE_MIN_DISTANCE) onLeft();
+        else if (dx >= SWIPE_MIN_DISTANCE) onRight();
+      },
+      { passive: true }
+    );
+  }
+
+  async function postJSON(url, body, method) {
     const res = await fetch(url, {
-      method: "POST",
+      method: method || "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
@@ -488,6 +538,13 @@
       label.textContent = sym.name;
       chip.appendChild(label);
 
+      const renameBtn = makeRenameControl(
+        sym.name,
+        (newName) => renameSymbol(i, newName),
+        renderChips
+      );
+      chip.appendChild(renameBtn);
+
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "chip-remove";
@@ -563,6 +620,80 @@
     };
   }
 
+  function renameSymbol(index, newName) {
+    // Sadece aktif oturumun state'inde — sunucuya/kaydedilmiş rüyalara
+    // dokunmaz. Kaydedince yeni isim zaten JSON'a yazılır.
+    const sym = state.symbols[index];
+    if (!sym) return;
+    const trimmed = (newName || "").trim();
+    if (!trimmed || trimmed === sym.name) return;
+    sym.name = trimmed;
+    // buildRecord() sembolleri kopyalayarak yeni nesneler üretiyor (bkz.
+    // buildRecord), yani state.lastRecord.symbols[i] state.symbols[i] ile
+    // aynı referans değil — çalışma kartı ayrıca güncellenmeli.
+    if (state.lastRecord && state.lastRecord.symbols && state.lastRecord.symbols[index]) {
+      state.lastRecord.symbols[index].name = trimmed;
+    }
+    renderChips();
+    if (state.activeIndex === index) {
+      el.wheelTitle.textContent = I18N.t("wheel.title", { name: sym.name });
+      el.wheelCycleLabel.textContent = sym.name;
+    }
+    if (state.workIndex === index && state.lastRecord) {
+      renderWorkCard(state.lastRecord);
+    }
+  }
+
+  function makeRenameControl(name, onSave, redraw) {
+    // Kalem ikonuna tıklanınca etiketi bir <input>'a dönüştüren ortak
+    // davranış — hem sembol çipleri hem çalışma kartı başlığı kullanır.
+    // Hem kaydetme hem iptal, çağıranın kendi tam-yeniden-çizim
+    // fonksiyonunu (renderChips/renderWorkCard) tetikleyerek eski hale
+    // döner — burada elle DOM geri alma yok.
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "symbol-rename-btn";
+    btn.setAttribute("aria-label", I18N.t("symbols.chipRename", { name }));
+    btn.appendChild(makeIcon("edit", "icon-sm"));
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "symbol-rename-input";
+      input.value = name;
+      let done = false;
+      const commit = async () => {
+        if (done) return;
+        done = true;
+        // onSave semboller için senkron, rüya başlığı için PATCH bekleyen
+        // async bir Promise olabilir — redraw ikisinde de sonucu görsün diye
+        // await ediliyor (senkron bir onSave için await no-op'tur).
+        await onSave(input.value);
+        redraw();
+      };
+      const cancel = () => {
+        if (done) return;
+        done = true;
+        redraw();
+      };
+      input.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          commit();
+        } else if (ev.key === "Escape") {
+          ev.preventDefault();
+          cancel();
+        }
+      });
+      input.addEventListener("blur", commit);
+      input.addEventListener("click", (ev) => ev.stopPropagation());
+      btn.replaceWith(input);
+      input.focus();
+      input.select();
+    });
+    return btn;
+  }
+
   el.btnUndoRemoveSymbol.addEventListener("click", () => {
     if (!pendingRemoval) return;
     const { symbol, index, activeIndexBefore } = pendingRemoval;
@@ -588,6 +719,7 @@
     const sym = state.symbols[index];
     el.wheelTitle.textContent = I18N.t("wheel.title", { name: sym.name });
     el.wheelContext.textContent = sym.context ? I18N.t("wheel.context", { context: sym.context }) : "";
+    el.wheelCycleLabel.textContent = sym.name || "";
     renderChips();
     renderWheelAndList();
     syncFourQuestionsPanel();
@@ -598,6 +730,19 @@
   el.btnWheelBack.addEventListener("click", () => {
     showOnlyStep(el.stepSymbols);
   });
+
+  // Çarktaki serbest gezinme: "Sonraki Sembol"dan (ilk eksik sembole
+  // ilerler) ayrı — burada tüm semboller arasında dairesel gidilip gelinir.
+  function cycleWheelSymbol(delta) {
+    const n = state.symbols.length;
+    if (!n) return;
+    const current = state.activeIndex ?? 0;
+    selectSymbol(((current + delta) % n + n) % n);
+  }
+
+  el.btnWheelCyclePrev.addEventListener("click", () => cycleWheelSymbol(-1));
+  el.btnWheelCycleNext.addEventListener("click", () => cycleWheelSymbol(1));
+  attachSwipe(el.wheelSvgWrap, { onLeft: () => cycleWheelSymbol(1), onRight: () => cycleWheelSymbol(-1) });
 
   // ---------- Amplifikasyon (tek sembol, kişisel çağrışım bulunamadığında) ----------
 
@@ -825,39 +970,68 @@
     if (!record.symbols.length) return;
     SymbolMap.render(el.finalizeMapSvg, record);
 
-    el.finalizeCards.innerHTML = "";
-    record.symbols.forEach((sym) => {
-      const card = document.createElement("article");
-      card.className = "finalize-card";
-
-      const h = document.createElement("h4");
-      h.textContent = sym.name || "";
-      card.appendChild(h);
-
-      const addField = (label, value, muted) => {
-        if (!value || !String(value).trim()) return;
-        const l = document.createElement("div");
-        l.className = "field-label";
-        l.textContent = label;
-        const v = document.createElement("div");
-        v.className = muted ? "field-value muted" : "field-value";
-        v.textContent = value;
-        card.appendChild(l);
-        card.appendChild(v);
-      };
-
-      addField(I18N.t("worksheet.context"), sym.context, true);
-      addField(I18N.t("worksheet.goldAssoc"), sym.selected_association);
-      const others = (sym.all_associations || []).filter((a) => a && a !== sym.selected_association);
-      addField(I18N.t("worksheet.otherAssoc"), others.join(", "), true);
-      SymbolMap.questionLabels.forEach(([key, label]) => {
-        addField(label, (sym.questions || {})[key]);
-      });
-      addField(I18N.t("notes.report"), sym.report_note);
-
-      el.finalizeCards.appendChild(card);
-    });
+    if (!(state.workIndex >= 0 && state.workIndex < record.symbols.length)) {
+      state.workIndex = 0;
+    }
+    renderWorkCard(record);
   }
+
+  // Çalışma sayfası da çark gibi tek seferde tek sembol gösterir (Kaan'ın
+  // isteği, 2026-09-11 — kartlar alt alta uzun bir liste yerine tek tek
+  // dolaşılabilsin, özellikle mobilde).
+  function renderWorkCard(record) {
+    const sym = record.symbols[state.workIndex];
+    el.workCycleLabel.textContent = sym.name || "";
+
+    el.finalizeCards.innerHTML = "";
+    const card = document.createElement("article");
+    card.className = "finalize-card";
+
+    const headingRow = document.createElement("div");
+    headingRow.className = "finalize-card-heading";
+    const h = document.createElement("h4");
+    h.textContent = sym.name || "";
+    headingRow.appendChild(h);
+    headingRow.appendChild(
+      makeRenameControl(sym.name || "", (newName) => renameSymbol(state.workIndex, newName), () =>
+        renderWorkCard(record)
+      )
+    );
+    card.appendChild(headingRow);
+
+    const addField = (label, value, muted) => {
+      if (!value || !String(value).trim()) return;
+      const l = document.createElement("div");
+      l.className = "field-label";
+      l.textContent = label;
+      const v = document.createElement("div");
+      v.className = muted ? "field-value muted" : "field-value";
+      v.textContent = value;
+      card.appendChild(l);
+      card.appendChild(v);
+    };
+
+    addField(I18N.t("worksheet.context"), sym.context, true);
+    addField(I18N.t("worksheet.goldAssoc"), sym.selected_association);
+    SymbolMap.questionLabels.forEach(([key, label]) => {
+      addField(label, (sym.questions || {})[key]);
+    });
+    addField(I18N.t("notes.report"), sym.report_note);
+
+    el.finalizeCards.appendChild(card);
+  }
+
+  function cycleWorkCard(delta) {
+    const record = buildRecord("");
+    const n = record.symbols.length;
+    if (!n) return;
+    state.workIndex = ((state.workIndex + delta) % n + n) % n;
+    renderWorkCard(record);
+  }
+
+  el.btnWorkCyclePrev.addEventListener("click", () => cycleWorkCard(-1));
+  el.btnWorkCycleNext.addEventListener("click", () => cycleWorkCard(1));
+  attachSwipe(el.finalizeCards, { onLeft: () => cycleWorkCard(1), onRight: () => cycleWorkCard(-1) });
 
   function buildRecord(interpretation) {
     return {
@@ -989,12 +1163,8 @@
 
   function buildReportCardHtml(sym) {
     const q = sym.questions || {};
-    const others = (sym.all_associations || []).filter((a) => a && a !== sym.selected_association);
     const contextHtml = sym.context
       ? `<div class="field-label">${escapeHtml(I18N.t("worksheet.context"))}</div><div class="field-value muted">${escapeHtml(sym.context)}</div>`
-      : "";
-    const othersHtml = others.length
-      ? `<div class="field-label">${escapeHtml(I18N.t("worksheet.otherAssoc"))}</div><div class="field-value muted">${escapeHtml(others.join(", "))}</div>`
       : "";
     const questionsHtml = SymbolMap.questionLabels
       .map(([key, label]) => {
@@ -1012,7 +1182,6 @@
       ${contextHtml}
       <div class="field-label">${escapeHtml(I18N.t("worksheet.goldAssoc"))}</div>
       <div class="field-value">${escapeHtml(sym.selected_association || "—")}</div>
-      ${othersHtml}
       ${questionsHtml}
       ${noteHtml}
     </article>`;
@@ -1073,17 +1242,6 @@
     out.push("");
     out.push(mdBlock(record.dream_text || ""));
     out.push("");
-    // Harita, kâğıt paletli SVG'nin data-URI'si olarak gömülüyor: Markdown
-    // dosyası tek parça kalıyor (yanında bir görsel klasörü taşımak gerekmez)
-    // ve Obsidian gibi okuyucular data-URI'li <img>'yi doğrudan gösteriyor.
-    // Metin düzenleyicide sadece uzun bir satır olarak görünür, o yüzden
-    // rüya metninden SONRA, kendi başlığı altında duruyor.
-    if (symbols.length) {
-      out.push(`## ${I18N.t("report.mapHeading")}`);
-      out.push("");
-      out.push(`![${I18N.t("report.mapHeading")}](${SymbolMap.mapDataUri(record)})`);
-      out.push("");
-    }
     if (record.personal_context) {
       out.push(`**${I18N.t("report.contextHeading")}**`);
       out.push("");
@@ -1096,17 +1254,12 @@
       out.push("");
       symbols.forEach((sym) => {
         const q = sym.questions || {};
-        const others = (sym.all_associations || []).filter((a) => a && a !== sym.selected_association);
         out.push(`### ${mdInline(sym.name || "")}`);
         out.push("");
         if (sym.context) out.push(`*${mdInline(sym.context)}*`);
         out.push("");
         out.push(`**${I18N.t("worksheet.goldAssoc")}:** ${mdInline(sym.selected_association) || "—"}`);
         out.push("");
-        if (others.length) {
-          out.push(`**${I18N.t("worksheet.otherAssoc")}:** ${others.map(mdInline).join(", ")}`);
-          out.push("");
-        }
         SymbolMap.questionLabels.forEach(([key, label]) => {
           const answer = q[key] && q[key].trim() ? mdInline(q[key]) : "—";
           out.push(`- **${label}** ${answer}`);
@@ -1628,6 +1781,146 @@
 
   // ---------- Geçmiş rüyalar ----------
 
+  function renderLibrary() {
+    const onlyIncomplete = el.libraryOnlyIncomplete.checked;
+    const sortKey = el.librarySort.value;
+    const dreams = Library.sortDreams(
+      Library.filterDreams(state.libraryDreams, { onlyIncomplete }),
+      sortKey
+    );
+
+    el.historyList.innerHTML = "";
+    if (!dreams.length) {
+      el.historyEmpty.classList.remove("hidden");
+      return;
+    }
+    el.historyEmpty.classList.add("hidden");
+
+    dreams.forEach((d, i) => {
+      const li = document.createElement("li");
+      li.className = "history-card";
+      li.style.setProperty("--i", i);
+
+      const displayName = d.title || dreamSnippet(d);
+
+      const titleRow = document.createElement("div");
+      titleRow.className = "history-card-title-row";
+      const titleSpan = document.createElement("strong");
+      titleSpan.className = "history-card-title";
+      titleSpan.textContent = d.title || I18N.t("library.untitled");
+      titleRow.appendChild(titleSpan);
+      titleRow.appendChild(
+        makeRenameControl(
+          d.title || "",
+          (newTitle) => renameDreamTitle(d.file, newTitle),
+          renderLibrary
+        )
+      );
+      titleRow.querySelector(".symbol-rename-btn").setAttribute(
+        "aria-label",
+        I18N.t("library.renameTitle", { name: displayName })
+      );
+
+      const dateSpan = document.createElement("span");
+      dateSpan.className = "history-date";
+      dateSpan.textContent = d.saved_at
+        ? new Date(d.saved_at).toLocaleString(I18N.getLang() === "en" ? "en-US" : "tr-TR")
+        : "";
+
+      const badge = document.createElement("span");
+      badge.className = "completion-badge";
+      badge.textContent = I18N.t("library.completion", { pct: d.completion_pct ?? 0 });
+
+      const metaRow = document.createElement("div");
+      metaRow.className = "history-card-meta";
+      metaRow.appendChild(dateSpan);
+      metaRow.appendChild(badge);
+
+      const textSpan = document.createElement("p");
+      textSpan.className = "history-card-text";
+      textSpan.textContent = d.dream_text + (d.dream_text.length >= 120 ? "…" : "");
+
+      const footerRow = document.createElement("div");
+      footerRow.className = "history-card-footer";
+      const countSpan = document.createElement("span");
+      countSpan.className = "history-card-count";
+      countSpan.textContent = I18N.t("library.symbolCount", { count: d.symbol_count ?? 0 });
+      const downloadBtn = document.createElement("button");
+      downloadBtn.type = "button";
+      downloadBtn.className = "symbol-rename-btn";
+      downloadBtn.setAttribute("aria-label", I18N.t("library.download", { name: displayName }));
+      downloadBtn.appendChild(makeIcon("download", "icon-sm"));
+      downloadBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        downloadDreamReport(d.file);
+      });
+      footerRow.appendChild(countSpan);
+      footerRow.appendChild(downloadBtn);
+
+      li.appendChild(titleRow);
+      li.appendChild(metaRow);
+      li.appendChild(textSpan);
+      li.appendChild(footerRow);
+      li.addEventListener("click", () => showHistoryDetail(d.file));
+      el.historyList.appendChild(li);
+    });
+  }
+
+  function dreamSnippet(d) {
+    return d.dream_text + (d.dream_text.length >= 120 ? "…" : "");
+  }
+
+  async function downloadDreamReport(fname) {
+    const record = await getJSON(`/api/dreams/${encodeURIComponent(fname)}`);
+    downloadText(`ruya-${reportSlug(record)}.md`, buildReportMarkdown(record), "text/markdown");
+  }
+
+  async function renameDreamTitle(fname, newTitle) {
+    const trimmed = (newTitle || "").trim();
+    const dream = state.libraryDreams.find((d) => d.file === fname);
+    if (!dream || trimmed === (dream.title || "")) return;
+    await postJSON(`/api/dreams/${encodeURIComponent(fname)}`, { title: trimmed }, "PATCH");
+    dream.title = trimmed;
+  }
+
+  el.librarySort.addEventListener("change", renderLibrary);
+  el.libraryOnlyIncomplete.addEventListener("change", renderLibrary);
+
+  el.btnLibraryDownloadAll.addEventListener("click", async () => {
+    const onlyIncomplete = el.libraryOnlyIncomplete.checked;
+    const sortKey = el.librarySort.value;
+    const dreams = Library.sortDreams(
+      Library.filterDreams(state.libraryDreams, { onlyIncomplete }),
+      sortKey
+    );
+    if (!dreams.length) return;
+
+    const originalLabel = el.btnLibraryDownloadAll.textContent;
+    el.btnLibraryDownloadAll.disabled = true;
+    el.btnLibraryDownloadAll.textContent = I18N.t("library.downloadingAll");
+    try {
+      const records = await Promise.all(
+        dreams.map((d) => getJSON(`/api/dreams/${encodeURIComponent(d.file)}`))
+      );
+      const zip = new JSZip();
+      records.forEach((record) => {
+        zip.file(`ruya-${reportSlug(record)}.md`, buildReportMarkdown(record));
+      });
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ruya-kutuphanesi-${localStamp(new Date(), true)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      el.btnLibraryDownloadAll.disabled = false;
+      el.btnLibraryDownloadAll.textContent = originalLabel;
+    }
+  });
+
   el.btnShowHistory.addEventListener("click", async () => {
     const opening = el.stepHistory.classList.contains("hidden");
     if (!opening) {
@@ -1641,25 +1934,8 @@
     el.historyEmpty.classList.add("hidden");
     try {
       const data = await getJSON("/api/dreams");
-      if (!data.dreams.length) {
-        el.historyEmpty.classList.remove("hidden");
-        return;
-      }
-      data.dreams.forEach((d, i) => {
-        const li = document.createElement("li");
-        li.style.setProperty("--i", i);
-        const dateSpan = document.createElement("span");
-        dateSpan.className = "history-date";
-        dateSpan.textContent = d.saved_at
-          ? new Date(d.saved_at).toLocaleString(I18N.getLang() === "en" ? "en-US" : "tr-TR")
-          : "";
-        const textSpan = document.createElement("span");
-        textSpan.textContent = d.dream_text + (d.dream_text.length >= 120 ? "…" : "");
-        li.appendChild(dateSpan);
-        li.appendChild(textSpan);
-        li.addEventListener("click", () => showHistoryDetail(d.file));
-        el.historyList.appendChild(li);
-      });
+      state.libraryDreams = data.dreams;
+      renderLibrary();
     } catch (err) {
       el.historyEmpty.textContent = err.message;
       el.historyEmpty.classList.remove("hidden");

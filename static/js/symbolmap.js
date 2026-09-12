@@ -2,8 +2,10 @@
 //
 // Amaç yorum yapmak değil, kullanıcının kendi bağlantıyı kendi kurabilmesi.
 // Her sembol tam bir dilim (merkezden kenara); dilimde SADECE iki halka var:
-// içte altın çağrışım, dışta sembol adı. Referans: Kaan'ın gönderdiği sunburst
-// mockup'ı (2026-09-10) — yapı oradan, içerik değil (mockup metinleri örnek).
+// içte sembol adı, dışta altın çağrışım (Kaan'ın isteğiyle 2026-09-11'de
+// tersine çevrildi — ilk sürümde içte altın çağrışım, dışta sembol adıydı).
+// Referans: Kaan'ın gönderdiği sunburst mockup'ı (2026-09-10) — yapı oradan,
+// içerik değil (mockup metinleri örnek).
 //
 // Neden sadece iki halka: 6 halkalı ilk sürümde metinler okunamayacak kadar
 // sıkışıyordu. "Less is more" (Kaan, 2026-09-11): çember tek bakışta bütünü
@@ -32,14 +34,14 @@ const SymbolMap = (() => {
   ];
 
   // İÇTEN DIŞA sıralı — çizim merkezden başlıyor. Dıştan içe okunuşu:
-  // sembol adı (en dış) → altın çağrışım (içte).
+  // altın çağrışım (en dış) → sembol adı (içte).
   //
   // Çemberde SADECE bu iki alan var (Kaan'ın son kararı, 2026-09-11):
   // "less is more" — her hücre bol yer bulsun, metinler kesilmeden tam
   // görünsün. 4 soru ve tam cevapları, bir altın çağrışıma TIKLANINCA
   // dışarıda açılan 2×2 dörtgen kutuda görünüyor (bkz. drawQuestionBoxes);
   // resim olarak dışa aktarılırken bu kutular hiç çizilmiyor.
-  const RING_ORDER = ["assoc", "name"];
+  const RING_ORDER = ["name", "assoc"];
   // Halkanın iç/dış kenarından ne kadarını metin için "kullanılamaz" pay
   // bırakacağımız (komşu halkayla net bir ayrım için) ve satırlar arası
   // minimum boşluğun font boyutunun kaç katı olacağı — ikisi de hem satır
@@ -726,6 +728,11 @@ const SymbolMap = (() => {
           2 * fitPad,
       });
       svg.__vbBase = closed;
+      // Soru kutuları açıkken tuval "closed" görünümden çok daha büyük
+      // olabilir (bkz. width/height hesap); yakınlaştırma tavanı sabit bir
+      // katsayıya değil, o anki tam tuval boyutuna bağlanıyor — aksi halde
+      // açık kutular tavana takılıp kırpılabiliyordu.
+      svg.__vbFull = { w: width, h: height };
       svg.__vb = svg.__pendingFit ? { ...svg.__pendingFit } : { ...closed };
       svg.__pendingFit = null;
       setViewBox(svg);
@@ -767,7 +774,9 @@ const SymbolMap = (() => {
   function applyZoom(svg, focus, factor) {
     const vb = svg.__vb;
     const base = svg.__vbBase;
-    const newW = clamp(vb.w * factor, base.w * 0.28, base.w * 2.2);
+    const full = svg.__vbFull;
+    const maxW = Math.max(base.w * 2.2, (full && Math.max(full.w, full.h)) || 0);
+    const newW = clamp(vb.w * factor, base.w * 0.28, maxW);
     const ratio = newW / vb.w;
     vb.x = focus.x - (focus.x - vb.x) * ratio;
     vb.y = focus.y - (focus.y - vb.y) * ratio;
@@ -1048,17 +1057,14 @@ const SymbolMap = (() => {
     const cardLayouts = symbols.map((sym) => {
       const context = layoutField(sym.context, contentW, 14, 19);
       const assoc = layoutField(sym.selected_association, contentW, 16, 21);
-      const others = (sym.all_associations || []).filter((a) => a && a !== sym.selected_association);
-      const othersField = layoutField(others.join(", "), contentW, 13, 18);
       const questions = QUESTIONS.map(([key, label]) => ({
         label,
         field: layoutField((sym.questions || {})[key], contentW, 14, 19),
       }));
       const qHeight = questions.reduce((sum, q) => sum + q.field.height, 0);
       const nameH = 40;
-      const height =
-        nameH + context.height + assoc.height + othersField.height + qHeight + WS_CARD_PAD * 2;
-      return { sym, context, assoc, othersField, questions, height };
+      const height = nameH + context.height + assoc.height + qHeight + WS_CARD_PAD * 2;
+      return { sym, context, assoc, questions, height };
     });
 
     const totalCardsH = cardLayouts.reduce((sum, c) => sum + c.height + WS_CARD_GAP, 0);
@@ -1122,7 +1128,6 @@ const SymbolMap = (() => {
 
       ty = drawField(group, tx, ty, I18N.t("worksheet.context"), card.context, 14, 19, P.muted, P);
       ty = drawField(group, tx, ty, I18N.t("worksheet.goldAssoc"), card.assoc, 16, 21, P.ink, P, 700);
-      ty = drawField(group, tx, ty, I18N.t("worksheet.otherAssoc"), card.othersField, 13, 18, P.muted, P);
       card.questions.forEach((q) => {
         ty = drawField(group, tx, ty, q.label, q.field, 14, 19, P.ink, P);
       });
@@ -1186,27 +1191,11 @@ const SymbolMap = (() => {
     await svgToPngDownload(buildWorksheetSvg(record, "dark"), "calisma-sayfasi");
   }
 
-  // Markdown raporuna gömülebilen, kendi kendine yeten görsel: kâğıt paletli
-  // SVG'nin data-URI'si. base64 değil yüzde-kodlama — SVG metin olduğu için
-  // base64 dosyayı ~%33 şişiriyor, ayrıca encodeURIComponent Türkçe
-  // karakterleri UTF-8 olarak doğru kaçırıyor (btoa Latin-1 dışına çıkamıyor).
-  function mapDataUri(record) {
-    const svg = buildExportSvg(record, "paper");
-    const markup = new XMLSerializer().serializeToString(svg);
-    // encodeURIComponent parantezleri KAÇIRMAZ, ama SVG içinde `url(#...)`
-    // (gradyan/filtre referansları) geçiyor. Markdown'da `![alt](url)` biçimi
-    // ilk kapanan parantezde biter — kaçırılmazsa görsel bağlantısı tam
-    // ortasından kopuyor ve harita bozuk görünüyor. Elle kaçırıyoruz.
-    const encoded = encodeURIComponent(markup).replace(/\(/g, "%28").replace(/\)/g, "%29");
-    return `data:image/svg+xml;charset=utf-8,${encoded}`;
-  }
-
   return {
     render,
     buildMapSvg: buildExportSvg,
     buildWorksheetSvg,
     exportWorksheetPng,
-    mapDataUri,
     svgToString: (svg) => new XMLSerializer().serializeToString(svg),
     questionLabels: QUESTIONS,
     fonts: { head: EX_FONT_HEAD, body: EX_FONT_BODY },

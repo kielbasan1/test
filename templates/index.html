@@ -62,9 +62,27 @@
   <main>
     <!-- GEÇMİŞ RÜYALAR -->
     <section id="step-history" class="card hidden">
-      <h2 data-i18n="history.heading">Geçmiş Rüyalarım</h2>
+      <h2 data-i18n="history.heading">Rüya Kütüphanesi</h2>
+      <div id="library-controls" class="library-controls">
+        <label class="library-sort-label">
+          <span data-i18n="library.sortLabel">Sırala</span>
+          <select id="library-sort">
+            <option value="date_desc" data-i18n="library.sort.dateDesc">Tarih (yeni → eski)</option>
+            <option value="date_asc" data-i18n="library.sort.dateAsc">Tarih (eski → yeni)</option>
+            <option value="pct_desc" data-i18n="library.sort.pctDesc">Tamamlanma (yüksek → düşük)</option>
+            <option value="pct_asc" data-i18n="library.sort.pctAsc">Tamamlanma (düşük → yüksek)</option>
+          </select>
+        </label>
+        <label class="library-filter-label">
+          <input type="checkbox" id="library-only-incomplete" />
+          <span data-i18n="library.onlyIncomplete">Sadece eksikleri göster</span>
+        </label>
+        <button id="btn-library-download-all" type="button" class="btn-secondary">
+          <svg class="icon icon-sm"><use href="#icon-download"/></svg><span data-i18n="library.downloadAll">Tümünü İndir (.zip)</span>
+        </button>
+      </div>
       <p id="history-empty" class="hint hidden" data-i18n="history.empty">Henüz kaydedilmiş bir rüya yok.</p>
-      <ul id="history-list" class="history-list"></ul>
+      <ul id="history-list" class="history-grid"></ul>
       <div id="history-detail" class="history-detail hidden">
         <button id="btn-history-back" class="btn-secondary">
           <svg class="icon icon-sm"><use href="#icon-chevron-left"/></svg><span data-i18n="history.backToList">Listeye dön</span>
@@ -126,11 +144,16 @@
       <button id="btn-wheel-back" class="btn-link">
         <svg class="icon icon-sm"><use href="#icon-chevron-left"/></svg><span data-i18n="wheel.back">Tüm sembollere dön</span>
       </button>
+      <div class="symbol-cycle-nav">
+        <button id="btn-wheel-cycle-prev" type="button" class="cycle-nav-btn" data-i18n-aria="wheel.cyclePrev" aria-label="Önceki sembol">‹</button>
+        <span id="wheel-cycle-label" class="cycle-nav-label"></span>
+        <button id="btn-wheel-cycle-next" type="button" class="cycle-nav-btn" data-i18n-aria="wheel.cycleNext" aria-label="Sonraki sembol">›</button>
+      </div>
       <h2 id="wheel-symbol-title">Sembol Çarkı</h2>
       <p id="wheel-symbol-context" class="hint"></p>
 
       <div class="wheel-layout">
-        <div class="wheel-svg-wrap">
+        <div id="wheel-svg-wrap" class="wheel-svg-wrap">
           <svg id="wheel-svg" viewBox="0 0 560 560" width="560" height="560"></svg>
         </div>
         <div class="wheel-side">
@@ -235,6 +258,11 @@
       <div class="finalize-data">
         <h3 data-i18n="finalize.dataHeading">Çalışman</h3>
         <p class="hint small" data-i18n="finalize.dataHint">Bu rüya için topladığın her şey burada — yukarı çıkmadan bakıp yazmaya devam edebilirsin.</p>
+        <div class="symbol-cycle-nav">
+          <button id="btn-work-cycle-prev" type="button" class="cycle-nav-btn" data-i18n-aria="wheel.cyclePrev" aria-label="Önceki sembol">‹</button>
+          <span id="work-cycle-label" class="cycle-nav-label"></span>
+          <button id="btn-work-cycle-next" type="button" class="cycle-nav-btn" data-i18n-aria="wheel.cycleNext" aria-label="Sonraki sembol">›</button>
+        </div>
         <div id="finalize-cards" class="finalize-cards"></div>
       </div>
     </section>
@@ -306,6 +334,8 @@
   <script src="{{ url_for('static', filename='js/ink.js') }}"></script>
   <script src="{{ url_for('static', filename='js/wheel.js') }}"></script>
   <script src="{{ url_for('static', filename='js/symbolmap.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/library.js') }}"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

@@ -248,52 +248,64 @@ Yeniden adlandırmalar: `synthesize_interpretation` → `expand_interpretation`,
 `/api/expand-interpretation`, `scripts/test_synthesis.py` →
 `scripts/test_expand.py` (fixture'da artık `my_interpretation` zorunlu).
 
-## Faz 3.7 — Sırada (2026-09-11, Kaan'ın istekleri; HENÜZ YAPILMADI)
+## Faz 3.7 — Uygulandı (2026-09-11, ayrı bir oturumda kodlandı)
 
-Kaan bu turda kota sınırına yaklaştığı için uygulama yapılmadı, yalnızca
-plана yazıldı. Sıradaki oturumda buradan devam edilecek.
+Aşağıdaki 5 madde kodlandı ve Node/DOM taslağıyla (0/1/8/15/20 sembollü
+sentetik veri, hem `buildMapSvg` hem `buildWorksheetSvg`) hatasız çalıştığı
+doğrulandı; ayrıca uygulama yerelde başlatılıp giriş yapılarak sunucudan
+dönen HTML/CSS/JS'te yeni elemanların (cycle nav düğmeleri,
+`#finalize-map-svg` CSS kuralı, `RING_ORDER` sırası, `mapDataUri`'nin
+kaldırıldığı) gerçekten var olduğu `curl` ile teyit edildi. **Gerçek
+tarayıcıda tıklama testi (çember tersine döndü mü, harita zoom'u tavana
+takılmadan açılıyor mu, ‹ › gezinme çalışıyor mu) henüz yapılmadı — Kaan'ın
+kendi tarayıcısında denemesi gerekiyor.**
+
+Plan dışı bir ek karar: "Çalışman" (madde 3) sadece gezinme eklemekle
+kalmadı, **tek kart görünümüne döndü** (eskiden tüm semboller alt alta aynı
+anda duruyordu) — Kaan'ın seçimi. Aynı turda ayrıca **"Diğer Çağrışımlar"
+alanı** dört gösterim yüzeyinden tamamen kaldırıldı: Çalışman kartı, Rapor
+(Yazdır/PDF) kartı, Rapor Markdown, Çalışma Sayfası PNG — Kaan'ın isteği,
+PLAN.md'de daha önce yoktu.
 
 ### Karar (uygulanacak bir şey yok)
 - **Meditasyon notları hiçbir yere girmiyor.** Kaan netleştirdi: ne rapora,
   ne yapay zekaya. Yalnızca kayıtta/otomatik ilerleme kaydında duruyor.
   Mevcut davranış zaten bu — değişiklik gerekmiyor, kural olarak sabit.
 
-### 1. Çemberde iç/dış yer değişimi
-Şu an içte altın çağrışım, dışta sembol adı. Kaan tersini istiyor: **altın
-çağrışım dış çepere** gelsin. `symbolmap.js`'te `RING_ORDER` içten dışa
-sıralı (`["assoc", "name"]`) — `["name", "assoc"]` yapılacak. Dikkat:
-halka kalınlıkları (`RING_WEIGHT`) role göre tanımlı, altın çağrışım daha
-kalın (2.3) çünkü metni uzun; sıra değişince dış halka daha kalın olacak,
-`fitCellText`'in yeniden doğrulanması gerekiyor (1-20 sembol taraması).
+### 1. Çemberde iç/dış yer değişimi — yapıldı
+`RING_ORDER` `["assoc", "name"]` → `["name", "assoc"]` çevrildi: artık içte
+sembol adı, dışta altın çağrışım. `RING_WEIGHT` role bağlı kaldığı için
+kalınlık otomatik doğru halkaya uygulandı, `fitCellText`'e dokunulmadı —
+Node/DOM taslağında 0/1/8/15/20 sembolde hatasız üretim doğrulandı, gerçek
+tarayıcıda gözle teyit Kaan'da.
 
-### 2. Yorum adımındaki harita çok uzun, uzaklaştırma çalışmıyor
-Teşhis yapıldı, iki ayrı neden:
-- **Asıl neden (bir satırlık düzeltme):** `style.css`'teki
-  `#symbol-map-svg, .history-map-svg { width:100%; aspect-ratio:1/1;
-  height:auto }` kuralına **`#finalize-map-svg` dahil değil.** Bu yüzden o
-  SVG, öz nitelikleri olan `width`/`height` (3 sembolde 1735×1735) ile
-  render ediliyor — devasa ve çok uzun duruyor, `.symbol-map-wrap`'in
-  `overflow:hidden`'ı da kırpıyor. Selector listesine eklenecek.
-- **İkincil:** `zoomAt` içindeki `clamp(vb.w * factor, base.w * 0.28,
-  base.w * 2.2)` — uzaklaştırma tavanı taban görünümün 2.2 katı. Taban artık
-  tuvalin tamamı değil çemberin kendisi olduğu için, soru kutuları açıkken
-  gereken görünüm bu tavanı aşabiliyor. Tavan yükseltilecek (ya da tuvalin
-  tamamına izin verecek şekilde bağlanacak).
+### 2. Yorum adımındaki harita çok uzun, uzaklaştırma çalışmıyor — yapıldı
+İki düzeltme de uygulandı:
+- `style.css`'teki `#symbol-map-svg, .history-map-svg` selector listesine
+  `#finalize-map-svg` eklendi.
+- `applyZoom`'daki sabit tavan (`base.w * 2.2`) yerine, tuvalin o anki tam
+  boyutu (`svg.__vbFull`, `buildSunburstSvg` içinde hesaplanıyor) tavana
+  dahil edildi — soru kutuları ne kadar büyük açılırsa açılsın zoom-out
+  tavanı onu kapsayacak şekilde büyüyor.
 
-### 3. Semboller arası "cycle" (özellikle mobil)
-Çark adımında semboller arasında ileri/geri dolaşmak şu an yalnızca
-"Sonraki Sembol" ve sembol listesine dönüp tıklamakla oluyor. Mobilde
-zahmetli. İstenen: çarkın üstünde/altında **‹ sembol adı ›** biçiminde bir
-gezinme (dairesel: sondan sonra başa dönsün). Aynı gezinme **"Çalışman"
-bölümüne de** gelecek — kartlar alt alta uzun bir liste, tek tek dolaşmak
-daha iyi.
+### 3. Semboller arası "cycle" (özellikle mobil) — yapıldı
+Çark adımına ve "Çalışman" bölümüne `‹ sembol adı ›` biçiminde dairesel
+gezinme eklendi (`main.js`: `cycleWheelSymbol`, `cycleWorkCard`). Ek karar:
+"Çalışman" aynı zamanda **tek kart görünümüne** döndü — artık tüm semboller
+alt alta değil, gezinmeyle tek tek görünüyor (Kaan'ın seçimi).
 
-### 4. Markdown raporundan gömülü harita kaldırılacak
-Gömüldü ve teknik olarak çalışıyor (data-URI, parantezler kaçırılmış) ama
-Kaan'ın kullanımında **görünmüyor/okunmuyor**. Kaldırılacak; harita
-yazdır/PDF çıktısında ve ayrı PNG export'ta kalmaya devam edecek.
-`buildReportMarkdown` içindeki harita bloğu ve `SymbolMap.mapDataUri`
-silinecek.
+### 4. Markdown raporundan gömülü harita kaldırılacak — yapıldı
+`buildReportMarkdown` içindeki harita bloğu ve `SymbolMap.mapDataUri` (artık
+hiçbir yerden çağrılmadığı için) silindi. Harita yazdır/PDF çıktısında ve
+ayrı PNG export'unda değişmeden kaldı.
+
+### Ek: "Diğer Çağrışımlar" alanı kaldırıldı — yapıldı
+Planda yoktu, oturum içinde Kaan'ın isteğiyle eklendi: "diğer çağrışımlar"
+alanı dört gösterim yüzeyinden de çıkarıldı — Çalışman kartı, Rapor
+(Yazdır/PDF) kartı, Rapor Markdown, Çalışma Sayfası PNG. Veri
+(`all_associations`) kayıtta duruyor, sadece bu dört yerde gösterilmiyor.
+Eski `.txt` içe aktarma ayrıştırıcısındaki `"Diğer çağrışımlar:"` satırına
+dokunulmadı (eski dosyaları okumaya devam edecek).
 
 ### 5. İleride: çok sembolde birden fazla harita
 15'ten fazla sembolde ikinci çember zaten üretiliyor. Kaan bunun ileride

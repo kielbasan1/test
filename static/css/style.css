@@ -563,6 +563,36 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   background: var(--danger-soft);
 }
 
+.symbol-rename-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--muted-2);
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  touch-action: manipulation;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.symbol-rename-btn:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.symbol-rename-input {
+  font: inherit;
+  color: var(--text);
+  background: var(--input-bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  min-width: 0;
+  width: 12ch;
+}
+
 .toast {
   display: flex;
   align-items: center;
@@ -649,6 +679,114 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   margin-top: 16px;
 }
 
+.library-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  font-size: 0.88em;
+  color: var(--muted);
+}
+
+.library-sort-label,
+.library-filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.library-sort-label select {
+  font: inherit;
+  color: var(--text);
+  background: var(--input-bg);
+  border: 1px solid var(--ring);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+}
+
+.history-grid {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.history-card {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  border: 1px solid var(--ring);
+  cursor: pointer;
+  touch-action: manipulation;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s ease, transform 0.12s ease;
+}
+
+.history-card:hover {
+  border-color: var(--accent);
+}
+
+.history-card:active {
+  transform: scale(0.98);
+}
+
+.history-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.history-card-title {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  color: var(--accent-strong);
+}
+
+.history-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.history-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.history-card-meta .history-date {
+  color: var(--muted);
+  font-size: 0.82em;
+}
+
+.completion-badge {
+  font-size: 0.76em;
+  font-weight: 600;
+  color: var(--gold);
+  background: var(--gold-soft);
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+
+.history-card-text {
+  margin: 0;
+  font-size: 0.92em;
+}
+
+.history-card-count {
+  color: var(--muted-2);
+  font-size: 0.78em;
+}
+
 #history-detail-content {
   margin-top: 14px;
   white-space: pre-wrap;
@@ -670,6 +808,38 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   color: var(--gold);
 }
 
+.symbol-cycle-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 10px 0;
+}
+
+.cycle-nav-btn {
+  border: 1px solid var(--ring);
+  background: var(--bg-sunken);
+  color: var(--accent-strong);
+  border-radius: var(--radius-sm);
+  width: 34px;
+  height: 34px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cycle-nav-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cycle-nav-label {
+  min-width: 8ch;
+  text-align: center;
+  font-weight: 600;
+  color: var(--accent-strong);
+}
+
 .wheel-layout {
   display: flex;
   gap: 24px;
@@ -682,10 +852,9 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   flex: 0 0 auto;
   width: 100%;
   max-width: 560px;
-  overflow-x: auto;
-  /* iOS Safari'de yatay kaydırmanın parmakla "kayması" (momentum scroll) için;
-     olmadan kaydırma sert/aniden durur ve akışkan hissetmez. */
-  -webkit-overflow-scrolling: touch;
+  /* overflow-x: auto buradaydı (eski, sabit genişlikli çark sürümü için) —
+     #wheel-svg artık width:100% ile bu konteynerden hiç taşmıyor, kural
+     kaldırıldı çünkü sadece swipe-cycle jestini yutuyordu (bkz. attachSwipe). */
 }
 
 #wheel-svg {
@@ -922,6 +1091,9 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   display: grid;
   gap: 14px;
   margin-top: 14px;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .finalize-card {
@@ -932,8 +1104,15 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   background: var(--card-bg);
 }
 
-.finalize-card h4 {
+.finalize-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin: 0 0 6px;
+}
+
+.finalize-card h4 {
+  margin: 0;
   font-family: var(--font-heading);
   font-size: 1.2rem;
   font-weight: 600;
@@ -956,12 +1135,6 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 
 .finalize-card .field-value.muted {
   color: var(--muted);
-}
-
-@media (min-width: 860px) {
-  .finalize-cards {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 /* ---------- Kendi yorumun / genişletme ----------
@@ -1246,6 +1419,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 #symbol-map-svg,
+#finalize-map-svg,
 .history-map-svg {
   display: block;
   width: 100%;
