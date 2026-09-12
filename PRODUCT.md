@@ -52,6 +52,39 @@ Two consequences follow, and they are binding on design decisions:
    (see the .json backup + report/print pipeline), because the whole point
    is a collection that survives and keeps growing.
 
+**Çerçeve netleştirmesi (Kaan'ın kendi ifadesiyle, 2026-09-12).** Problem daha
+keskin tanımlandı: elde düzgün bir kayıt olmasının ötesinde, herhangi bir rüya
+metninin bağlamını (context) tek bakışta kavrayabileceği bir **medyum/harita
+bulamamak** — ve bunun sonucunda **yorumu ve akıl yürütmeyi verimli
+yapamamak**. Uygulama tam olarak bunu çözüyor: rüya metninin context'ini
+hızla kavratan bir harita/medyum sunarak yorumlama ve akıl yürütmeyi
+kolaylaştırıyor. Kullanıcının bu uygulamayı kullanma nedeni: **dream
+journal, dream tracking, rüyalar arası eşleme (dream matching)**, ve analitik
+farkındalıklarla **inner work yolculuğunu kayıt altına alıp progress'ini
+takip edebilmek**. Tasarım kararları bundan sonra bu çerçeve etrafında
+döner: her özellik "context'i daha kolay kavratıyor mu / yorumu ve
+farkındalık takibini kolaylaştırıyor mu" sorusuna göre değerlendirilir.
+
+**Yöntem-hız gerilimi ve "kuş bakışı" hedefi (Kaan'ın kendi ifadesiyle,
+2026-09-13).** Kâğıda elle yazmak, yavaş yapmak, gerçekte daha keyifli ve
+daha iyi hissettiriyor — ama arşivlenmiyor ve kolay erişilmiyor. Bu uygulama
+o takası üstleniyor: Lincoln'ın "bir ağacı kesmek için bir saatim olsa 50
+dakikasını baltamı bilemeye harcarım" sözü gibi, yöntemin hiçbir adımını
+atlamadan mekanik/sistematik biçimde eksiksiz yapmak isteyenler için var.
+Kullanıcının bu uygulamayı kullandıktan sonra eriştiği olması gereken şey:
+**bütünü uzaktan, kuş bakışı görebileceği bir arayüz** — Iron Man'in yeni
+bir element bulduğunda tüm veriye aynı anda bakabildiği arayüz gibi. Bu,
+ürünün nihai hedeflerinden biri olarak kabul edildi (henüz tasarlanmadı —
+bkz. PLAN.md'deki "Kuş Bakışı Görünüm" backlog maddesi).
+
+**Uygulamanın asıl işi "boşluk doldurmak" değil, "boşluk YARATMAK"tır
+(Kaan'ın kendi ifadesiyle, 2026-09-13).** Yapay zekanın (ya da uygulamanın)
+görevi kullanıcı için cevapları doldurmak değil; kullanıcının kendi
+dolduracağı yapılandırılmış boşlukları (sorular, alanlar, adımlar) açmak,
+sonra kullanıcının ne yazdığına dayanarak tam/bütünleşik bir çıktı
+üretmektir. Bu, mevcut "AI bana bunu yaptırsın" ilkesinin daha kesin bir
+ifadesi: araç doldurmaz, alan açar.
+
 ## Positioning
 
 Unlike a generic "AI dream interpreter" that answers instantly, Sembol
@@ -66,6 +99,15 @@ user's own written interpretation, it points out what a professional
 Jungian analyst would likely notice that the user's interpretation missed.
 It never generates a from-scratch interpretation; it always requires the
 user's own interpretation as input first.
+
+**Ek netleştirme (Kaan'ın kendi ifadesiyle, 2026-09-12): "AI bana bunu
+yaptırsın."** Amaç sadece istenince yanıt veren pasif bir araç olmak değil
+— yapay zeka, kullanıcıyı rüya analizini **bizzat kendisinin yapmasına**
+iten/yönlendiren bir unsur olmalı. Bu, mevcut "Yorumu Genişlet" kilidiyle
+(kendi yorumu en az 120 karaktere ulaşmadan AI'a erişilememesi) zaten aynı
+yöndeki bir tasarım kararı; ama artık bir yan etki değil, ürünün amacının
+doğrudan bir parçası: yapay zekanın işlevi analizi kullanıcının yerine
+yapmak değil, kullanıcıyı kendi analiz eylemine sokmaktır.
 
 ## Operating Context
 
@@ -145,3 +187,9 @@ for new design work must be fabricated placeholder content.
   alabilmelidir.
 - Johnson'ın dört adımının bütünlüğü korunmalı, yöntemi kısaltan/atlayan
   kısayollar eklenmemeli.
+- Araç boşluk doldurmaz, boşluk açar: kullanıcının dolduracağı yapılandırılmış
+  alanlar sunmak asıl iş, o alanları yapay zekanın doldurması değil.
+- Modülerlik: geri dönüp düzenleme özelliği eklemek yerine (2026-09-13,
+  Kaan'ın kararı) kilit baştan görünür yapılır — yorum kaydedilmeden/
+  genişletilmeden hemen önce, bundan sonra sembollere/çarka dönülemeyeceğini
+  söyleyen açık bir onay istenir (bkz. PLAN.md, `finalize.lockConfirm`).

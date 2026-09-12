@@ -160,6 +160,54 @@ def dream_completion_pct(record: dict) -> int:
     return round(complete / len(symbols) * 100)
 
 
+def recurring_symbols(records: list) -> list:
+    """Birden fazla rüyada tekrar eden sembolleri gruplar.
+
+    Eşleştirme `name_en` üzerinden (küçük harf + boşluk kırpma ile
+    normalize edilmiş) yapılır, çünkü aynı sembolün Türkçe adı oturumdan
+    oturuma farklı yazılmış olabilir. Sadece 2+ rüyada geçen semboller
+    döner, en çok tekrar edenden aza sıralı.
+    """
+    groups: dict = {}
+    for record in records:
+        seen_in_this_dream = set()
+        for sym in record.get("symbols") or []:
+            key = (sym.get("name_en") or "").strip().lower()
+            if not key or key in seen_in_this_dream:
+                continue
+            seen_in_this_dream.add(key)
+            group = groups.setdefault(
+                key, {"name_en": key, "name": sym.get("name") or key, "occurrences": []}
+            )
+            group["occurrences"].append(
+                {
+                    "file": record.get("file"),
+                    "title": record.get("title") or "",
+                    "saved_at": record.get("saved_at"),
+                    "selected_association": sym.get("selected_association") or "",
+                }
+            )
+    result = [g for g in groups.values() if len(g["occurrences"]) >= 2]
+    for g in result:
+        g["count"] = len(g["occurrences"])
+    result.sort(key=lambda g: g["count"], reverse=True)
+    return result
+
+
+@app.route("/api/dreams/recurring-symbols", methods=["GET"])
+def get_recurring_symbols():
+    files = sorted(os.listdir(DREAMS_DIR), reverse=True)
+    records = []
+    for fname in files:
+        if not fname.endswith(".json"):
+            continue
+        with open(os.path.join(DREAMS_DIR, fname), encoding="utf-8") as f:
+            record = json.load(f)
+        record["file"] = fname
+        records.append(record)
+    return jsonify({"symbols": recurring_symbols(records)})
+
+
 @app.route("/api/dreams", methods=["GET"])
 def list_dreams():
     files = sorted(os.listdir(DREAMS_DIR), reverse=True)
@@ -177,25 +225,81 @@ def list_dreams():
                 "symbol_count": len(record.get("symbols") or []),
                 "completion_pct": dream_completion_pct(record),
                 "title": record.get("title", ""),
+                "dream_attitude": record.get("dream_attitude", ""),
+                "dream_emotion": record.get("dream_emotion", ""),
+                "dream_arc": record.get("dream_arc", ""),
+                "has_ritual": bool((record.get("ritual_text") or "").strip()),
+                "ritual_done": bool(record.get("ritual_done", False)),
             }
         )
     return jsonify({"dreams": dreams})
 
 
+RESONANCE_VALUES = {"", "fit", "partial", "miss"}
+
+
 @app.route("/api/dreams/<fname>", methods=["PATCH"])
-def rename_dream(fname):
+def patch_dream(fname):
+    """Kaydedilmiş bir rüyanın başlığını, rezonans geri bildirimini (Faz 1.3)
+    ve/veya ritüel alanlarını (ritual_text/ritual_done — Johnson'ın 4. adımı)
+    kısmi olarak günceller. Sadece payload'da GEÇEN alan güncellenir — biri
+    diğerini sessizce silmesin diye (örn. sadece resonance gönderince title
+    boşa düşmemeli). ritual_done kütüphaneden HER ZAMAN değiştirilebilir
+    (resonance'ın aksine) — ritüel günler sonra yapılabilir.
+    """
     safe_name = os.path.basename(fname)
     path = os.path.join(DREAMS_DIR, safe_name)
     if not os.path.isfile(path):
         return jsonify({"error": "Kayıt bulunamadı."}), 404
     payload = request.get_json(force=True) or {}
-    title = str(payload.get("title", "")).strip()
+
+    if "resonance" in payload and str(payload.get("resonance") or "").strip() not in RESONANCE_VALUES:
+        return jsonify({"error": "Geçersiz rezonans değeri."}), 400
+
     with open(path, encoding="utf-8") as f:
         record = json.load(f)
-    record["title"] = title
+
+    response = {"file": safe_name}
+    if "title" in payload:
+        record["title"] = str(payload.get("title", "")).strip()
+        response["title"] = record["title"]
+    if "resonance" in payload:
+        record["resonance"] = str(payload.get("resonance") or "").strip()
+        response["resonance"] = record["resonance"]
+    if "resonance_note" in payload:
+        record["resonance_note"] = str(payload.get("resonance_note", "")).strip()
+        response["resonance_note"] = record["resonance_note"]
+    if "ritual_text" in payload:
+        record["ritual_text"] = str(payload.get("ritual_text", "")).strip()
+        response["ritual_text"] = record["ritual_text"]
+    if "ritual_done" in payload:
+        record["ritual_done"] = bool(payload.get("ritual_done"))
+        response["ritual_done"] = record["ritual_done"]
+
     with open(path, "w", encoding="utf-8") as f:
         json.dump(record, f, ensure_ascii=False, indent=2)
-    return jsonify({"file": safe_name, "title": title})
+    return jsonify(response)
+
+
+@app.route("/api/dreams/<fname>", methods=["DELETE"])
+def delete_dream(fname):
+    safe_name = os.path.basename(fname)
+    path = os.path.join(DREAMS_DIR, safe_name)
+    if not os.path.isfile(path):
+        return jsonify({"error": "Kayıt bulunamadı."}), 404
+    os.remove(path)
+    return jsonify({"file": safe_name})
+
+
+@app.route("/api/dreams", methods=["DELETE"])
+def delete_all_dreams():
+    deleted = 0
+    for fname in os.listdir(DREAMS_DIR):
+        if not fname.endswith(".json"):
+            continue
+        os.remove(os.path.join(DREAMS_DIR, fname))
+        deleted += 1
+    return jsonify({"deleted": deleted})
 
 
 @app.route("/api/dreams/<fname>", methods=["GET"])

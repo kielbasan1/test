@@ -638,11 +638,11 @@ const SymbolMap = (() => {
     centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": P.bg }));
     defs.appendChild(centerGrad);
     if (interactive) {
-      // Kâğıtta "parıltı" yok — merkeze doğru çok hafif bir gölgelenme,
-      // sayfanın üstüne konmuş bir çizim hissi versin diye.
+      // Karanlıkta merkeze doğru hafif bir gece parıltısı — yıldız
+      // haritasının odağını işaret eden bir ışık lekesi.
       const ambientGrad = el("radialGradient", { id: ambientGradId, cx: "50%", cy: "50%", r: "50%" });
-      ambientGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#8c764e", "stop-opacity": "0.09" }));
-      ambientGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#8c764e", "stop-opacity": "0" }));
+      ambientGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#4a3f6b", "stop-opacity": "0.18" }));
+      ambientGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#4a3f6b", "stop-opacity": "0" }));
       defs.appendChild(ambientGrad);
     }
     defs.appendChild(Ink.handDrawnFilter(wobbleId, 1.4));
@@ -964,19 +964,19 @@ const SymbolMap = (() => {
 
   // ---------- Renk paletleri ----------
 
-  // Ekran paleti — style.css'teki kâğıt & kalem tokenlarıyla birebir aynı.
-  // Eskiden koyu (gunmetal) bir paletti; tema kâğıda dönünce harita ekranda
-  // okunmaz hale gelmişti (Kaan: "karanlık vs görünmüyor").
+  // Ekran paleti — style.css'teki Gece Rasathanesi tokenlarıyla birebir aynı
+  // (2026-09-13, frontend-design turu). Kâğıt tema kapandı; harita artık
+  // karanlıkta parlayan bir yıldız haritası.
   const PALETTE = {
-    bg: "#efe8d8",
-    card: "#fbf7ed",
-    ink: "#1e2739",
-    muted: "#5d6474",
-    accent: "#2f3a52",
-    accentStrong: "#16203a",
-    gold: "#8a5a2b",
-    ring: "#c9c0aa",
-    ringSoft: "#ddd5c2",
+    bg: "#14131f",
+    card: "#1e1c2e",
+    ink: "#ece4d3",
+    muted: "#a79fc0",
+    accent: "#c9903f",
+    accentStrong: "#e0ab5c",
+    gold: "#a8443a",
+    ring: "#3a3650",
+    ringSoft: "#2a2740",
   };
   // Rapor/yazdırma paleti: aynı kâğıt & kalem dili, sadece biraz daha yüksek
   // kontrast — basılı kâğıtta ekrandaki krem zemin gereksiz mürekkep yakıyor,

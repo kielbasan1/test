@@ -68,6 +68,35 @@ def test_list_dreams_title_defaults_to_empty_string():
         assert data["dreams"][0]["title"] == ""
 
 
+def test_list_dreams_includes_dream_level_fields():
+    with tempfile.TemporaryDirectory() as tmp:
+        client, _ = _client_with_dream(
+            tmp,
+            {
+                "dream_text": "test",
+                "symbols": [],
+                "dream_attitude": "izliyordum",
+                "dream_emotion": "huzur",
+                "dream_arc": "karanlıkta başladı, aydınlıkta bitti",
+            },
+        )
+        data = client.get("/api/dreams").get_json()
+        dream = data["dreams"][0]
+        assert dream["dream_attitude"] == "izliyordum"
+        assert dream["dream_emotion"] == "huzur"
+        assert dream["dream_arc"] == "karanlıkta başladı, aydınlıkta bitti"
+
+
+def test_list_dreams_dream_level_fields_default_to_empty_string():
+    with tempfile.TemporaryDirectory() as tmp:
+        client, _ = _client_with_dream(tmp, {"dream_text": "test", "symbols": []})
+        data = client.get("/api/dreams").get_json()
+        dream = data["dreams"][0]
+        assert dream["dream_attitude"] == ""
+        assert dream["dream_emotion"] == ""
+        assert dream["dream_arc"] == ""
+
+
 def main() -> None:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

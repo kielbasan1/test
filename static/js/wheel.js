@@ -46,21 +46,22 @@ const SymbolWheel = (() => {
       cy: "30%",
       r: "75%",
     });
-    // Kâğıt & kalem: göbek koyu metal değil, sayfanın kendisi.
-    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#fbf7ed" }));
-    centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#efe8d8" }));
+    // Ay ışığıyla aydınlanan bir madalyon: göbek artık kâğıt değil,
+    // karanlıkta hafifçe yüzen bir mercek.
+    centerGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#3d3a52" }));
+    centerGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#1a1828" }));
 
-    // Seçili ok ucu: parlayan altın değil, ikinci kalemin sepya mürekkebi.
+    // Seçili ok ucu: alevin kendisi — sıcak kehribardan kora doğru.
     const goldGrad = el("radialGradient", {
       id: "wheelGoldGrad",
       cx: "35%",
       cy: "30%",
       r: "70%",
     });
-    goldGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#b0793d" }));
-    goldGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#7d4f24" }));
+    goldGrad.appendChild(el("stop", { offset: "0%", "stop-color": "#e0ab5c" }));
+    goldGrad.appendChild(el("stop", { offset: "100%", "stop-color": "#a8443a" }));
 
-    // Kâğıdın üstüne düşen çok hafif gölge — "parıltı" değil.
+    // Merkezin çevresinde çok hafif bir gece parıltısı.
     const ambientGrad = el("radialGradient", {
       id: "wheelAmbientGrad",
       cx: "50%",
@@ -68,10 +69,10 @@ const SymbolWheel = (() => {
       r: "50%",
     });
     ambientGrad.appendChild(
-      el("stop", { offset: "0%", "stop-color": "#8c764e", "stop-opacity": "0.1" })
+      el("stop", { offset: "0%", "stop-color": "#4a3f6b", "stop-opacity": "0.16" })
     );
     ambientGrad.appendChild(
-      el("stop", { offset: "100%", "stop-color": "#8c764e", "stop-opacity": "0" })
+      el("stop", { offset: "100%", "stop-color": "#4a3f6b", "stop-opacity": "0" })
     );
 
     const ambientGoldGrad = el("radialGradient", {
@@ -81,10 +82,10 @@ const SymbolWheel = (() => {
       r: "55%",
     });
     ambientGoldGrad.appendChild(
-      el("stop", { offset: "0%", "stop-color": "#8a5a2b", "stop-opacity": "0.07" })
+      el("stop", { offset: "0%", "stop-color": "#a8443a", "stop-opacity": "0.12" })
     );
     ambientGoldGrad.appendChild(
-      el("stop", { offset: "100%", "stop-color": "#8a5a2b", "stop-opacity": "0" })
+      el("stop", { offset: "100%", "stop-color": "#a8443a", "stop-opacity": "0" })
     );
 
     defs.appendChild(centerGrad);

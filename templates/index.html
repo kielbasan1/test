@@ -22,8 +22,24 @@
       <symbol id="icon-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></symbol>
       <symbol id="icon-print" viewBox="0 0 24 24"><path d="M6 9V4h12v5M6 18H4.5A1.5 1.5 0 0 1 3 16.5v-5A1.5 1.5 0 0 1 4.5 10h15a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5H18M6 14h12v7H6z"/></symbol>
       <symbol id="icon-file-text" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+      <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></symbol>
     </defs>
   </svg>
+
+  <!-- Test/Dev paneli: sadece ?dev=1 ile URL'e eklenince görünür (main.js
+       açar), normal kullanıcıya hiç gösterilmez. Uydurma bir örnek rüya
+       kaydıyla her ekrana tek tıkla atlamayı sağlar — PRODUCT.md kuralı
+       gereği gerçek rüya verisi asla demo/test içeriği olarak kullanılmaz. -->
+  <div id="dev-panel" class="dev-panel hidden">
+    <strong>Test Ekranı</strong>
+    <button type="button" id="dev-step-dream">1. Rüya Yaz</button>
+    <button type="button" id="dev-step-symbols">2. Semboller</button>
+    <button type="button" id="dev-step-wheel">3. Çark</button>
+    <button type="button" id="dev-step-finalize">4. Çalışman</button>
+    <button type="button" id="dev-step-result-own">5. Sonuç (kendi yorum)</button>
+    <button type="button" id="dev-step-result-ai">5b. Sonuç (AI)</button>
+    <button type="button" id="dev-step-library">6. Kütüphane</button>
+  </div>
 
   <header class="app-header">
     <h1 class="brand"><svg class="icon"><use href="#icon-moon"/></svg><span data-i18n="brand.name">Sembol Çarkı</span></h1>
@@ -31,6 +47,9 @@
     <div class="header-actions">
       <button id="btn-show-history" class="btn-link">
         <svg class="icon icon-sm"><use href="#icon-clock"/></svg><span data-i18n="header.history">Geçmiş Rüyalarım</span>
+      </button>
+      <button id="btn-show-guide" class="btn-link">
+        <svg class="icon icon-sm"><use href="#icon-file-text"/></svg><span data-i18n="header.guide">Rehber</span>
       </button>
       <button id="btn-import" class="btn-link" data-i18n-title="header.importTitle" title="Dosyadan bir rüya kaydı (.json ya da .txt) aç">
         <svg class="icon icon-sm"><use href="#icon-upload"/></svg><span data-i18n="header.import">Dosyadan Aç</span>
@@ -80,6 +99,23 @@
         <button id="btn-library-download-all" type="button" class="btn-secondary">
           <svg class="icon icon-sm"><use href="#icon-download"/></svg><span data-i18n="library.downloadAll">Tümünü İndir (.zip)</span>
         </button>
+        <button id="btn-toggle-recurring" type="button" class="btn-secondary">
+          <svg class="icon icon-sm"><use href="#icon-clock"/></svg><span data-i18n="library.recurringToggle">Tekrar Eden Semboller</span>
+        </button>
+        <button id="btn-toggle-timeline" type="button" class="btn-secondary">
+          <svg class="icon icon-sm"><use href="#icon-clock"/></svg><span data-i18n="library.timelineToggle">Zaman İçinde Değişim</span>
+        </button>
+        <button id="btn-delete-all" type="button" class="btn-secondary btn-danger">
+          <svg class="icon icon-sm"><use href="#icon-trash"/></svg><span data-i18n="library.deleteAll">Tümünü Sil</span>
+        </button>
+      </div>
+      <div id="recurring-symbols-panel" class="recurring-panel hidden">
+        <p id="recurring-empty" class="hint hidden" data-i18n="library.recurringEmpty">Henüz tekrar eden bir sembol yok.</p>
+        <ul id="recurring-list" class="recurring-list"></ul>
+      </div>
+      <div id="timeline-panel" class="recurring-panel hidden">
+        <p id="timeline-empty" class="hint hidden" data-i18n="library.timelineEmpty">Henüz veri yok — rüya kaydederken "genel tutum / duygu / başlangıç-bitiş" alanlarını doldurdukça burada birikecek.</p>
+        <ul id="timeline-list" class="timeline-list"></ul>
       </div>
       <p id="history-empty" class="hint hidden" data-i18n="history.empty">Henüz kaydedilmiş bir rüya yok.</p>
       <ul id="history-list" class="history-grid"></ul>
@@ -91,6 +127,37 @@
       </div>
     </section>
 
+    <!-- REHBER: statik, AI'sız Jungiyen sözlük + Johnson'ın 4 adımının
+         uygulamadaki karşılığı. Geçmiş paneliyle aynı desen: STEP_ORDER'a
+         dahil değil, "lastMainStep" akışı dışı bir taşma ekranı. -->
+    <section id="step-guide" class="card hidden">
+      <button id="btn-guide-back" class="btn-link">
+        <svg class="icon icon-sm"><use href="#icon-chevron-left"/></svg><span data-i18n="guide.back">Geri dön</span>
+      </button>
+      <h2 data-i18n="guide.heading">Jungcu Rehber</h2>
+      <p class="hint" data-i18n="guide.intro">Robert Johnson'ın rüya çalışması yöntemi ve birkaç temel Jungiyen kavramın kısa özeti — yöntemi bilmeden de kullanabilirsin, arka planını merak edersen buraya bak.</p>
+
+      <h3 data-i18n="guide.stepsHeading">Johnson'ın 4 Adımı</h3>
+      <ol class="guide-steps">
+        <li><strong data-i18n="guide.step1Title">1. Çağrışım</strong> — <span data-i18n="guide.step1Body">Sembolü kontrol etmeden, aklına ilk geleni serbestçe bilince bağlarsın. Uygulamada: Sembol Çarkı.</span></li>
+        <li><strong data-i18n="guide.step2Title">2. Dinamikleri bağlama</strong> — <span data-i18n="guide.step2Body">Seçtiğin çağrışımı kendi hayatına bağlarsın: hangi iç parçan, hayatının neresinde. Uygulamada: 4 soru ve (istersen) amplifikasyon.</span></li>
+        <li><strong data-i18n="guide.step3Title">3. Yorum</strong> — <span data-i18n="guide.step3Body">Bütün parçaları birleştirip rüyanın sana ne söylediğine karar verirsin. Uygulamada: Kendi Yorumun / Yorumu Genişlet.</span></li>
+        <li><strong data-i18n="guide.step4Title">4. Ritüel</strong> — <span data-i18n="guide.step4Body">Yorumu somut, sembolik bir eylemle hayata bağlarsın — anlaşılmakla kalmaz, yaşanır. Uygulamada: Ritüel.</span></li>
+      </ol>
+
+      <h3 data-i18n="guide.termsHeading">Temel Kavramlar</h3>
+      <dl class="guide-terms">
+        <dt data-i18n="guide.shadowTerm">Gölge</dt>
+        <dd data-i18n="guide.shadowBody">Bilinçli kişiliğinin kabul etmediği, bastırdığı ya da hiç farkında olmadığı yanların. Rüyada genelde tehdit edici, tuhaf ya da hoşlanmadığın bir figür olarak görünür — ama çoğu zaman senin inkâr ettiğin bir gücündür.</dd>
+        <dt data-i18n="guide.animaTerm">Anima / Animus</dt>
+        <dd data-i18n="guide.animaBody">Kendi bilinç cinsiyetinin karşıtı yönde taşıdığın iç figür — erkekte anima (dişil), kadında animus (eril). Rüyada bir aşk ilgisi, bir rehber ya da gizemli bir yabancı olarak beliren figürler genelde budur.</dd>
+        <dt data-i18n="guide.personaTerm">Persona</dt>
+        <dd data-i18n="guide.personaBody">Dünyaya gösterdiğin maske, sosyal rolün. Rüyada kıyafet, üniforma ya da "rol yapma" temaları çoğu zaman persona ile gerçek benlik arasındaki gerilimi işaret eder.</dd>
+        <dt data-i18n="guide.individuationTerm">Bireyleşme</dt>
+        <dd data-i18n="guide.individuationBody">Parçalarını (gölge, anima/animus, persona) tanıyıp bütünleştirerek daha tam bir kendin olma süreci. Bu uygulamanın tuttuğu rüya serisi, aslında bu sürecin uzun vadeli bir kaydıdır.</dd>
+      </dl>
+    </section>
+
     <!-- ADIM 1: Rüya girişi -->
     <section id="step-dream" class="card">
       <h2 data-i18n="dream.heading">Rüyanı Yaz</h2>
@@ -98,10 +165,26 @@
         <p data-i18n="onboard.body">Bu uygulama Robert Johnson'ın rüya çalışması yöntemini adım adım senin için açar — yöntemi önceden bilmen gerekmiyor. Rüyanı yazacaksın, çıkan her sembol için kendi çağrışımlarını ekleyeceksin, sonunda hem görsel bir harita hem de (istersen) bir yapay zeka bakış açısı göreceksin.</p>
         <button id="btn-onboard-dismiss" type="button" class="btn-link" data-i18n="onboard.dismiss">Anladım</button>
       </div>
+      <label class="context-label">
+        <span data-i18n="dream.titleLabel">Rüyana bir isim ver</span> <span class="hint small" data-i18n="dream.titleHint">(opsiyonel — sonra da değiştirebilirsin)</span>
+        <input type="text" id="dream-title" data-i18n-placeholder="dream.titlePlaceholder" placeholder="Örn: Kara Köpek Rüyası">
+      </label>
       <textarea id="dream-text" rows="8" data-i18n-placeholder="dream.textareaPlaceholder" placeholder="Rüyanı hatırladığın kadarıyla, detaylarıyla buraya yaz..."></textarea>
       <label class="context-label">
         <span data-i18n="dream.contextLabel">Bu rüyayı neden bu gece görmüş olabilirsin?</span> <span class="hint small" data-i18n="dream.contextHint">(opsiyonel — bugün/bu aralar yaşadığın bir şey, bir kaygı, bir karar)</span>
         <textarea id="dream-context" rows="2" data-i18n-placeholder="dream.contextPlaceholder" placeholder="Örn: yarın önemli bir karar vermem gerekiyor, gerginim..."></textarea>
+      </label>
+      <label class="context-label">
+        <span data-i18n="dream.attitudeLabel">Rüyadaki genel tutumun neydi?</span> <span class="hint small" data-i18n="dream.attitudeHint">(opsiyonel — katılan mı, izleyen mi, kaçan mı, duran mı?)</span>
+        <textarea id="dream-attitude" rows="2" data-i18n-placeholder="dream.attitudePlaceholder" placeholder="Örn: olayların içindeydim ama tepki vermiyordum, sadece izliyordum..."></textarea>
+      </label>
+      <label class="context-label">
+        <span data-i18n="dream.emotionLabel">Rüyada ne hissettin, uyandığında hangi duygu kaldı?</span> <span class="hint small" data-i18n="dream.emotionHint">(opsiyonel)</span>
+        <textarea id="dream-emotion" rows="2" data-i18n-placeholder="dream.emotionPlaceholder" placeholder="Örn: rüyada korkmuştum ama uyanınca tuhaf bir hafiflik hissettim..."></textarea>
+      </label>
+      <label class="context-label">
+        <span data-i18n="dream.arcLabel">Rüya nasıl başladı, nasıl bitti?</span> <span class="hint small" data-i18n="dream.arcHint">(opsiyonel — bir çözülüş var mıydı, yoksa yarım mı kaldı?)</span>
+        <textarea id="dream-arc" rows="2" data-i18n-placeholder="dream.arcPlaceholder" placeholder="Örn: karanlıkta başladı, kapı açılınca bitti — ama içeri girmedim..."></textarea>
       </label>
       <div class="row">
         <button id="btn-extract" class="btn-primary">
@@ -229,7 +312,7 @@
           <li data-i18n="johnson.r4">Bazı rüyalar hemen çözülmez. Belirsizlikle bir süre yaşamayı öğren — zorlama bir anlam, anlamsızlıktan kötüdür.</li>
           <li data-i18n="johnson.r5">Ölçüt duygudadır: doğru yorum yazıldığında "cuk oturan" bir enerji ve yeni bir görme açar. Sönük kalıyorsa yanlıştır, tekrar bak.</li>
         </ol>
-        <p class="johnson-ritual" data-i18n="johnson.ritual">Johnson'ın yönteminde bundan sonraki adım ritüel: yorumu somut, sembolik bir eylemle hayata bağlamak — anlaşılmakla kalmayıp yaşanması. Ama ritüeli sana bu uygulama öneremez. Neyin sende gerçekten karşılığı olduğunu yalnızca sen bilirsin; dışarıdan verilen bir ritüel tam da yöntemin kaçındığı şey olur. Yorumunu yazdıktan sonra onu kendin kur.</p>
+        <p class="johnson-ritual" data-i18n="johnson.ritual">Johnson'ın yönteminde bundan sonraki adım ritüel: yorumu somut, sembolik bir eylemle hayata bağlamak — anlaşılmakla kalmayıp yaşanması. Ama ritüeli sana bu uygulama öneremez. Neyin sende gerçekten karşılığı olduğunu yalnızca sen bilirsin; dışarıdan verilen bir ritüel tam da yöntemin kaçındığı şey olur. Yorumunu yazdıktan sonra sonuç ekranının altında onu kendin yazıp kaydedebilir, günler sonra yaptığında "yaptım" diye işaretleyebilirsin.</p>
       </details>
 
       <div class="finalize-map">
@@ -324,6 +407,33 @@
         <h3 data-i18n="result.aiHeading">Genişletme — Göremediğin Yer</h3>
         <p class="result-frame" data-i18n="result.frame">Bu, çağrışımların ve modelin bilgisinden derlenmiş bir bakış açısı — son söz değil. Kendi yorumun asıl olan.</p>
         <div id="result-text" class="result-text"></div>
+
+        <div id="resonance-panel" class="resonance-panel">
+          <p class="hint small" data-i18n="resonance.prompt">Bu sana ne kadar oturdu?</p>
+          <div class="resonance-buttons" role="group">
+            <button type="button" class="resonance-btn" data-value="fit" data-i18n="resonance.fit">Oturdu</button>
+            <button type="button" class="resonance-btn" data-value="partial" data-i18n="resonance.partial">Kısmen</button>
+            <button type="button" class="resonance-btn" data-value="miss" data-i18n="resonance.miss">Oturmadı</button>
+          </div>
+          <textarea id="resonance-note" rows="1" class="resonance-note hidden" data-i18n-placeholder="resonance.notePlaceholder" placeholder="İstersen tek cümle..."></textarea>
+          <span id="resonance-status" class="status"></span>
+        </div>
+      </div>
+
+      <!-- Ritüel (Johnson'ın 4. adımı) — kendi yorum ya da AI genişletmesi
+           fark etmeksizin, sonuç ekranına ulaşan herkes için görünür.
+           Metni kütüphaneden her zaman "yaptım" diye işaretlenebilir
+           (rezonansın aksine — ritüel günler sonra yapılabilir). -->
+      <div id="ritual-panel" class="own-interpretation">
+        <h3 data-i18n="ritual.heading">Ritüel</h3>
+        <p class="hint small" data-i18n="ritual.hint">Johnson'ın yönteminde son adım bu: yorumu somut, sembolik bir eylemle hayata bağlamak. Ritüeli sana bu uygulama öneremez — neyin sende gerçekten karşılığı olduğunu yalnızca sen bilirsin. Ne yapacağını buraya yaz, kaydet; yaptığında kütüphaneden işaretleyebilirsin.</p>
+        <textarea id="ritual-text" rows="4" data-i18n-placeholder="ritual.placeholder" placeholder="Bu rüyayla ne yapacaksın?"></textarea>
+        <div class="row">
+          <button id="btn-save-ritual" type="button" class="btn-secondary">
+            <svg class="icon icon-sm"><use href="#icon-check"/></svg><span data-i18n="ritual.save">Ritüeli Kaydet</span>
+          </button>
+          <span id="ritual-status" class="status"></span>
+        </div>
       </div>
 
       <p class="hint small result-storage-note" data-i18n="result.hint">Sunucudaki kayıt geçici olabilir (ücretsiz hosting'te silinebilir) — .json yedeğini indirip "Dosyadan Aç" ile istediğin an (bu haritayla birlikte) geri açabilirsin.</p>

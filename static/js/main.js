@@ -1,7 +1,11 @@
 (() => {
   const state = {
+    dreamTitle: "", // rüyayı en baştan isimlendirme (kütüphaneden sonradan da değiştirilebilir)
     dreamText: "",
     dreamContext: "",
+    dreamAttitude: "", // rüyadaki genel tutum (katılan/izleyen/kaçan/duran) — Faz 1.1
+    dreamEmotion: "", // rüyada hissedilen / uyanınca kalan duygu — Faz 1.1
+    dreamArc: "", // rüya nasıl başladı, nasıl bitti — Faz 1.1
     myInterpretation: "", // kullanıcının KENDİ yorumu — asıl olan bu, AI ondan sonra gelir
     symbols: [], // { name, name_en, context, associations: [{id,text,selected}], questions: {q1..q4},
     //            meditation (rapora girmez), report_note (rapora girer) }
@@ -11,12 +15,25 @@
     lastMainStep: null, // geçmiş ekranından geri dönülecek adım
     currentStepMeta: null, // { index, name } — ilerleme etiketi için
     lastRecord: null, // son sentezlenen kayıt — rapor/harita/çalışma sayfası bundan üretilir
+    lastSavedFile: null, // /api/save-dream'in en son döndürdüğü dosya adı — rezonans PATCH'i buraya yazar
     libraryDreams: [], // kütüphaneden son çekilen ham rüya özet listesi — sırala/filtrele yeniden çekmeden çalışır
   };
 
   const el = {
+    devPanel: document.getElementById("dev-panel"),
+    devStepDream: document.getElementById("dev-step-dream"),
+    devStepSymbols: document.getElementById("dev-step-symbols"),
+    devStepWheel: document.getElementById("dev-step-wheel"),
+    devStepFinalize: document.getElementById("dev-step-finalize"),
+    devStepResultOwn: document.getElementById("dev-step-result-own"),
+    devStepResultAi: document.getElementById("dev-step-result-ai"),
+    devStepLibrary: document.getElementById("dev-step-library"),
+    dreamTitle: document.getElementById("dream-title"),
     dreamText: document.getElementById("dream-text"),
     dreamContext: document.getElementById("dream-context"),
+    dreamAttitude: document.getElementById("dream-attitude"),
+    dreamEmotion: document.getElementById("dream-emotion"),
+    dreamArc: document.getElementById("dream-arc"),
     btnExtract: document.getElementById("btn-extract"),
     extractStatus: document.getElementById("extract-status"),
     stepDream: document.getElementById("step-dream"),
@@ -65,6 +82,12 @@
     expandStatus: document.getElementById("expand-status"),
     aiBlock: document.getElementById("ai-block"),
     resultText: document.getElementById("result-text"),
+    resonancePanel: document.getElementById("resonance-panel"),
+    resonanceNote: document.getElementById("resonance-note"),
+    resonanceStatus: document.getElementById("resonance-status"),
+    ritualText: document.getElementById("ritual-text"),
+    btnSaveRitual: document.getElementById("btn-save-ritual"),
+    ritualStatus: document.getElementById("ritual-status"),
     btnCopyResult: document.getElementById("btn-copy-result"),
     btnReport: document.getElementById("btn-report"),
     reportMenu: document.getElementById("report-menu"),
@@ -74,6 +97,9 @@
     btnDownloadJson: document.getElementById("btn-download-json"),
     symbolMapSvg: document.getElementById("symbol-map-svg"),
     btnShowHistory: document.getElementById("btn-show-history"),
+    btnShowGuide: document.getElementById("btn-show-guide"),
+    stepGuide: document.getElementById("step-guide"),
+    btnGuideBack: document.getElementById("btn-guide-back"),
     btnImport: document.getElementById("btn-import"),
     importFileInput: document.getElementById("import-file-input"),
     btnLoadDraft: document.getElementById("btn-load-draft"),
@@ -86,6 +112,15 @@
     librarySort: document.getElementById("library-sort"),
     libraryOnlyIncomplete: document.getElementById("library-only-incomplete"),
     btnLibraryDownloadAll: document.getElementById("btn-library-download-all"),
+    btnToggleRecurring: document.getElementById("btn-toggle-recurring"),
+    recurringPanel: document.getElementById("recurring-symbols-panel"),
+    recurringEmpty: document.getElementById("recurring-empty"),
+    recurringList: document.getElementById("recurring-list"),
+    btnToggleTimeline: document.getElementById("btn-toggle-timeline"),
+    timelinePanel: document.getElementById("timeline-panel"),
+    timelineEmpty: document.getElementById("timeline-empty"),
+    timelineList: document.getElementById("timeline-list"),
+    btnDeleteAll: document.getElementById("btn-delete-all"),
     historyDetail: document.getElementById("history-detail"),
     btnHistoryBack: document.getElementById("btn-history-back"),
     historyDetailContent: document.getElementById("history-detail-content"),
@@ -170,6 +205,32 @@
     );
   }
 
+  // Fare/kalem konumuna göre çarkı hafifçe eğen 3D parallax — "Gece
+  // Rasathanesi" tasarımı (2026-09-13). Dokunmatikte devre dışı: parmak
+  // zaten swipe-cycle jestini kullanıyor (bkz. attachSwipe), ikisi çakışmasın.
+  const TILT_MAX_DEG = 9;
+
+  function attachTilt(wrap, target) {
+    if (!wrap || !target) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    wrap.addEventListener("pointermove", (e) => {
+      if (e.pointerType === "touch") return;
+      const rect = wrap.getBoundingClientRect();
+      const px = (e.clientX - rect.left) / rect.width - 0.5;
+      const py = (e.clientY - rect.top) / rect.height - 0.5;
+      target.style.transition = "transform 0.08s linear";
+      target.style.transform =
+        `perspective(1400px) rotateX(${(-py * TILT_MAX_DEG * 2).toFixed(2)}deg) ` +
+        `rotateY(${(px * TILT_MAX_DEG * 2).toFixed(2)}deg)`;
+    });
+
+    wrap.addEventListener("pointerleave", () => {
+      target.style.transition = "transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)";
+      target.style.transform = "perspective(1400px) rotateX(0deg) rotateY(0deg)";
+    });
+  }
+
   async function postJSON(url, body, method) {
     const res = await fetch(url, {
       method: method || "POST",
@@ -195,7 +256,7 @@
   // hangi adımdan geldiğimiz hatırlanır (lastMainStep) ki kapatınca oraya
   // dönebilelim.
   function allSteps() {
-    return [el.stepDream, el.stepSymbols, el.stepWheel, el.stepFinalize, el.stepResult, el.stepHistory];
+    return [el.stepDream, el.stepSymbols, el.stepWheel, el.stepFinalize, el.stepResult, el.stepHistory, el.stepGuide];
   }
 
   const prefersReducedMotion = () =>
@@ -213,7 +274,7 @@
         el.myInterpretation.value = state.myInterpretation || "";
         renderFinalizeWorkspace();
       }
-      if (section !== el.stepHistory) {
+      if (section !== el.stepHistory && section !== el.stepGuide) {
         state.lastMainStep = section;
         updateStepLabel(section);
       }
@@ -359,7 +420,11 @@
             step,
             activeIndex: state.activeIndex,
             dream_text: dreamText,
+            title: el.dreamTitle.value || state.dreamTitle || "",
             personal_context: el.dreamContext.value || state.dreamContext || "",
+            dream_attitude: el.dreamAttitude.value || state.dreamAttitude || "",
+            dream_emotion: el.dreamEmotion.value || state.dreamEmotion || "",
+            dream_arc: el.dreamArc.value || state.dreamArc || "",
             my_interpretation: el.myInterpretation.value || state.myInterpretation || "",
             symbols: state.symbols,
           })
@@ -423,7 +488,11 @@
     const draft = {
       is_draft: true,
       dream_text: saved.dream_text,
+      title: saved.title || "",
       personal_context: saved.personal_context,
+      dream_attitude: saved.dream_attitude || "",
+      dream_emotion: saved.dream_emotion || "",
+      dream_arc: saved.dream_arc || "",
       my_interpretation: saved.my_interpretation || "",
       symbols: saved.symbols,
     };
@@ -450,7 +519,11 @@
       return;
     }
     state.dreamText = text;
+    state.dreamTitle = el.dreamTitle.value.trim();
     state.dreamContext = el.dreamContext.value.trim();
+    state.dreamAttitude = el.dreamAttitude.value.trim();
+    state.dreamEmotion = el.dreamEmotion.value.trim();
+    state.dreamArc = el.dreamArc.value.trim();
     el.btnExtract.disabled = true;
     setStatus(el.extractStatus, I18N.t("dream.status.extracting"));
     el.extractStatus.classList.add("spinner");
@@ -743,6 +816,7 @@
   el.btnWheelCyclePrev.addEventListener("click", () => cycleWheelSymbol(-1));
   el.btnWheelCycleNext.addEventListener("click", () => cycleWheelSymbol(1));
   attachSwipe(el.wheelSvgWrap, { onLeft: () => cycleWheelSymbol(1), onRight: () => cycleWheelSymbol(-1) });
+  attachTilt(el.wheelSvgWrap, el.wheelSvg);
 
   // ---------- Amplifikasyon (tek sembol, kişisel çağrışım bulunamadığında) ----------
 
@@ -979,13 +1053,20 @@
   // Çalışma sayfası da çark gibi tek seferde tek sembol gösterir (Kaan'ın
   // isteği, 2026-09-11 — kartlar alt alta uzun bir liste yerine tek tek
   // dolaşılabilsin, özellikle mobilde).
+  // liveSym = state.symbols[state.workIndex]: buildRecord() sembolleri
+  // kopyalayarak yeni nesneler ürettiği için (bkz. buildRecord) `record`
+  // parametresi salt-okunur bir anlık görüntü — düzenleme geri yazmaları
+  // her zaman liveSym'e, yani gerçek state'e yapılmalı.
   function renderWorkCard(record) {
     const sym = record.symbols[state.workIndex];
+    const liveSym = state.symbols[state.workIndex];
     el.workCycleLabel.textContent = sym.name || "";
 
     el.finalizeCards.innerHTML = "";
     const card = document.createElement("article");
     card.className = "finalize-card";
+
+    const redraw = () => renderWorkCard(buildRecord(""));
 
     const headingRow = document.createElement("div");
     headingRow.className = "finalize-card-heading";
@@ -993,13 +1074,15 @@
     h.textContent = sym.name || "";
     headingRow.appendChild(h);
     headingRow.appendChild(
-      makeRenameControl(sym.name || "", (newName) => renameSymbol(state.workIndex, newName), () =>
-        renderWorkCard(record)
-      )
+      makeRenameControl(sym.name || "", (newName) => renameSymbol(state.workIndex, newName), redraw)
     );
     card.appendChild(headingRow);
 
-    const addField = (label, value, muted) => {
+    // Kişinin aklına daha iyi bir kelime gelebilir diye (Kaan'ın isteği,
+    // 2026-09-13): bağlam, seçilen çağrışım ve 4 soru cevabı burada da aynı
+    // kalem-ikonu deseniyle düzenlenebilir — sadece sembol adı değil. Boş
+    // gönderim yok sayılır (renameSymbol'daki davranışla aynı).
+    const addField = (label, value, muted, onSave) => {
       if (!value || !String(value).trim()) return;
       const l = document.createElement("div");
       l.className = "field-label";
@@ -1007,14 +1090,39 @@
       const v = document.createElement("div");
       v.className = muted ? "field-value muted" : "field-value";
       v.textContent = value;
+      if (!onSave) {
+        card.appendChild(l);
+        card.appendChild(v);
+        return;
+      }
+      const row = document.createElement("div");
+      row.className = "field-value-row";
+      row.appendChild(v);
+      row.appendChild(makeRenameControl(value, onSave, redraw));
       card.appendChild(l);
-      card.appendChild(v);
+      card.appendChild(row);
     };
 
-    addField(I18N.t("worksheet.context"), sym.context, true);
-    addField(I18N.t("worksheet.goldAssoc"), sym.selected_association);
+    addField(I18N.t("worksheet.context"), sym.context, true, (newValue) => {
+      const trimmed = (newValue || "").trim();
+      if (!trimmed) return;
+      liveSym.context = trimmed;
+      saveProgress();
+    });
+    addField(I18N.t("worksheet.goldAssoc"), sym.selected_association, false, (newValue) => {
+      const trimmed = (newValue || "").trim();
+      if (!trimmed) return;
+      const selected = liveSym.associations.find((a) => a.selected);
+      if (selected) selected.text = trimmed;
+      saveProgress();
+    });
     SymbolMap.questionLabels.forEach(([key, label]) => {
-      addField(label, (sym.questions || {})[key]);
+      addField(label, (sym.questions || {})[key], false, (newValue) => {
+        const trimmed = (newValue || "").trim();
+        if (!trimmed) return;
+        liveSym.questions[key] = trimmed;
+        saveProgress();
+      });
     });
     addField(I18N.t("notes.report"), sym.report_note);
 
@@ -1036,7 +1144,11 @@
   function buildRecord(interpretation) {
     return {
       dream_text: state.dreamText,
+      title: state.dreamTitle,
       personal_context: state.dreamContext,
+      dream_attitude: state.dreamAttitude,
+      dream_emotion: state.dreamEmotion,
+      dream_arc: state.dreamArc,
       my_interpretation: ownInterpretationText(),
       symbols: state.symbols.map((s) => ({
         name: s.name,
@@ -1062,7 +1174,8 @@
     renderResult(state.lastRecord);
     el.btnNewDream.classList.remove("hidden");
     try {
-      await postJSON("/api/save-dream", state.lastRecord);
+      const saveRes = await postJSON("/api/save-dream", state.lastRecord);
+      state.lastSavedFile = saveRes.saved_as || null;
       setStatus(el.finalizeStatus, I18N.t("finalize.status.saved"));
     } catch (err) {
       // Sunucuya yazamamak akışı bozmamalı — .json yedeği zaten asıl kopya.
@@ -1070,7 +1183,13 @@
     }
   }
 
+  // Sonuç ekranından finalize/symbols/wheel'e geri dönüş yok (bkz. PLAN.md,
+  // "Modüler akış" kararı, 2026-09-13) — bu yüzden buraya geçmeden hemen
+  // önce, geri dönemeyeceğini net bir şekilde söyleyen bir onay var.
+  // Geri dönüp düzenleme özelliği eklemek yerine, kilidi baştan görünür
+  // yapmak seçildi (Kaan'ın kararı).
   el.btnFinish.addEventListener("click", () => {
+    if (!window.confirm(I18N.t("finalize.lockConfirm"))) return;
     el.btnFinish.disabled = true;
     finishWithOwnInterpretation().finally(() => updateFinalizeGate());
   });
@@ -1093,7 +1212,8 @@
       renderResult(state.lastRecord);
       el.btnNewDream.classList.remove("hidden");
 
-      await postJSON("/api/save-dream", state.lastRecord);
+      const saveRes = await postJSON("/api/save-dream", state.lastRecord);
+      state.lastSavedFile = saveRes.saved_as || null;
       setStatus(statusNode, I18N.t("finalize.status.done"));
     } catch (err) {
       setStatus(statusNode, err.message, true);
@@ -1105,6 +1225,7 @@
   }
 
   el.btnFinalize.addEventListener("click", () => {
+    if (!window.confirm(I18N.t("finalize.lockConfirm"))) return;
     state.myInterpretation = ownInterpretationText();
     runExpansion(el.btnFinalize, el.finalizeStatus);
   });
@@ -1114,7 +1235,11 @@
     // geçmişten/dosyadan açılmış bir kayıtta form alanları boş olabilir.
     const rec = state.lastRecord || {};
     state.dreamText = rec.dream_text || state.dreamText;
+    state.dreamTitle = rec.title || state.dreamTitle;
     state.dreamContext = rec.personal_context || state.dreamContext;
+    state.dreamAttitude = rec.dream_attitude || state.dreamAttitude;
+    state.dreamEmotion = rec.dream_emotion || state.dreamEmotion;
+    state.dreamArc = rec.dream_arc || state.dreamArc;
     state.myInterpretation = rec.my_interpretation || state.myInterpretation;
     runExpansion(el.btnExpandLater, el.expandStatus);
   });
@@ -1135,8 +1260,90 @@
     el.expandOffer.classList.toggle("hidden", !!ai || !own);
     setStatus(el.expandStatus, "");
 
+    renderResonance(rec);
+    renderRitual(rec);
+
     showOnlyStep(el.stepResult);
   }
+
+  // ---------- Rezonans geri bildirimi (Faz 1.3) ----------
+  // Johnson'ın rezonans testi: bir yorum ancak bedensel bir tanıma
+  // uyandırdığında doğrulanmış sayılır. Sadece AI genişletmesine bağlı
+  // (kendi yorumuna "oturdu mu" sormak anlamsız) — bu yüzden #ai-block'un
+  // içinde. Butona basınca hemen kaydediliyor, ayrı bir "kaydet" düğmesi yok.
+
+  function renderResonance(rec) {
+    el.resonancePanel.querySelectorAll(".resonance-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.value === (rec.resonance || ""));
+    });
+    el.resonanceNote.value = rec.resonance_note || "";
+    el.resonanceNote.classList.toggle("hidden", !rec.resonance);
+    setStatus(el.resonanceStatus, "");
+  }
+
+  async function saveResonance(value, note) {
+    if (!state.lastSavedFile) return; // kaydedilmemiş bir kayıt için gönderilecek dosya yok
+    try {
+      await postJSON(
+        `/api/dreams/${encodeURIComponent(state.lastSavedFile)}`,
+        { resonance: value, resonance_note: note || "" },
+        "PATCH"
+      );
+      setStatus(el.resonanceStatus, I18N.t("resonance.saved"));
+    } catch (err) {
+      setStatus(el.resonanceStatus, err.message, true);
+    }
+  }
+
+  el.resonancePanel.querySelectorAll(".resonance-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      el.resonancePanel
+        .querySelectorAll(".resonance-btn")
+        .forEach((b) => b.classList.toggle("active", b === btn));
+      el.resonanceNote.classList.remove("hidden");
+      const value = btn.dataset.value;
+      if (state.lastRecord) state.lastRecord.resonance = value;
+      saveResonance(value, el.resonanceNote.value);
+    });
+  });
+
+  let resonanceNoteTimer = null;
+  el.resonanceNote.addEventListener("input", () => {
+    clearTimeout(resonanceNoteTimer);
+    resonanceNoteTimer = setTimeout(() => {
+      const active = el.resonancePanel.querySelector(".resonance-btn.active");
+      if (!active) return; // önce bir değer seçilmeden not tek başına anlamsız
+      if (state.lastRecord) state.lastRecord.resonance_note = el.resonanceNote.value;
+      saveResonance(active.dataset.value, el.resonanceNote.value);
+    }, 500);
+  });
+
+  // ---------- Ritüel (Johnson'ın 4. adımı) ----------
+  // Kendi yorum ya da AI genişletmesi fark etmeksizin, sonuç ekranına ulaşan
+  // herkes için görünür (rezonansın aksine, o sadece AI genişletmesine bağlı).
+  // Ritüelin kendisini bu uygulama önermiyor — sadece yazıp kaydedecek bir yer
+  // veriyor; "yaptım" işareti kütüphaneden, günler sonra da atılabilir.
+
+  function renderRitual(rec) {
+    el.ritualText.value = rec.ritual_text || "";
+    setStatus(el.ritualStatus, "");
+  }
+
+  el.btnSaveRitual.addEventListener("click", async () => {
+    if (!state.lastSavedFile) return; // kaydedilmemiş bir kayıt için gönderilecek dosya yok
+    const text = el.ritualText.value.trim();
+    try {
+      await postJSON(
+        `/api/dreams/${encodeURIComponent(state.lastSavedFile)}`,
+        { ritual_text: text },
+        "PATCH"
+      );
+      if (state.lastRecord) state.lastRecord.ritual_text = text;
+      setStatus(el.ritualStatus, I18N.t("ritual.saved"));
+    } catch (err) {
+      setStatus(el.ritualStatus, err.message, true);
+    }
+  });
 
   // ---------- Rapor (.md ve yazdır/PDF) ----------
   // İki çıktı, tek kaynak: aynı kayıttan hem Markdown dosyası hem yazdırılabilir
@@ -1231,6 +1438,9 @@
       symbols.forEach((s) => out.push(`  - ${JSON.stringify(mdInline(s.name || ""))}`));
     }
     out.push(`has_ai_expansion: ${includeAi && !!(record.interpretation || "").trim()}`);
+    if ((record.ritual_text || "").trim()) {
+      out.push(`ritual_done: ${!!record.ritual_done}`);
+    }
     out.push("---");
     out.push("");
     out.push(`# ${I18N.t("report.title")}`);
@@ -1246,6 +1456,40 @@
       out.push(`**${I18N.t("report.contextHeading")}**`);
       out.push("");
       out.push(mdBlock(record.personal_context));
+      out.push("");
+    }
+    if (record.dream_attitude) {
+      out.push(`**${I18N.t("report.attitudeHeading")}**`);
+      out.push("");
+      out.push(mdBlock(record.dream_attitude));
+      out.push("");
+    }
+    if (record.dream_emotion) {
+      out.push(`**${I18N.t("report.emotionHeading")}**`);
+      out.push("");
+      out.push(mdBlock(record.dream_emotion));
+      out.push("");
+    }
+    if (record.dream_arc) {
+      out.push(`**${I18N.t("report.arcHeading")}**`);
+      out.push("");
+      out.push(mdBlock(record.dream_arc));
+      out.push("");
+    }
+
+    if (symbols.length) {
+      // Kısa özet: her sembol → seçtiği çağrışım, tek satırda — ekrandaki
+      // haritanın iki halkasının (sembol adı / altın çağrışım) metin
+      // karşılığı. Haritanın kendisi markdown'a hiç gömülmüyor (SVG'yi
+      // gömmek dosyayı okunmaz hale getiriyor), bunun yerine aşağıdaki
+      // "Rapor Kartları" zaten tüm detayı (bağlam, 4 soru) veriyor — bu
+      // liste sadece hızlı bir bakış/özet, o bölümün tekrarı değil.
+      out.push(`## ${I18N.t("report.mapHeading")}`);
+      out.push("");
+      symbols.forEach((sym) => {
+        const assoc = (sym.selected_association || "").trim();
+        out.push(`- **${mdInline(sym.name || "")}**${assoc ? ` → ${mdInline(assoc)}` : ""}`);
+      });
       out.push("");
     }
 
@@ -1292,6 +1536,16 @@
       out.push("");
     }
 
+    const ritual = (record.ritual_text || "").trim();
+    if (ritual) {
+      out.push(`## ${I18N.t("ritual.heading")}`);
+      out.push("");
+      out.push(mdBlock(ritual));
+      out.push("");
+      out.push(`*${I18N.t(record.ritual_done ? "ritual.reportDone" : "ritual.reportPending")}*`);
+      out.push("");
+    }
+
     return out.join("\n").replace(/\n{3,}/g, "\n\n") + "\n";
   }
 
@@ -1319,6 +1573,15 @@
     const contextBlock = record.personal_context
       ? `<div class="field-label">${escapeHtml(I18N.t("report.contextHeading"))}</div><p class="context-text">${escapeHtml(record.personal_context)}</p>`
       : "";
+    const attitudeBlock = record.dream_attitude
+      ? `<div class="field-label">${escapeHtml(I18N.t("report.attitudeHeading"))}</div><p class="context-text">${escapeHtml(record.dream_attitude)}</p>`
+      : "";
+    const emotionBlock = record.dream_emotion
+      ? `<div class="field-label">${escapeHtml(I18N.t("report.emotionHeading"))}</div><p class="context-text">${escapeHtml(record.dream_emotion)}</p>`
+      : "";
+    const arcBlock = record.dream_arc
+      ? `<div class="field-label">${escapeHtml(I18N.t("report.arcHeading"))}</div><p class="context-text">${escapeHtml(record.dream_arc)}</p>`
+      : "";
     const cardsHtml = symbols.map(buildReportCardHtml).join("\n");
     const own = (record.my_interpretation || "").trim();
     const ownSection = own
@@ -1336,6 +1599,14 @@
           <p class="interpretation-text">${escapeHtml(ai)}</p>
         </section>`
         : "";
+    const ritual = (record.ritual_text || "").trim();
+    const ritualSection = ritual
+      ? `<section class="section">
+          <h2>${escapeHtml(I18N.t("ritual.heading"))}</h2>
+          <p class="interpretation-text">${escapeHtml(ritual)}</p>
+          <p class="report-frame">${escapeHtml(I18N.t(record.ritual_done ? "ritual.reportDone" : "ritual.reportPending"))}</p>
+        </section>`
+      : "";
 
     return `<!doctype html>
 <html lang="${I18N.getLang()}">
@@ -1397,6 +1668,9 @@
     <h2>${escapeHtml(I18N.t("report.dreamHeading"))}</h2>
     <p class="dream-text">${escapeHtml(record.dream_text || "")}</p>
     ${contextBlock}
+    ${attitudeBlock}
+    ${emotionBlock}
+    ${arcBlock}
   </section>
 
   ${mapSvgString ? `<section class="section"><h2>${escapeHtml(I18N.t("report.mapHeading"))}</h2><div class="map-wrap">${mapSvgString}</div></section>` : ""}
@@ -1406,6 +1680,8 @@
   ${ownSection}
 
   ${interpretationSection}
+
+  ${ritualSection}
 </body>
 </html>`;
   }
@@ -1676,7 +1952,11 @@
   // yanlış adım kazanıyor (yarış koşulu), o yüzden tek çağrı.
   function loadDraftIntoState(record, targetSection) {
     state.dreamText = record.dream_text || "";
+    state.dreamTitle = record.title || "";
     state.dreamContext = record.personal_context || "";
+    state.dreamAttitude = record.dream_attitude || "";
+    state.dreamEmotion = record.dream_emotion || "";
+    state.dreamArc = record.dream_arc || "";
     state.myInterpretation = record.my_interpretation || "";
     state.symbols = (record.symbols || []).map((s) => ({
       name: s.name || "",
@@ -1703,7 +1983,11 @@
     state.lastRecord = null;
 
     el.dreamText.value = state.dreamText;
+    el.dreamTitle.value = state.dreamTitle;
     el.dreamContext.value = state.dreamContext;
+    el.dreamAttitude.value = state.dreamAttitude;
+    el.dreamEmotion.value = state.dreamEmotion;
+    el.dreamArc.value = state.dreamArc;
     el.myInterpretation.value = state.myInterpretation;
     el.btnNewDream.classList.add("hidden");
     renderChips();
@@ -1716,7 +2000,11 @@
     downloadJSON(`ruya-taslak-${slug}.json`, {
       is_draft: true,
       dream_text: state.dreamText,
+      title: state.dreamTitle,
       personal_context: state.dreamContext,
+      dream_attitude: state.dreamAttitude,
+      dream_emotion: state.dreamEmotion,
+      dream_arc: state.dreamArc,
       my_interpretation: ownInterpretationText(),
       symbols: state.symbols,
     });
@@ -1759,15 +2047,24 @@
 
   el.btnNewDream.addEventListener("click", () => {
     state.dreamText = "";
+    state.dreamTitle = "";
     state.dreamContext = "";
+    state.dreamAttitude = "";
+    state.dreamEmotion = "";
+    state.dreamArc = "";
     state.myInterpretation = "";
     state.symbols = [];
     state.activeIndex = null;
     state.resultReady = false;
     state.lastRecord = null;
+    state.lastSavedFile = null;
 
     el.dreamText.value = "";
+    el.dreamTitle.value = "";
     el.dreamContext.value = "";
+    el.dreamAttitude.value = "";
+    el.dreamEmotion.value = "";
+    el.dreamArc.value = "";
     el.myInterpretation.value = "";
     el.manualSymbolInput.value = "";
     setStatus(el.extractStatus, "");
@@ -1835,6 +2132,12 @@
       metaRow.className = "history-card-meta";
       metaRow.appendChild(dateSpan);
       metaRow.appendChild(badge);
+      if (d.ritual_done) {
+        const ritualBadge = document.createElement("span");
+        ritualBadge.className = "completion-badge ritual-done-badge";
+        ritualBadge.textContent = I18N.t("library.ritualBadge");
+        metaRow.appendChild(ritualBadge);
+      }
 
       const textSpan = document.createElement("p");
       textSpan.className = "history-card-text";
@@ -1854,8 +2157,36 @@
         e.stopPropagation();
         downloadDreamReport(d.file);
       });
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.className = "symbol-rename-btn danger";
+      deleteBtn.setAttribute("aria-label", I18N.t("library.delete", { name: displayName }));
+      deleteBtn.appendChild(makeIcon("trash", "icon-sm"));
+      deleteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteDream(d.file, displayName);
+      });
       footerRow.appendChild(countSpan);
       footerRow.appendChild(downloadBtn);
+      footerRow.appendChild(deleteBtn);
+
+      // Ritüel günler sonra yapılabileceği için (rezonansın aksine) bu
+      // işaret sadece kütüphaneden, her zaman değiştirilebilir.
+      if (d.has_ritual) {
+        const ritualBtn = document.createElement("button");
+        ritualBtn.type = "button";
+        ritualBtn.className = "symbol-rename-btn ritual-toggle" + (d.ritual_done ? " active" : "");
+        ritualBtn.setAttribute(
+          "aria-label",
+          I18N.t(d.ritual_done ? "library.ritualUndo" : "library.ritualMark", { name: displayName })
+        );
+        ritualBtn.appendChild(makeIcon("check", "icon-sm"));
+        ritualBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleRitualDone(d);
+        });
+        footerRow.appendChild(ritualBtn);
+      }
 
       li.appendChild(titleRow);
       li.appendChild(metaRow);
@@ -1882,6 +2213,46 @@
     await postJSON(`/api/dreams/${encodeURIComponent(fname)}`, { title: trimmed }, "PATCH");
     dream.title = trimmed;
   }
+
+  async function toggleRitualDone(dream) {
+    const next = !dream.ritual_done;
+    try {
+      await postJSON(`/api/dreams/${encodeURIComponent(dream.file)}`, { ritual_done: next }, "PATCH");
+      dream.ritual_done = next;
+      renderLibrary();
+    } catch (err) {
+      // sessiz geç — kart eski durumuyla kalır, kullanıcı tekrar deneyebilir
+    }
+  }
+
+  // Silme geri alınamaz — tek onay yeterli (toplu silmeden farklı olarak
+  // burada tek bir kayıt riske giriyor).
+  async function deleteDream(fname, displayName) {
+    if (!window.confirm(I18N.t("library.deleteConfirm", { name: displayName }))) return;
+    try {
+      await postJSON(`/api/dreams/${encodeURIComponent(fname)}`, null, "DELETE");
+      state.libraryDreams = state.libraryDreams.filter((d) => d.file !== fname);
+      renderLibrary();
+    } catch (err) {
+      window.alert(err.message);
+    }
+  }
+
+  el.btnDeleteAll.addEventListener("click", async () => {
+    const count = state.libraryDreams.length;
+    if (!count) return;
+    // Filtreden bağımsız, kütüphanedeki TÜM kayıtları siler — "Tümünü İndir"den
+    // farklı olarak burada yıkıcı bir eylem söz konusu, belirsizlik istenmedi
+    // (Kaan'ın seçimi, 2026-09-13).
+    if (!window.confirm(I18N.t("library.deleteAllConfirm", { count }))) return;
+    try {
+      await postJSON("/api/dreams", null, "DELETE");
+      state.libraryDreams = [];
+      renderLibrary();
+    } catch (err) {
+      window.alert(err.message);
+    }
+  });
 
   el.librarySort.addEventListener("change", renderLibrary);
   el.libraryOnlyIncomplete.addEventListener("change", renderLibrary);
@@ -1921,6 +2292,134 @@
     }
   });
 
+  el.btnToggleRecurring.addEventListener("click", async () => {
+    const opening = el.recurringPanel.classList.contains("hidden");
+    if (!opening) {
+      el.recurringPanel.classList.add("hidden");
+      return;
+    }
+    el.recurringPanel.classList.remove("hidden");
+    el.recurringList.innerHTML = "";
+    el.recurringEmpty.classList.add("hidden");
+    try {
+      const data = await getJSON("/api/dreams/recurring-symbols");
+      renderRecurringSymbols(data.symbols);
+    } catch (err) {
+      el.recurringEmpty.textContent = err.message;
+      el.recurringEmpty.classList.remove("hidden");
+    }
+  });
+
+  function renderRecurringSymbols(symbols) {
+    el.recurringList.innerHTML = "";
+    if (!symbols.length) {
+      el.recurringEmpty.textContent = I18N.t("library.recurringEmpty");
+      el.recurringEmpty.classList.remove("hidden");
+      return;
+    }
+    el.recurringEmpty.classList.add("hidden");
+    symbols.forEach((s) => {
+      const li = document.createElement("li");
+      li.className = "recurring-item";
+
+      const summary = document.createElement("button");
+      summary.type = "button";
+      summary.className = "recurring-summary";
+      summary.textContent = `${s.name} — ${I18N.t("library.recurringCount", { count: s.count })}`;
+
+      const details = document.createElement("ul");
+      details.className = "recurring-occurrences hidden";
+      s.occurrences.forEach((occ) => {
+        const item = document.createElement("li");
+        const date = occ.saved_at
+          ? new Date(occ.saved_at).toLocaleDateString(I18N.getLang() === "en" ? "en-US" : "tr-TR")
+          : "";
+        const label = occ.title || date;
+        item.textContent = occ.selected_association ? `${label}: ${occ.selected_association}` : label;
+        details.appendChild(item);
+      });
+
+      summary.addEventListener("click", () => details.classList.toggle("hidden"));
+
+      li.appendChild(summary);
+      li.appendChild(details);
+      el.recurringList.appendChild(li);
+    });
+  }
+
+  // Zaman içinde değişim: AI'sız, statik bir zaman şeridi — Faz 1.1'in üç
+  // alanını (genel tutum / duygu / başlangıç-bitiş) tarih sırasıyla (eskiden
+  // yeniye) alt alta dizer, örüntüyü AI değil kullanıcı kendi gözüyle görür.
+  // Kütüphanenin kendi state.libraryDreams'ine (zamanlama yarışına girmemek
+  // için) güvenmek yerine, tıklanınca kendi /api/dreams çağrısını yapar —
+  // tekrar eden semboller panelinin izlediği desenin aynısı.
+  el.btnToggleTimeline.addEventListener("click", async () => {
+    const opening = el.timelinePanel.classList.contains("hidden");
+    if (!opening) {
+      el.timelinePanel.classList.add("hidden");
+      return;
+    }
+    el.timelinePanel.classList.remove("hidden");
+    el.timelineList.innerHTML = "";
+    el.timelineEmpty.classList.add("hidden");
+    try {
+      const data = await getJSON("/api/dreams");
+      renderTimeline(data.dreams);
+    } catch (err) {
+      el.timelineEmpty.textContent = err.message;
+      el.timelineEmpty.classList.remove("hidden");
+    }
+  });
+
+  function renderTimeline(dreams) {
+    el.timelineList.innerHTML = "";
+    const withData = (dreams || [])
+      .filter((d) => d.dream_attitude || d.dream_emotion || d.dream_arc)
+      .slice()
+      .sort((a, b) => new Date(a.saved_at) - new Date(b.saved_at));
+
+    if (!withData.length) {
+      el.timelineEmpty.textContent = I18N.t("library.timelineEmpty");
+      el.timelineEmpty.classList.remove("hidden");
+      return;
+    }
+    el.timelineEmpty.classList.add("hidden");
+
+    const locale = I18N.getLang() === "en" ? "en-US" : "tr-TR";
+    withData.forEach((d) => {
+      const li = document.createElement("li");
+      li.className = "timeline-item";
+
+      const dateSpan = document.createElement("strong");
+      dateSpan.className = "timeline-date";
+      const dateText = d.saved_at ? new Date(d.saved_at).toLocaleDateString(locale) : "";
+      dateSpan.textContent = d.title ? (dateText ? `${dateText} — ${d.title}` : d.title) : dateText;
+      li.appendChild(dateSpan);
+
+      const rows = document.createElement("ul");
+      rows.className = "timeline-fields";
+      [
+        ["dream.attitudeLabel", d.dream_attitude],
+        ["dream.emotionLabel", d.dream_emotion],
+        ["dream.arcLabel", d.dream_arc],
+      ].forEach(([labelKey, value]) => {
+        if (!value) return;
+        const row = document.createElement("li");
+        const label = document.createElement("span");
+        label.className = "timeline-field-label";
+        label.textContent = I18N.t(labelKey);
+        const val = document.createElement("span");
+        val.className = "timeline-field-value";
+        val.textContent = value;
+        row.appendChild(label);
+        row.appendChild(val);
+        rows.appendChild(row);
+      });
+      li.appendChild(rows);
+      el.timelineList.appendChild(li);
+    });
+  }
+
   el.btnShowHistory.addEventListener("click", async () => {
     const opening = el.stepHistory.classList.contains("hidden");
     if (!opening) {
@@ -1942,12 +2441,105 @@
     }
   });
 
+  // Rehber: geçmiş paneliyle aynı desen (aç/kapat, lastMainStep'e dön) —
+  // tamamen statik içerik, veri çekmiyor.
+  el.btnShowGuide.addEventListener("click", () => {
+    const opening = el.stepGuide.classList.contains("hidden");
+    if (!opening) {
+      showOnlyStep(state.lastMainStep || el.stepDream);
+      return;
+    }
+    showOnlyStep(el.stepGuide);
+  });
+
+  el.btnGuideBack.addEventListener("click", () => {
+    showOnlyStep(state.lastMainStep || el.stepDream);
+  });
+
   async function showHistoryDetail(fname) {
     try {
       const record = await getJSON(`/api/dreams/${encodeURIComponent(fname)}`);
+      const summary = state.libraryDreams.find((d) => d.file === fname) || {};
       el.historyList.classList.add("hidden");
       el.historyDetail.classList.remove("hidden");
       el.historyDetailContent.innerHTML = "";
+
+      // ---------- Kuş bakışı: kompakt üst şerit (2026-09-13, Kaan'ın isteği) ----------
+      // "Bütünü uzaktan tek bakışta görebilme" — ama DOKÜMAN değil, HUD:
+      // tam metin kartları yok, sadece rozetler + tek satırlık alanlar +
+      // sembol adı → seçilen çağrışım listesi. Detay (4 soru, bağlam) hâlâ
+      // aşağıdaki haritaya tıklayarak açılıyor, burada tekrar edilmiyor.
+      const titleHeading = document.createElement("h3");
+      titleHeading.textContent = record.title || I18N.t("library.untitled");
+
+      const metaRow = document.createElement("div");
+      metaRow.className = "history-detail-meta";
+      if (record.saved_at) {
+        const dateSpan = document.createElement("span");
+        dateSpan.textContent = new Date(record.saved_at).toLocaleString(
+          I18N.getLang() === "en" ? "en-US" : "tr-TR"
+        );
+        metaRow.appendChild(dateSpan);
+      }
+      const countSpan = document.createElement("span");
+      countSpan.textContent = I18N.t("library.symbolCount", { count: (record.symbols || []).length });
+      metaRow.appendChild(countSpan);
+      const pctBadge = document.createElement("span");
+      pctBadge.className = "completion-badge";
+      pctBadge.textContent = I18N.t("library.completion", { pct: summary.completion_pct ?? 0 });
+      metaRow.appendChild(pctBadge);
+      if ((record.ritual_text || "").trim()) {
+        const ritualBadge = document.createElement("span");
+        ritualBadge.className = "completion-badge" + (record.ritual_done ? " ritual-done-badge" : "");
+        ritualBadge.textContent = I18N.t(record.ritual_done ? "library.ritualBadge" : "library.ritualPending");
+        metaRow.appendChild(ritualBadge);
+      }
+
+      const fieldsList = document.createElement("ul");
+      fieldsList.className = "timeline-fields";
+      [
+        ["dream.attitudeLabel", record.dream_attitude],
+        ["dream.emotionLabel", record.dream_emotion],
+        ["dream.arcLabel", record.dream_arc],
+      ].forEach(([labelKey, value]) => {
+        if (!value) return;
+        const row = document.createElement("li");
+        const label = document.createElement("span");
+        label.className = "timeline-field-label";
+        label.textContent = I18N.t(labelKey);
+        const val = document.createElement("span");
+        val.className = "timeline-field-value";
+        val.textContent = value;
+        row.appendChild(label);
+        row.appendChild(val);
+        fieldsList.appendChild(row);
+      });
+
+      const symbolList = document.createElement("ul");
+      symbolList.className = "history-symbol-list";
+      (record.symbols || []).forEach((sym) => {
+        const li = document.createElement("li");
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "history-symbol-name";
+        nameSpan.textContent = sym.name || "";
+        li.appendChild(nameSpan);
+        if ((sym.selected_association || "").trim()) {
+          const arrow = document.createElement("span");
+          arrow.className = "history-symbol-arrow";
+          arrow.textContent = "→";
+          const assocSpan = document.createElement("span");
+          assocSpan.className = "history-symbol-assoc";
+          assocSpan.textContent = sym.selected_association;
+          li.appendChild(arrow);
+          li.appendChild(assocSpan);
+        }
+        symbolList.appendChild(li);
+      });
+
+      el.historyDetailContent.appendChild(titleHeading);
+      el.historyDetailContent.appendChild(metaRow);
+      if (fieldsList.children.length) el.historyDetailContent.appendChild(fieldsList);
+      if (symbolList.children.length) el.historyDetailContent.appendChild(symbolList);
 
       const dreamHeading = document.createElement("h3");
       dreamHeading.textContent = I18N.t("history.dreamHeading");
@@ -2079,7 +2671,11 @@
   // yazılıyor — yarım yazılmış bir rüya da kaybolmasın diye doğrudan
   // alanları dinliyoruz.
   el.dreamText.addEventListener("input", saveProgress);
+  el.dreamTitle.addEventListener("input", saveProgress);
   el.dreamContext.addEventListener("input", saveProgress);
+  el.dreamAttitude.addEventListener("input", saveProgress);
+  el.dreamEmotion.addEventListener("input", saveProgress);
+  el.dreamArc.addEventListener("input", saveProgress);
 
   // ---------- Başlangıç ----------
   // Sayfa "Rüyanı Yaz" adımıyla zaten açık geliyor; ilerleme göstergesini en
@@ -2091,4 +2687,134 @@
   // sormadan, tek tıkla geri dönülebilir bir bilgi notuyla.
   const savedProgress = readProgress();
   if (savedProgress) restoreProgress(savedProgress);
+
+  // ---------- Test/Dev paneli ----------
+  // Sadece ?dev=1 ile açılır (Kaan'ın isteği, 2026-09-13: "her adımdaki
+  // sayfaları görebileceğim bir test ekranı"). Uydurma bir örnek kayıt
+  // kullanır — PRODUCT.md kuralı: gerçek rüya verisi asla demo/test içeriği
+  // olarak kullanılamaz. Kütüphane adımı istisna: orada gerçek /api/dreams
+  // verisi gösterilir (salt-okunur, normal "Geçmiş Rüyalarım" düğmesiyle
+  // aynı davranış), çünkü kişinin kendi verisini kendi test ekranında
+  // görmesinde bir sakınca yok.
+  if (new URLSearchParams(location.search).get("dev") === "1") {
+    el.devPanel.classList.remove("hidden");
+
+    const buildDevFixtureSymbols = () => [
+      {
+        name: "deniz feneri",
+        name_en: "lighthouse",
+        context: "rüyanın başında üstünde durduğum yer, ışığı dönüyor",
+        associations: [
+          { id: uid(), text: "yalnızlık", selected: false },
+          { id: uid(), text: "yön gösteren ama kendisi hareket etmeyen bir şey", selected: true },
+          { id: uid(), text: "sabit nokta", selected: false },
+        ],
+        questions: {
+          q1: "Başkalarına yol gösterirken kendim hareketsiz kalan tarafım.",
+          q2: "İş seçimlerimde hep başkalarına tavsiye verip kendi kararımı ertelediğim yer.",
+          q3: "Arkadaşlarıma öğüt verirken.",
+          q4: "Babam böyle, hep yönlendirir ama kendisi risk almaz.",
+        },
+        meditation: "",
+        report_note: "",
+      },
+      {
+        name: "değişen merdiven",
+        name_en: "shifting stairs",
+        context: "inmeye çalışırken basamaklar sürekli değişiyor",
+        associations: [
+          { id: uid(), text: "kontrol kaybı", selected: false },
+          { id: uid(), text: "ilerlemeye çalıştıkça zemin kayan bir belirsizlik", selected: true },
+        ],
+        questions: {
+          q1: "Bir karara yaklaştıkça zeminin kaydığı hissi.",
+          q2: "Yeni işe başlama kararımı sürekli ertelediğim yer.",
+          q3: "Plan yaparken, her adımda yeni bir 'ama' bulduğumda.",
+          q4: "",
+        },
+        meditation: "",
+        report_note: "",
+      },
+      {
+        name: "anahtarlı yabancı",
+        name_en: "stranger with a key",
+        context: "kapının dışında duruyor, anahtarı vermiyor sadece gülümsüyor",
+        associations: [
+          { id: uid(), text: "bilmediğim ama elinde çözümü tutan bir parçam", selected: true },
+          { id: uid(), text: "bekleyiş", selected: false },
+        ],
+        questions: {
+          q1: "Cevabı zaten bildiğim ama kendime henüz vermediğim taraf.",
+          q2: "Kararı hep 'doğru an'a erteleyen taraf.",
+          q3: "Uykuya dalmadan önceki düşüncelerimde.",
+          q4: "Kimse — bu tamamen kendimle ilgili.",
+        },
+        meditation: "",
+        report_note: "Bu sembolü unutma, önemli.",
+      },
+    ];
+
+    const applyDevFixture = () => {
+      state.dreamText =
+        "Bir deniz fenerinin tepesindeydim, ışık dönüyordu ama aşağısı tamamen " +
+        "karanlıktı. Merdivenlerden inmeye çalıştım ama basamaklar sürekli " +
+        "değişiyordu. Sonunda bir kapı buldum, açtığımda dışarıda tanımadığım " +
+        "biri duruyordu, elinde bir anahtar tutuyordu ama bana vermedi, sadece " +
+        "gülümsedi.";
+      state.dreamTitle = "Deniz Feneri Rüyası";
+      state.dreamContext = "Bu aralar yeni bir işe başlayıp başlamama konusunda kararsızım.";
+      state.dreamAttitude = "Önce izliyordum, sonra telaşla inmeye çalıştım.";
+      state.dreamEmotion = "Endişe ile başladı, kapıyı bulunca hafif bir merak duygusuna döndü.";
+      state.dreamArc = "Karanlıkta, yukarıda başladı; kapı açılınca, çözülmeden bitti.";
+      state.myInterpretation =
+        "Sanırım bu rüya yeni işe başlama kararımdaki tereddüdü anlatıyor — " +
+        "yol göstermeyi biliyorum ama kendi adımımı atmıyorum, ve elimdeki " +
+        "anahtarı kendime henüz vermiyorum.";
+      state.symbols = buildDevFixtureSymbols();
+    };
+
+    const devFixtureInterpretation =
+      "Kapıdaki yabancıyı hiç sorgulamıyorsun — elindeki anahtarı neden sana " +
+      "vermediğini değil, neden istemediğini sormuyorsun. Bu, uydurma bir " +
+      "test metnidir.";
+
+    el.devStepDream.addEventListener("click", () => el.btnNewDream.click());
+
+    el.devStepSymbols.addEventListener("click", () => {
+      applyDevFixture();
+      renderChips();
+      showOnlyStep(el.stepSymbols);
+    });
+
+    el.devStepWheel.addEventListener("click", () => {
+      applyDevFixture();
+      renderChips();
+      selectSymbol(0);
+    });
+
+    el.devStepFinalize.addEventListener("click", () => {
+      applyDevFixture();
+      showOnlyStep(el.stepFinalize);
+    });
+
+    el.devStepResultOwn.addEventListener("click", () => {
+      applyDevFixture();
+      state.resultReady = true;
+      state.lastSavedFile = null;
+      state.lastRecord = buildRecord("");
+      renderResult(state.lastRecord);
+      el.btnNewDream.classList.remove("hidden");
+    });
+
+    el.devStepResultAi.addEventListener("click", () => {
+      applyDevFixture();
+      state.resultReady = true;
+      state.lastSavedFile = null;
+      state.lastRecord = buildRecord(devFixtureInterpretation);
+      renderResult(state.lastRecord);
+      el.btnNewDream.classList.remove("hidden");
+    });
+
+    el.devStepLibrary.addEventListener("click", () => el.btnShowHistory.click());
+  }
 })();

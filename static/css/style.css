@@ -1,39 +1,39 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* Yön: Kâğıt & Kalem (pen and paper). Uygulama artık bir "alet" değil, açık
-     duran bir defter: krem kâğıt zemin, lacivert mürekkep, ince kalem çizgisi.
-     Altın/pirinç dekor kaldırıldı — tek ikinci renk, altın çağrışımı işaretleyen
-     sepya mürekkep (ikinci bir kalem gibi). Kaan'ın gönderdiği referansa göre
-     (Desktop/coUkys/inner_work_app_ui_dream_journal.png). */
-  --bg: #efe8d8;
-  --bg-elevated: #fbf7ed;
-  --bg-sunken: #e6ddc9;
-  --card-bg: #fbf7ed;
-  --input-bg: #fdfaf3;
+  /* Yön: Gece Rasathanesi (night observatory). Kâğıt defter kapandı, artık
+     karanlık bir gözlem odasındayız — pirinç aletler, mürekkep gökyüzü,
+     alevle parlayan tek bir mercek. Zemin gece mavisi-moru, vurgu sıcak
+     alev/kehribar, ikincil vurgu kor kızılı. 2026-09-13, frontend-design
+     skill ile Direction B ("Gece Rasathanesi") onaylandı. */
+  --bg: #14131f;
+  --bg-elevated: #1e1c2e;
+  --bg-sunken: #0d0c16;
+  --card-bg: #1e1c2e;
+  --input-bg: #242238;
 
-  /* Metin — lacivert mürekkep, kâğıt üstünde okunur ama saf siyah değil */
-  --text: #1e2739;
-  --muted: #5d6474;
-  --muted-2: #8b8f9b;
+  /* Metin — eski kâğıdın parşömen tonu, artık karanlıkta parlıyor */
+  --text: #ece4d3;
+  --muted: #a79fc0;
+  --muted-2: #726b8a;
 
-  /* Marka: mürekkep. Vurgu parlaklıkla değil koyulukla kuruluyor. */
-  --accent: #2f3a52;
-  --accent-strong: #16203a;
-  --accent-soft: rgba(47, 58, 82, 0.12);
-  /* Altın çağrışım artık "parlayan altın" değil, ikinci kalemin sepya mürekkebi */
-  --gold: #8a5a2b;
-  --gold-soft: rgba(138, 90, 43, 0.14);
-  --green: #2f7d5a;
+  /* Marka: alev. Vurgu artık koyulukla değil, sıcak bir parıltıyla kuruluyor. */
+  --accent: #c9903f;
+  --accent-strong: #e0ab5c;
+  --accent-soft: rgba(201, 144, 63, 0.16);
+  /* İkinci alev: kor kızılı, ateşin daha derin ucu */
+  --gold: #a8443a;
+  --gold-soft: rgba(168, 68, 58, 0.18);
+  --green: #4fae86;
 
-  --ring: #c9c0aa;
-  --ring-soft: #ddd5c2;
-  --danger: #a5372a;
-  --danger-soft: rgba(165, 55, 42, 0.12);
+  --ring: #3a3650;
+  --ring-soft: #2a2740;
+  --danger: #d1453a;
+  --danger-soft: rgba(209, 69, 58, 0.18);
 
-  --font-heading: "Cormorant Garamond", Georgia, serif;
+  --font-heading: "Fraunces", "Cormorant Garamond", Georgia, serif;
   --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
 
   --radius-sm: 6px;
@@ -48,6 +48,37 @@
    özel .hidden kuralları unutulursa sessizce hiçbir şey gizlenmez, bu yüzden
    tek genel kural burada tanımlı ve her elemana uygulanır. */
 .hidden { display: none !important; }
+
+/* Test/Dev paneli — sadece ?dev=1 ile açılır, üretim kullanıcısı hiç görmez.
+   Belirgin şekilde "bu bir geliştirici aracı" hissi versin diye çarpıcı bir
+   şerit rengi kullanılıyor, marka paletinden bilerek farklı. */
+.dev-panel {
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #2a2a2a;
+  color: #fff;
+  font-size: 0.78em;
+}
+
+.dev-panel button {
+  font: inherit;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #666;
+  background: #3a3a3a;
+  color: #fff;
+  cursor: pointer;
+}
+
+.dev-panel button:hover {
+  background: #4a4a4a;
+}
 
 html {
   scroll-behavior: smooth;
@@ -66,18 +97,17 @@ body {
   -webkit-tap-highlight-color: transparent;
   min-height: 100dvh;
 
-  /* Kâğıt yüzeyi: gravür/vinyet yok. Çok ince, düzensiz aralıklı lif dokusu
-     (elde yapılmış kâğıdın taraması) + kenarlara doğru hafif bir sararma —
-     ekranda "üzerine yazılabilir bir sayfa" hissi bırakacak kadar, deseni
-     fark ettirmeyecek kadar zayıf. */
+  /* Gece gökyüzü: kâğıt lifi yerine çok hafif bir yıldız tozu + üstten sızan
+     kubbe ışığı + kenarlara doğru koyulaşan bir vinyet. Desen fark
+     edilmeyecek kadar zayıf, sadece derinlik hissi versin diye var. */
   background-attachment: fixed;
   background-repeat: no-repeat;
   background-color: var(--bg);
   background-image:
-    repeating-linear-gradient(90deg, rgba(120, 100, 66, 0.035) 0 1px, transparent 1px 3px),
-    repeating-linear-gradient(0deg, rgba(120, 100, 66, 0.028) 0 1px, transparent 1px 4px),
-    radial-gradient(ellipse 1200px 900px at 50% 0%, rgba(255, 253, 246, 0.75), transparent 65%),
-    radial-gradient(circle at 50% 45%, transparent 0%, transparent 55%, rgba(140, 118, 78, 0.16) 100%);
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.01) 0 1px, transparent 1px 4px),
+    radial-gradient(ellipse 1200px 900px at 50% 0%, rgba(120, 100, 180, 0.10), transparent 65%),
+    radial-gradient(circle at 50% 45%, transparent 0%, transparent 50%, rgba(0, 0, 0, 0.35) 100%);
 }
 
 h1, h2, h3 {
@@ -165,7 +195,7 @@ a { color: var(--accent-strong); }
   z-index: 10;
   padding: 20px 20px 14px;
   text-align: center;
-  background: rgba(239, 232, 216, 0.9);
+  background: rgba(13, 12, 22, 0.85);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--ring-soft);
@@ -299,8 +329,8 @@ main {
      kendi açık kenarı ve altında yumuşak bir kağıt gölgesi. */
   background-image: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 10px 24px -18px rgba(90, 74, 46, 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 10px 24px -18px rgba(0, 0, 0, 0.6);
 }
 
 .card.hidden { display: none; }
@@ -409,15 +439,15 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 /* Mürekkeple basılmış düğme: kâğıdın üstünde koyu bir blok, yazısı kâğıt rengi. */
 .btn-primary {
   background: var(--accent-strong);
-  color: #fbf7ed;
-  box-shadow: 0 2px 0 rgba(30, 39, 57, 0.25);
+  color: #1a1626;
+  box-shadow: 0 2px 0 rgba(20, 10, 5, 0.35);
   transition: transform 0.1s ease, background-color 0.15s ease, opacity 0.15s ease,
     border-color 0.15s ease, box-shadow 0.2s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
   background: var(--accent);
-  box-shadow: 0 2px 0 rgba(30, 39, 57, 0.35);
+  box-shadow: 0 2px 0 rgba(20, 10, 5, 0.45);
 }
 
 .btn-primary:disabled {
@@ -434,6 +464,15 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 
 .btn-secondary:hover:not(:disabled) {
   background: var(--accent-soft);
+}
+
+.btn-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-soft);
 }
 
 .status { color: var(--muted); font-size: 0.9em; }
@@ -582,6 +621,22 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   background: var(--accent-soft);
 }
 
+.symbol-rename-btn.danger:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+/* Ritüel işareti: rezonanstan farklı olarak kütüphaneden HER ZAMAN
+   açılıp kapatılabilir bir "yaptım" düğmesi (bkz. toggleRitualDone). */
+.symbol-rename-btn.ritual-toggle:hover {
+  color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.symbol-rename-btn.ritual-toggle.active {
+  color: var(--gold);
+}
+
 .symbol-rename-input {
   font: inherit;
   color: var(--text);
@@ -679,6 +734,48 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   margin-top: 16px;
 }
 
+/* Kuş bakışı üst şeridi — bkz. showHistoryDetail (main.js). Rozetler +
+   tek satırlık alanlar, tam metin kartı değil. */
+.history-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 14px;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.history-symbol-list {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history-symbol-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 0.92em;
+}
+
+.history-symbol-name {
+  font-weight: 600;
+  color: var(--accent-strong);
+}
+
+.history-symbol-arrow {
+  color: var(--muted-2);
+}
+
+.history-symbol-assoc {
+  color: var(--gold);
+}
+
 .library-controls {
   display: flex;
   flex-wrap: wrap;
@@ -703,6 +800,145 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   border: 1px solid var(--ring);
   border-radius: var(--radius-sm);
   padding: 4px 8px;
+}
+
+.resonance-panel {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ring);
+}
+
+.resonance-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.resonance-btn {
+  font: inherit;
+  font-size: 0.85em;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ring);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.resonance-btn:hover {
+  border-color: var(--accent);
+}
+
+.resonance-btn.active {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.resonance-note {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  font: inherit;
+  font-size: 0.9em;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ring);
+  background: var(--input-bg);
+  color: var(--text);
+  resize: vertical;
+}
+
+.recurring-panel {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  border: 1px solid var(--ring);
+}
+
+.recurring-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recurring-item + .recurring-item {
+  border-top: 1px solid var(--ring);
+  padding-top: 6px;
+}
+
+.recurring-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.timeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.timeline-item {
+  padding: 8px 0;
+}
+
+.timeline-item + .timeline-item {
+  border-top: 1px solid var(--ring);
+  padding-top: 10px;
+}
+
+.timeline-date {
+  color: var(--accent-strong);
+  font-size: 0.9em;
+}
+
+.timeline-fields {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.timeline-field-label {
+  color: var(--muted);
+  font-size: 0.82em;
+  margin-right: 6px;
+}
+
+.timeline-field-value {
+  font-size: 0.9em;
+}
+
+.recurring-occurrences {
+  list-style: none;
+  margin: 4px 0 6px;
+  padding: 0 0 0 12px;
+  font-size: 0.85em;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .history-grid {
@@ -775,6 +1011,12 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   border-radius: 999px;
   padding: 2px 9px;
   white-space: nowrap;
+}
+
+/* Yüzde rozetinden ayırt edilsin diye ayrı bir renk — az kullanılan --green. */
+.ritual-done-badge {
+  color: var(--green);
+  background: rgba(79, 174, 134, 0.16);
 }
 
 .history-card-text {
@@ -855,6 +1097,9 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   /* overflow-x: auto buradaydı (eski, sabit genişlikli çark sürümü için) —
      #wheel-svg artık width:100% ile bu konteynerden hiç taşmıyor, kural
      kaldırıldı çünkü sadece swipe-cycle jestini yutuyordu (bkz. attachSwipe). */
+  /* 3D eğim için sahne derinliği — bkz. attachTilt (main.js), 2026-09-13
+     Gece Rasathanesi tasarımı. */
+  perspective: 1400px;
 }
 
 #wheel-svg {
@@ -867,6 +1112,9 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
      bırakıyoruz (üstteki overflow-x: auto). */
   min-width: 300px;
   height: auto;
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .wheel-side {
@@ -1070,6 +1318,40 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   line-height: 1.65;
 }
 
+/* ---------- Rehber (Jungcu sözlük + Johnson'ın 4 adımı) ---------- */
+.guide-steps {
+  margin: 12px 0 24px;
+  padding-left: 20px;
+}
+
+.guide-steps li {
+  margin-bottom: 12px;
+  line-height: 1.65;
+}
+
+.guide-steps strong {
+  color: var(--accent-strong);
+  font-family: var(--font-heading);
+}
+
+.guide-terms {
+  margin: 12px 0;
+}
+
+.guide-terms dt {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--gold);
+  margin-top: 16px;
+}
+
+.guide-terms dd {
+  margin: 4px 0 0;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
 /* ---------- Yorum adımı çalışma alanı ----------
    Üstte harita, ortada yazma kutusu, altta toplanan verinin tamamı —
    kullanıcı yazarken yukarı çıkmak zorunda kalmasın diye. */
@@ -1137,6 +1419,16 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   color: var(--muted);
 }
 
+.finalize-card .field-value-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.finalize-card .field-value-row .field-value {
+  flex: 1;
+}
+
 /* ---------- Kendi yorumun / genişletme ----------
    Sonuç ekranında kullanıcının kendi yorumu ASIL bölüm, yapay zeka
    genişletmesi ondan sonra gelen ikinci bir katman — görsel ağırlık da bunu
@@ -1202,7 +1494,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   border: 1px solid var(--ring);
   border-radius: var(--radius-md);
   background: var(--card-bg);
-  box-shadow: 0 12px 28px -14px rgba(90, 74, 46, 0.55);
+  box-shadow: 0 12px 28px -14px rgba(0, 0, 0, 0.6);
 }
 
 .report-menu-title {
@@ -1355,6 +1647,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 .wheel-arrow-line.selected {
   stroke: var(--gold);
   stroke-width: 3.5;
+  filter: drop-shadow(0 0 5px var(--gold-soft));
 }
 
 .wheel-arrow-tip {
@@ -1366,6 +1659,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 .wheel-arrow-tip.selected {
   fill: url(#wheelGoldGrad);
   r: 9;
+  filter: drop-shadow(0 0 7px var(--gold));
 }
 
 .wheel-arrow-label {
@@ -1391,7 +1685,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   fill: url(#wheelCenterGrad);
   stroke: var(--accent);
   stroke-width: 2;
-  filter: url(#wheelInkWobble);
+  filter: url(#wheelInkWobble) drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
   transition: stroke 0.2s ease;
 }
 
@@ -1635,8 +1929,8 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   height: 560px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  /* Kâğıtta "parıltı" değil, sayfanın üstüne düşen ışık lekesi. */
-  background: radial-gradient(circle, rgba(255, 253, 246, 0.85) 0%, transparent 70%);
+  /* Karanlıkta ateşin sıcak parıltısı — rasathane kubbesinden sızan ışık. */
+  background: radial-gradient(circle, rgba(201, 144, 63, 0.35) 0%, transparent 70%);
   pointer-events: none;
   z-index: -1;
 }
