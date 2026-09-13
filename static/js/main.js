@@ -11,6 +11,7 @@
     //            meditation (rapora girmez), report_note (rapora girer) }
     activeIndex: null,
     workIndex: -1, // Ağaç görünümünde hangi sembol dalının açık olduğu, -1 = hiçbiri (kapalı varsayılan)
+    finalizeView: "tree", // "Çalışman" adımında aktif görünüm: "tree" (hızlı tara) | "grid" (hepsi açık, karşılaştır)
     resultReady: false,
     lastMainStep: null, // geçmiş ekranından geri dönülecek adım
     currentStepMeta: null, // { index, name } — ilerleme etiketi için
@@ -68,7 +69,12 @@
     btnFinish: document.getElementById("btn-finish"),
     myInterpretation: document.getElementById("my-interpretation"),
     finalizeGate: document.getElementById("finalize-gate"),
+    finalizeViewHeading: document.getElementById("finalize-view-heading"),
+    finalizeViewHint: document.getElementById("finalize-view-hint"),
+    btnViewTree: document.getElementById("btn-view-tree"),
+    btnViewGrid: document.getElementById("btn-view-grid"),
     finalizeTree: document.getElementById("finalize-tree"),
+    finalizeGrid: document.getElementById("finalize-grid"),
     finalizeStatus: document.getElementById("finalize-status"),
     stepResult: document.getElementById("step-result"),
     myInterpBlock: document.getElementById("my-interpretation-block"),
@@ -1042,7 +1048,105 @@
     if (!(state.workIndex >= 0 && state.workIndex < record.symbols.length)) {
       state.workIndex = -1;
     }
-    renderFinalizeTree(record, state.workIndex);
+    if (state.finalizeView === "grid") {
+      renderFinalizeGrid(record);
+    } else {
+      renderFinalizeTree(record, state.workIndex);
+    }
+  }
+
+  // Ağaç = hızlı tara, tek dal aç; Sütun = hepsi açık, karşılaştırarak
+  // çalış (Kaan'ın kararı, 2026-09-14) — iki ayrı amaç, aynı verinin tekrarı
+  // değil. Görünüm değiştiğinde sadece o an aktif olan görünüm yeniden
+  // çizilir, diğeri bir sonraki geçişte tazelenir (bkz. setFinalizeView).
+  function setFinalizeView(view) {
+    state.finalizeView = view;
+    const isGrid = view === "grid";
+    el.btnViewTree.classList.toggle("active", !isGrid);
+    el.btnViewTree.setAttribute("aria-selected", String(!isGrid));
+    el.btnViewGrid.classList.toggle("active", isGrid);
+    el.btnViewGrid.setAttribute("aria-selected", String(isGrid));
+    el.finalizeTree.classList.toggle("hidden", isGrid);
+    el.finalizeGrid.classList.toggle("hidden", !isGrid);
+    el.finalizeViewHeading.textContent = I18N.t(isGrid ? "finalize.gridHeading" : "finalize.treeHeading");
+    el.finalizeViewHint.textContent = I18N.t(isGrid ? "finalize.gridHint" : "finalize.treeHint");
+    renderFinalizeWorkspace();
+  }
+
+  el.btnViewTree.addEventListener("click", () => setFinalizeView("tree"));
+  el.btnViewGrid.addEventListener("click", () => setFinalizeView("grid"));
+
+  // Sütun/grid: ağaçtan farklı olarak hepsi varsayılan açık — 4 soru+cevap
+  // dahil her şey görünür, tıklayarak açma yok (Kaan'ın kararı, 2026-09-14).
+  // Kart içeriği ağacın genişlemiş dalıyla birebir aynı alan/düzenleme
+  // mantığını kullanıyor, sadece hepsi aynı anda gösteriliyor.
+  function renderFinalizeGrid(record) {
+    el.finalizeGrid.innerHTML = "";
+    record.symbols.forEach((sym, index) => {
+      const liveSym = state.symbols[index];
+      const redraw = () => renderFinalizeGrid(buildRecord(""));
+
+      const card = document.createElement("article");
+      card.className = "finalize-card";
+      card.style.setProperty("--i", index);
+      card.setAttribute("role", "listitem");
+
+      const headingRow = document.createElement("div");
+      headingRow.className = "finalize-card-heading";
+      const h = document.createElement("h4");
+      h.textContent = sym.name || "";
+      headingRow.appendChild(h);
+      headingRow.appendChild(
+        makeRenameControl(sym.name || "", (newName) => renameSymbol(index, newName), redraw)
+      );
+      card.appendChild(headingRow);
+
+      const addField = (label, value, muted, onSave) => {
+        if (!value || !String(value).trim()) return;
+        const l = document.createElement("div");
+        l.className = "field-label";
+        l.textContent = label;
+        const v = document.createElement("div");
+        v.className = muted ? "field-value muted" : "field-value";
+        v.textContent = value;
+        if (!onSave) {
+          card.appendChild(l);
+          card.appendChild(v);
+          return;
+        }
+        const fieldRow = document.createElement("div");
+        fieldRow.className = "field-value-row";
+        fieldRow.appendChild(v);
+        fieldRow.appendChild(makeRenameControl(value, onSave, redraw));
+        card.appendChild(l);
+        card.appendChild(fieldRow);
+      };
+
+      addField(I18N.t("worksheet.context"), sym.context, true, (newValue) => {
+        const trimmed = (newValue || "").trim();
+        if (!trimmed) return;
+        liveSym.context = trimmed;
+        saveProgress();
+      });
+      addField(I18N.t("worksheet.goldAssoc"), sym.selected_association, false, (newValue) => {
+        const trimmed = (newValue || "").trim();
+        if (!trimmed) return;
+        const selected = liveSym.associations.find((a) => a.selected);
+        if (selected) selected.text = trimmed;
+        saveProgress();
+      });
+      SymbolMap.questionLabels.forEach(([key, label]) => {
+        addField(label, (sym.questions || {})[key], false, (newValue) => {
+          const trimmed = (newValue || "").trim();
+          if (!trimmed) return;
+          liveSym.questions[key] = trimmed;
+          saveProgress();
+        });
+      });
+      addField(I18N.t("notes.report"), sym.report_note);
+
+      el.finalizeGrid.appendChild(card);
+    });
   }
 
   // liveSym = state.symbols[i]: buildRecord() sembolleri kopyalayarak yeni

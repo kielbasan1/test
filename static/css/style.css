@@ -190,7 +190,8 @@ a { color: var(--accent-strong); }
   .assoc-list li,
   .history-list li,
   .map-qa-card,
-  .tree-node {
+  .tree-node,
+  .finalize-grid .finalize-card {
     animation: itemIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) backwards;
     animation-delay: calc(var(--i, 0) * 40ms);
   }
@@ -1373,6 +1374,58 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 
 .finalize-tree-wrap h3 {
   margin-bottom: 6px;
+}
+
+.view-switcher-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.view-switcher-row h3 {
+  margin-bottom: 0;
+}
+
+/* Ağaç = hızlı tara / birini aç; Sütun = hepsi açık, karşılaştırarak
+   çalış — iki görünüm bilerek farklı amaca hizmet ediyor (2026-09-14). */
+.view-switcher {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--ring);
+  border-radius: 999px;
+  background: var(--bg-sunken);
+}
+
+.view-tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.view-tab:hover {
+  color: var(--text);
+}
+
+.view-tab.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.finalize-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
 }
 
 .tree-root {

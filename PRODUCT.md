@@ -138,6 +138,16 @@ tek dal genişler). Sol-sağ düz çizgi hiyerarşi, daire/radyal geometri yok
 (Claude sohbetinin "geometri yanlış" eleştirisiyle uyumlu). Bu iskelet
 onaylandı, kodlandı ve doğrulandı (2026-09-14) — bkz. Threads.md.
 
+**Sütun/grid görünümü iskeleti (2026-09-14):** Ağaçtan farklı olarak,
+sütun/grid'deki kartlar **varsayılan olarak tamamen açık** — 4 soru+cevap
+dahil her şey görünür, tıklayarak açma yok. Ağaç "hızlı tara, birini aç"
+işlevini görürken, sütun/grid "hepsini aynı anda karşılaştır/detaylı çalış"
+işlevini görüyor — iki görünüm bilerek farklı amaca hizmet ediyor, aynı
+şeyin iki kez tekrarı değil.
+
+**Sütun/grid + switcher kodlandı ve doğrulandı (2026-09-14).** Bkz.
+Threads.md.
+
 **Kapsam kararı (2026-09-14): ağaç/sütun switcher, mevcut sunburst harita
 (`#finalize-map-svg`) VE "Çalışman" tek-kart görünümünün (`#finalize-cards`)
 yerine geçecek — üçüncü/dördüncü bir ek sistem olarak eklenmeyecek.**
