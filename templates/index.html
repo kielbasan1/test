@@ -315,12 +315,10 @@
         <p class="johnson-ritual" data-i18n="johnson.ritual">Johnson'ın yönteminde bundan sonraki adım ritüel: yorumu somut, sembolik bir eylemle hayata bağlamak — anlaşılmakla kalmayıp yaşanması. Ama ritüeli sana bu uygulama öneremez. Neyin sende gerçekten karşılığı olduğunu yalnızca sen bilirsin; dışarıdan verilen bir ritüel tam da yöntemin kaçındığı şey olur. Yorumunu yazdıktan sonra sonuç ekranının altında onu kendin yazıp kaydedebilir, günler sonra yaptığında "yaptım" diye işaretleyebilirsin.</p>
       </details>
 
-      <div class="finalize-map">
-        <h3 data-i18n="finalize.mapHeading">Sembol Haritası</h3>
-        <p class="hint small" data-i18n="finalize.mapHint">Yazarken buradan bakabilirsin. Altın çağrışıma tıkla — o sembolün dört sorusu ve cevapları açılır. Haritanın köşesindeki düğmelerle haritayı ve çalışma sayfasını PNG olarak indirebilirsin.</p>
-        <div class="symbol-map-wrap">
-          <svg id="finalize-map-svg" viewBox="0 0 640 640" width="640" height="640"></svg>
-        </div>
+      <div class="finalize-tree-wrap">
+        <h3 data-i18n="finalize.treeHeading">Bu Rüyanın Ağacı</h3>
+        <p class="hint small" data-i18n="finalize.treeHint">Bir sembole tıkla — altın çağrışımı ve dört sorunun cevapları altında açılır. Yazarken buradan bakabilirsin.</p>
+        <div id="finalize-tree" class="finalize-tree" role="tree"></div>
       </div>
 
       <textarea id="my-interpretation" rows="14" data-i18n-placeholder="finalize.placeholder" placeholder="Bu rüya bana şunu söylüyor…"></textarea>
@@ -338,16 +336,6 @@
         <span id="finalize-status" class="status"></span>
       </div>
 
-      <div class="finalize-data">
-        <h3 data-i18n="finalize.dataHeading">Çalışman</h3>
-        <p class="hint small" data-i18n="finalize.dataHint">Bu rüya için topladığın her şey burada — yukarı çıkmadan bakıp yazmaya devam edebilirsin.</p>
-        <div class="symbol-cycle-nav">
-          <button id="btn-work-cycle-prev" type="button" class="cycle-nav-btn" data-i18n-aria="wheel.cyclePrev" aria-label="Önceki sembol">‹</button>
-          <span id="work-cycle-label" class="cycle-nav-label"></span>
-          <button id="btn-work-cycle-next" type="button" class="cycle-nav-btn" data-i18n-aria="wheel.cycleNext" aria-label="Sonraki sembol">›</button>
-        </div>
-        <div id="finalize-cards" class="finalize-cards"></div>
-      </div>
     </section>
 
     <section id="step-result" class="card hidden">

@@ -251,7 +251,8 @@ const SymbolWheel = (() => {
     ensureFrame(svg);
 
     let dyn = svg.querySelector(".wheel-dynamic");
-    if (svg.dataset.symbol !== symbolName || !dyn) {
+    const freshRender = svg.dataset.symbol !== symbolName || !dyn;
+    if (freshRender) {
       // Farklı bir sembole geçildi: dinamik katmanı tamamen baştan kur.
       // defs/frame katmanları sembolden bağımsız olduğu için dokunulmaz.
       svg.dataset.symbol = symbolName;
@@ -287,6 +288,14 @@ const SymbolWheel = (() => {
       let refs = arrows.get(assoc.id);
       if (!refs) {
         refs = createArrow(assoc, onSelect);
+        // Sembol değişimiyle tüm ok grubu birden kuruluyorsa güneş ışını
+        // gibi sırayla büyüsünler diye kademe uygula (bkz. symbolmap.js'de
+        // .map-sector-group'un aynı deseni); tek bir yeni çağrışım
+        // eklenmişse (freshRender=false) --i hiç set edilmez, CSS'teki
+        // var(--i, 0) varsayılanı gecikmesiz devreye girer.
+        if (freshRender) {
+          refs.group.style.setProperty("--i", i);
+        }
         arrowsLayer.appendChild(refs.group);
         arrows.set(assoc.id, refs);
       }

@@ -40,6 +40,12 @@
   --radius-md: 10px;
   --radius-lg: 14px;
   --icon-size: 20px;
+
+  /* Hareket token'ları — bkz. .wheel-arrow-* kuralları. --ease-out mevcut
+     giriş eğrisiyle (screenIn/itemIn/rayGrow/.map-sector-group) birebir
+     aynı, yeni bir eğri değil, var olanı adlandırıyor. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
 
 * { box-sizing: border-box; }
@@ -175,14 +181,16 @@ a { color: var(--accent-strong); }
   }
 
   .four-questions:not(.hidden),
-  .history-detail:not(.hidden) {
+  .history-detail:not(.hidden),
+  .tree-detail {
     animation: itemIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .chip,
   .assoc-list li,
   .history-list li,
-  .map-qa-card {
+  .map-qa-card,
+  .tree-node {
     animation: itemIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) backwards;
     animation-delay: calc(var(--i, 0) * 40ms);
   }
@@ -1352,30 +1360,100 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   color: var(--muted);
 }
 
-/* ---------- Yorum adımı çalışma alanı ----------
-   Üstte harita, ortada yazma kutusu, altta toplanan verinin tamamı —
-   kullanıcı yazarken yukarı çıkmak zorunda kalmasın diye. */
-.finalize-map {
+/* ---------- Yorum adımı çalışma alanı: kuş bakışı ağaç ----------
+   Üstte ağaç, altta yazma kutusu — kullanıcı yazarken yukarı çıkmak zorunda
+   kalmasın diye. Kök = rüya, dallar = semboller (10-22 arası olabiliyor,
+   bkz. PRODUCT.md); kapalı halde her dal tek satır (ad + altın çağrışım),
+   tıklanınca SADECE o dal genişleyip 4 soru+cevabı açıyor — hepsi birden
+   açılmıyor (2026-09-14, Kaan'la birlikte kararlaştırılan iskelet). Daire/
+   radyal geometri yok, düz sol-sağ hiyerarşi. */
+.finalize-tree-wrap {
   margin-bottom: 20px;
 }
 
-.finalize-map h3 {
+.finalize-tree-wrap h3 {
   margin-bottom: 6px;
 }
 
-.finalize-data {
-  margin-top: 26px;
-  padding-top: 18px;
-  border-top: 1px solid var(--ring);
+.tree-root {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--accent-strong);
+  padding: 10px 14px;
+  border: 1px solid var(--ring);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  margin: 10px 0 4px;
 }
 
-.finalize-cards {
-  display: grid;
-  gap: 14px;
-  margin-top: 14px;
-  max-width: 640px;
-  margin-left: auto;
-  margin-right: auto;
+.tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0 0 18px;
+  border-left: 1px solid var(--ring);
+}
+
+.tree-node {
+  position: relative;
+  margin-top: 6px;
+}
+
+/* Dalı köke bağlayan yatay çizgi — dosya gezgini ağaçlarındaki gibi düz,
+   köşeli bağlantı; daire/eğri yok. */
+.tree-node::before {
+  content: "";
+  position: absolute;
+  left: -18px;
+  top: 19px;
+  width: 14px;
+  height: 1px;
+  background: var(--ring);
+}
+
+.tree-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  border: 1px solid var(--ring);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.tree-row:hover {
+  border-color: var(--accent);
+}
+
+.tree-row[aria-expanded="true"] {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.tree-row-name {
+  font-weight: 600;
+  color: var(--accent-strong);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.tree-row-assoc {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.tree-detail {
+  margin: 6px 0 4px 14px;
 }
 
 .finalize-card {
@@ -1607,8 +1685,9 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   touch-action: manipulation;
   /* Bu class hem çizgi (x1/y1/x2/y2) hem uç dairesi (cx/cy) dokunma alanında
      kullanılıyor; ilgisiz özellik sessizce yok sayılır, zararsız. */
-  transition: x1 0.35s ease, y1 0.35s ease, x2 0.35s ease, y2 0.35s ease,
-    cx 0.35s ease, cy 0.35s ease;
+  transition: x1 0.35s var(--ease-in-out), y1 0.35s var(--ease-in-out),
+    x2 0.35s var(--ease-in-out), y2 0.35s var(--ease-in-out),
+    cx 0.35s var(--ease-in-out), cy 0.35s var(--ease-in-out);
 }
 
 /* Her yeni ok grubu (wheel.js'de gerçekten yeni bir çağrışım eklendiğinde,
@@ -1621,7 +1700,8 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 
 @media (prefers-reduced-motion: no-preference) {
   .wheel-arrow-group {
-    animation: rayGrow 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    animation: rayGrow 0.3s var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 45ms);
   }
 }
 
@@ -1637,7 +1717,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   stroke-linecap: round;
   cursor: pointer;
   touch-action: manipulation;
-  transition: stroke 0.2s ease, stroke-width 0.2s ease, d 0.35s ease;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease, d 0.35s var(--ease-in-out);
 }
 
 .wheel-arrow-line:hover {
@@ -1653,7 +1733,8 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 .wheel-arrow-tip {
   fill: var(--muted);
   cursor: pointer;
-  transition: fill 0.2s ease, r 0.2s ease, cx 0.35s ease, cy 0.35s ease, filter 0.2s ease;
+  transition: fill 0.2s ease, r 0.2s ease, cx 0.35s var(--ease-in-out),
+    cy 0.35s var(--ease-in-out), filter 0.2s ease;
 }
 
 .wheel-arrow-tip.selected {
@@ -1673,7 +1754,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   stroke: var(--card-bg);
   stroke-width: 5px;
   stroke-linejoin: round;
-  transition: fill 0.2s ease, x 0.35s ease, y 0.35s ease;
+  transition: fill 0.2s ease, x 0.35s var(--ease-in-out), y 0.35s var(--ease-in-out);
 }
 
 .wheel-arrow-label.selected {
@@ -1713,7 +1794,6 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 #symbol-map-svg,
-#finalize-map-svg,
 .history-map-svg {
   display: block;
   width: 100%;

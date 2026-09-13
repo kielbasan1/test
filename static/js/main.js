@@ -10,7 +10,7 @@
     symbols: [], // { name, name_en, context, associations: [{id,text,selected}], questions: {q1..q4},
     //            meditation (rapora girmez), report_note (rapora girer) }
     activeIndex: null,
-    workIndex: 0, // "Çalışman" bölümündeki tek-kart gezinmesinin hangi sembolde olduğu
+    workIndex: -1, // Ağaç görünümünde hangi sembol dalının açık olduğu, -1 = hiçbiri (kapalı varsayılan)
     resultReady: false,
     lastMainStep: null, // geçmiş ekranından geri dönülecek adım
     currentStepMeta: null, // { index, name } — ilerleme etiketi için
@@ -68,11 +68,7 @@
     btnFinish: document.getElementById("btn-finish"),
     myInterpretation: document.getElementById("my-interpretation"),
     finalizeGate: document.getElementById("finalize-gate"),
-    finalizeMapSvg: document.getElementById("finalize-map-svg"),
-    btnWorkCyclePrev: document.getElementById("btn-work-cycle-prev"),
-    btnWorkCycleNext: document.getElementById("btn-work-cycle-next"),
-    workCycleLabel: document.getElementById("work-cycle-label"),
-    finalizeCards: document.getElementById("finalize-cards"),
+    finalizeTree: document.getElementById("finalize-tree"),
     finalizeStatus: document.getElementById("finalize-status"),
     stepResult: document.getElementById("step-result"),
     myInterpBlock: document.getElementById("my-interpretation-block"),
@@ -712,16 +708,13 @@
       el.wheelTitle.textContent = I18N.t("wheel.title", { name: sym.name });
       el.wheelCycleLabel.textContent = sym.name;
     }
-    if (state.workIndex === index && state.lastRecord) {
-      renderWorkCard(state.lastRecord);
-    }
   }
 
   function makeRenameControl(name, onSave, redraw) {
     // Kalem ikonuna tıklanınca etiketi bir <input>'a dönüştüren ortak
     // davranış — hem sembol çipleri hem çalışma kartı başlığı kullanır.
     // Hem kaydetme hem iptal, çağıranın kendi tam-yeniden-çizim
-    // fonksiyonunu (renderChips/renderWorkCard) tetikleyerek eski hale
+    // fonksiyonunu (renderChips/renderFinalizeTree) tetikleyerek eski hale
     // döner — burada elle DOM geri alma yok.
     const btn = document.createElement("button");
     btn.type = "button";
@@ -1035,111 +1028,139 @@
     saveProgress();
   });
 
-  // Yorum adımı, yazarken bakılacak her şeyi taşır: üstte harita, ortada
-  // yazma kutusu, altta toplanan verinin tamamı (Kaan'ın isteği,
-  // 2026-09-11 — "bakıp bakıp yazabileyim"). Harita, sonuç ekranındakiyle
-  // aynı bileşen: kendi yakınlaştırma ve PNG indirme düğmeleriyle geliyor.
+  // Yorum adımı, yazarken bakılacak her şeyi taşır: üstte kuş bakışı ağaç,
+  // altta yazma kutusu (Kaan'ın isteği, 2026-09-11 — "bakıp bakıp
+  // yazabileyim"). Ağaç: kök = rüya, dallar = semboller — kapalı halde tek
+  // satır (ad + altın çağrışım), tıklanan dal genişleyip 4 soruyu açıyor.
+  // Eskiden burada sunburst harita + tek-kart gezinme vardı; 10-22 sembole
+  // çıkan gerçek kullanımda ikisi de "bütünü tek bakışta gör" hedefini
+  // karşılamıyordu (bkz. PRODUCT.md, 2026-09-14 kararları) — ikisinin yerine
+  // bu ağaç geçti.
   function renderFinalizeWorkspace() {
     const record = buildRecord("");
     if (!record.symbols.length) return;
-    SymbolMap.render(el.finalizeMapSvg, record);
-
     if (!(state.workIndex >= 0 && state.workIndex < record.symbols.length)) {
-      state.workIndex = 0;
+      state.workIndex = -1;
     }
-    renderWorkCard(record);
+    renderFinalizeTree(record, state.workIndex);
   }
 
-  // Çalışma sayfası da çark gibi tek seferde tek sembol gösterir (Kaan'ın
-  // isteği, 2026-09-11 — kartlar alt alta uzun bir liste yerine tek tek
-  // dolaşılabilsin, özellikle mobilde).
-  // liveSym = state.symbols[state.workIndex]: buildRecord() sembolleri
-  // kopyalayarak yeni nesneler ürettiği için (bkz. buildRecord) `record`
-  // parametresi salt-okunur bir anlık görüntü — düzenleme geri yazmaları
-  // her zaman liveSym'e, yani gerçek state'e yapılmalı.
-  function renderWorkCard(record) {
-    const sym = record.symbols[state.workIndex];
-    const liveSym = state.symbols[state.workIndex];
-    el.workCycleLabel.textContent = sym.name || "";
+  // liveSym = state.symbols[i]: buildRecord() sembolleri kopyalayarak yeni
+  // nesneler ürettiği için (bkz. buildRecord) `record` parametresi
+  // salt-okunur bir anlık görüntü — düzenleme geri yazmaları her zaman
+  // liveSym'e, yani gerçek state'e yapılmalı.
+  function renderFinalizeTree(record, expandedIndex) {
+    state.workIndex = expandedIndex;
+    el.finalizeTree.innerHTML = "";
 
-    el.finalizeCards.innerHTML = "";
-    const card = document.createElement("article");
-    card.className = "finalize-card";
+    const root = document.createElement("div");
+    root.className = "tree-root";
+    root.textContent = record.title || I18N.t("finalize.treeRootFallback");
+    el.finalizeTree.appendChild(root);
 
-    const redraw = () => renderWorkCard(buildRecord(""));
+    const list = document.createElement("div");
+    list.className = "tree-list";
+    el.finalizeTree.appendChild(list);
 
-    const headingRow = document.createElement("div");
-    headingRow.className = "finalize-card-heading";
-    const h = document.createElement("h4");
-    h.textContent = sym.name || "";
-    headingRow.appendChild(h);
-    headingRow.appendChild(
-      makeRenameControl(sym.name || "", (newName) => renameSymbol(state.workIndex, newName), redraw)
-    );
-    card.appendChild(headingRow);
+    record.symbols.forEach((sym, index) => {
+      const liveSym = state.symbols[index];
+      const isOpen = index === expandedIndex;
+      const redraw = () => renderFinalizeTree(buildRecord(""), index);
 
-    // Kişinin aklına daha iyi bir kelime gelebilir diye (Kaan'ın isteği,
-    // 2026-09-13): bağlam, seçilen çağrışım ve 4 soru cevabı burada da aynı
-    // kalem-ikonu deseniyle düzenlenebilir — sadece sembol adı değil. Boş
-    // gönderim yok sayılır (renameSymbol'daki davranışla aynı).
-    const addField = (label, value, muted, onSave) => {
-      if (!value || !String(value).trim()) return;
-      const l = document.createElement("div");
-      l.className = "field-label";
-      l.textContent = label;
-      const v = document.createElement("div");
-      v.className = muted ? "field-value muted" : "field-value";
-      v.textContent = value;
-      if (!onSave) {
-        card.appendChild(l);
-        card.appendChild(v);
-        return;
+      const node = document.createElement("div");
+      node.className = "tree-node";
+      node.style.setProperty("--i", index);
+
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "tree-row";
+      row.setAttribute("role", "treeitem");
+      row.setAttribute("aria-expanded", String(isOpen));
+
+      const nameEl = document.createElement("span");
+      nameEl.className = "tree-row-name";
+      nameEl.textContent = sym.name || "";
+      row.appendChild(nameEl);
+
+      if (sym.selected_association) {
+        const assocEl = document.createElement("span");
+        assocEl.className = "tree-row-assoc";
+        assocEl.textContent = sym.selected_association;
+        row.appendChild(assocEl);
       }
-      const row = document.createElement("div");
-      row.className = "field-value-row";
-      row.appendChild(v);
-      row.appendChild(makeRenameControl(value, onSave, redraw));
-      card.appendChild(l);
-      card.appendChild(row);
-    };
 
-    addField(I18N.t("worksheet.context"), sym.context, true, (newValue) => {
-      const trimmed = (newValue || "").trim();
-      if (!trimmed) return;
-      liveSym.context = trimmed;
-      saveProgress();
-    });
-    addField(I18N.t("worksheet.goldAssoc"), sym.selected_association, false, (newValue) => {
-      const trimmed = (newValue || "").trim();
-      if (!trimmed) return;
-      const selected = liveSym.associations.find((a) => a.selected);
-      if (selected) selected.text = trimmed;
-      saveProgress();
-    });
-    SymbolMap.questionLabels.forEach(([key, label]) => {
-      addField(label, (sym.questions || {})[key], false, (newValue) => {
-        const trimmed = (newValue || "").trim();
-        if (!trimmed) return;
-        liveSym.questions[key] = trimmed;
-        saveProgress();
+      row.appendChild(
+        makeRenameControl(sym.name || "", (newName) => renameSymbol(index, newName), redraw)
+      );
+
+      row.addEventListener("click", (e) => {
+        if (e.target.closest(".symbol-rename-btn") || e.target.tagName === "INPUT") return;
+        renderFinalizeTree(buildRecord(""), isOpen ? -1 : index);
       });
+
+      node.appendChild(row);
+
+      if (isOpen) {
+        // Kişinin aklına daha iyi bir kelime gelebilir diye (Kaan'ın
+        // isteği, 2026-09-13): bağlam, seçilen çağrışım ve 4 soru cevabı
+        // burada da aynı kalem-ikonu deseniyle düzenlenebilir. Boş gönderim
+        // yok sayılır (renameSymbol'daki davranışla aynı). `.finalize-card`
+        // sınıfı, aynı alan/etiket stilini yeniden kullanmak için bilerek
+        // korunuyor.
+        const detail = document.createElement("div");
+        detail.className = "finalize-card tree-detail";
+        detail.setAttribute("role", "group");
+
+        const addField = (label, value, muted, onSave) => {
+          if (!value || !String(value).trim()) return;
+          const l = document.createElement("div");
+          l.className = "field-label";
+          l.textContent = label;
+          const v = document.createElement("div");
+          v.className = muted ? "field-value muted" : "field-value";
+          v.textContent = value;
+          if (!onSave) {
+            detail.appendChild(l);
+            detail.appendChild(v);
+            return;
+          }
+          const fieldRow = document.createElement("div");
+          fieldRow.className = "field-value-row";
+          fieldRow.appendChild(v);
+          fieldRow.appendChild(makeRenameControl(value, onSave, redraw));
+          detail.appendChild(l);
+          detail.appendChild(fieldRow);
+        };
+
+        addField(I18N.t("worksheet.context"), sym.context, true, (newValue) => {
+          const trimmed = (newValue || "").trim();
+          if (!trimmed) return;
+          liveSym.context = trimmed;
+          saveProgress();
+        });
+        addField(I18N.t("worksheet.goldAssoc"), sym.selected_association, false, (newValue) => {
+          const trimmed = (newValue || "").trim();
+          if (!trimmed) return;
+          const selected = liveSym.associations.find((a) => a.selected);
+          if (selected) selected.text = trimmed;
+          saveProgress();
+        });
+        SymbolMap.questionLabels.forEach(([key, label]) => {
+          addField(label, (sym.questions || {})[key], false, (newValue) => {
+            const trimmed = (newValue || "").trim();
+            if (!trimmed) return;
+            liveSym.questions[key] = trimmed;
+            saveProgress();
+          });
+        });
+        addField(I18N.t("notes.report"), sym.report_note);
+
+        node.appendChild(detail);
+      }
+
+      list.appendChild(node);
     });
-    addField(I18N.t("notes.report"), sym.report_note);
-
-    el.finalizeCards.appendChild(card);
   }
-
-  function cycleWorkCard(delta) {
-    const record = buildRecord("");
-    const n = record.symbols.length;
-    if (!n) return;
-    state.workIndex = ((state.workIndex + delta) % n + n) % n;
-    renderWorkCard(record);
-  }
-
-  el.btnWorkCyclePrev.addEventListener("click", () => cycleWorkCard(-1));
-  el.btnWorkCycleNext.addEventListener("click", () => cycleWorkCard(1));
-  attachSwipe(el.finalizeCards, { onLeft: () => cycleWorkCard(1), onRight: () => cycleWorkCard(-1) });
 
   function buildRecord(interpretation) {
     return {

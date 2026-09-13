@@ -77,6 +77,76 @@ bir element bulduğunda tüm veriye aynı anda bakabildiği arayüz gibi. Bu,
 ürünün nihai hedeflerinden biri olarak kabul edildi (henüz tasarlanmadı —
 bkz. PLAN.md'deki "Kuş Bakışı Görünüm" backlog maddesi).
 
+**Yavaşlık + dijital gerilimi çözüldü: yarı-analog yarı-dijital akış
+(Kaan'ın kendi ifadesiyle, 2026-09-14).** Kaan aradığı kombinasyonu buldu:
+Sembol Çarkı'nın kendisini (sembollere serbest çağrışım üretme kısmını)
+**kâğıtta, analog olarak kendisi yapacak** — yavaşlığın keyfini ve
+derinliğini oradan alacak. Sonra kâğıttan çıkan yanıtları (seçtiği
+çağrışımı) siteye girip, Johnson'ın dört derinleştirme sorusunu **sitede**
+yanıtlayacak. Yani süreç yarı-yarıya bölünüyor: çağrışım üretimi analog,
+derinleştirme + arşivleme dijital. Bunun UI'da yeni bir özellik
+gerektirip gerektirmediği henüz netleşmedi — mevcut çarktaki "manuel
+sembol/çağrışım ekle" girişi muhtemelen bu akışı zaten karşılıyor
+(kendi seçtiği çağrışımı elle yazıp işaretlemesi yeterli olabilir),
+doğrulanmadı.
+
+**Kuş bakışı görünüm — sıralama kararlaştırıldı (2026-09-14).** Kaan iki
+ayrı AI ile bu konuyu araştırdı (Claude sohbeti: kartlı tekli görünüm →
+sembol-merkezli "sözlük" fikri [reddedildi] → sütun bazlı layout →
+paylaştığı iki referans görselin eleştirisi [dashboard/donut şablonu:
+içerik tipi yanlış ama tile-grid fikri değerli; dairesel mind-map şablonu:
+geometri yanlış ama ağaç/hiyerarşi fikri değerli] → sonuç önerisi: sembol
+sayısı azsa yatay ağaç, çoksa tile grid. Gemini sohbeti: tek atımlık, en
+iyi öneri olarak dairesel interaktif node graph/mind map, ardından sunburst
+ve dashboard+kart matrisi — gösterilen görseller gerçek mockup değil,
+kavramı anlatan stok fotoğraflar). İki öneri birbiriyle çelişiyor: Gemini'nin
+bir numarası tam olarak Claude'un Kaan'ın kendi görselinden yola çıkarak
+"geometri yanlış" diye reddettiği dairesel modelle aynı aile.
+
+Kaan'ın kararı: **önce sütun + ağaç (hiyerarşi) yaklaşımını inşa et, node/
+graph görünümüne daha sonra bakılacak.** Node görünümü backlog'da tutulan
+ayrı bir hedef olarak şekillendi: ileride hem basit **2D** bir node/graph
+sürümü hem de **fare tekerleğiyle derinlere inilen, "nebula" gibi hissettiren
+bir 3D sürüm** istiyor — ikisi birlikte, tek biri değil. Bu 3D-nebula fikri
+şu an sadece kayıtlı bir hedef; tasarım/uygulama detayları henüz
+çalışılmadı.
+
+**Sütun/ağaç arayüz kararı (2026-09-14):** Sütun ve ağaç görünümleri tek bir
+birleşik layout içinde değil, ayrı iki görünüm olarak inşa edilecek —
+aralarında bir **switcher** (üstte sekme/geçiş kontrolü) olacak. Node/graph
+de aynı switcher'a ileride üçüncü seçenek olarak eklenebilir.
+
+**Gerçek sembol sayısı ölçeği ortaya çıktı ve tasarımı değiştirdi
+(2026-09-14):** Kaan'ın gerçek rüyalarında sembol sayısı genelde 10-14,
+bazen 22'ye çıkıyor — Claude sohbetinin varsaydığı "3-4, nadiren 6+"
+ölçeğinin çok üzerinde. Bu, "sütun" görünümünün orijinal tanımını (yan yana
+tek sıra kart, masaüstünde 3-4 sığar) geçersiz kılıyor: bu sayıda ya devasa
+yatay scroll gerekir ya da kartlar okunmayacak kadar incelir, ikisi de
+"bütünü tek bakışta görme" hedefini bozar. İki düzeltme kararlaştırıldı:
+(1) **"Sütun" görünümü aslında sarmalanan bir kart ızgarası (tile grid)
+olarak inşa edilecek** — tek sıra yan-yana değil, ekran genişliğine göre
+satır satır dizilen, sadece dikey scroll gerektiren bir grid. (2) **Varsayılan
+görünüm ağaç (hiyerarşi) olacak, sütun/grid ikinci sekme.** Gerekçe: ağaç
+yapısı (kök=rüya → 10-22 yaprak=sembol) bu ölçekte sütuna göre daha az
+kırılıyor, tek ekranda taranabilir kalıyor.
+
+**Ağaç görünümü iskeleti onaylandı (2026-09-14):** Kapalı (varsayılan) hâlde
+kökte rüya başlığı/özeti, ondan çıkan 10-22 dal — her dal tek satır: sadece
+sembol adı + altın çağrışım. Bir dala tıklanınca SADECE o dal genişler,
+altına Johnson'ın 4 soru+cevabı açılır (diğer dallar kapalı kalır, aynı anda
+tek dal genişler). Sol-sağ düz çizgi hiyerarşi, daire/radyal geometri yok
+(Claude sohbetinin "geometri yanlış" eleştirisiyle uyumlu). Bu iskelet
+onaylandı, kodlandı ve doğrulandı (2026-09-14) — bkz. Threads.md.
+
+**Kapsam kararı (2026-09-14): ağaç/sütun switcher, mevcut sunburst harita
+(`#finalize-map-svg`) VE "Çalışman" tek-kart görünümünün (`#finalize-cards`)
+yerine geçecek — üçüncü/dördüncü bir ek sistem olarak eklenmeyecek.**
+Gerekçe: aynı veriyi (rüya, semboller, altın çağrışımlar, 4 soru+cevap) 3-4
+farklı görünümde yan yana tutmak "kuş bakışı" hedefinin tam tersi bir
+kalabalık yaratır. "4. Çalışman" adımı artık: yorum metni alanı + üstünde
+ağaç/sütun switcher'ı olacak, ayrı bir sunburst SVG'si veya ayrı bir kart
+carousel'i kalmayacak.
+
 **Uygulamanın asıl işi "boşluk doldurmak" değil, "boşluk YARATMAK"tır
 (Kaan'ın kendi ifadesiyle, 2026-09-13).** Yapay zekanın (ya da uygulamanın)
 görevi kullanıcı için cevapları doldurmak değil; kullanıcının kendi
