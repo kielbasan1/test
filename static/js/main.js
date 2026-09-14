@@ -73,8 +73,10 @@
     finalizeViewHint: document.getElementById("finalize-view-hint"),
     btnViewTree: document.getElementById("btn-view-tree"),
     btnViewGrid: document.getElementById("btn-view-grid"),
+    btnViewGraph: document.getElementById("btn-view-graph"),
     finalizeTree: document.getElementById("finalize-tree"),
     finalizeGrid: document.getElementById("finalize-grid"),
+    finalizeGraph: document.getElementById("finalize-graph"),
     finalizeStatus: document.getElementById("finalize-status"),
     stepResult: document.getElementById("step-result"),
     myInterpBlock: document.getElementById("my-interpretation-block"),
@@ -1050,100 +1052,180 @@
     }
     if (state.finalizeView === "grid") {
       renderFinalizeGrid(record);
+    } else if (state.finalizeView === "graph") {
+      renderFinalizeGraph(record, state.workIndex);
     } else {
       renderFinalizeTree(record, state.workIndex);
     }
   }
 
   // Ağaç = hızlı tara, tek dal aç; Sütun = hepsi açık, karşılaştırarak
-  // çalış (Kaan'ın kararı, 2026-09-14) — iki ayrı amaç, aynı verinin tekrarı
-  // değil. Görünüm değiştiğinde sadece o an aktif olan görünüm yeniden
-  // çizilir, diğeri bir sonraki geçişte tazelenir (bkz. setFinalizeView).
+  // çalış; Graf = merkez-rüya + çevresinde eşit açıyla dağıtılmış sabit
+  // düğümler, tek düğüm aç (Kaan'ın kararları, 2026-09-14) — üçü de aynı
+  // verinin farklı amaçlara hizmet eden ayrı sunumları. Görünüm
+  // değiştiğinde sadece o an aktif olan görünüm yeniden çizilir, diğerleri
+  // bir sonraki geçişte tazelenir.
+  const FINALIZE_VIEWS = {
+    tree: { btn: "btnViewTree", panel: "finalizeTree", heading: "finalize.treeHeading", hint: "finalize.treeHint" },
+    grid: { btn: "btnViewGrid", panel: "finalizeGrid", heading: "finalize.gridHeading", hint: "finalize.gridHint" },
+    graph: { btn: "btnViewGraph", panel: "finalizeGraph", heading: "finalize.graphHeading", hint: "finalize.graphHint" },
+  };
+
   function setFinalizeView(view) {
+    if (view !== "graph" && cyInstance) {
+      cyInstance.destroy();
+      cyInstance = null;
+      graphViewport = null;
+    }
     state.finalizeView = view;
-    const isGrid = view === "grid";
-    el.btnViewTree.classList.toggle("active", !isGrid);
-    el.btnViewTree.setAttribute("aria-selected", String(!isGrid));
-    el.btnViewGrid.classList.toggle("active", isGrid);
-    el.btnViewGrid.setAttribute("aria-selected", String(isGrid));
-    el.finalizeTree.classList.toggle("hidden", isGrid);
-    el.finalizeGrid.classList.toggle("hidden", !isGrid);
-    el.finalizeViewHeading.textContent = I18N.t(isGrid ? "finalize.gridHeading" : "finalize.treeHeading");
-    el.finalizeViewHint.textContent = I18N.t(isGrid ? "finalize.gridHint" : "finalize.treeHint");
+    Object.keys(FINALIZE_VIEWS).forEach((key) => {
+      const cfg = FINALIZE_VIEWS[key];
+      const active = key === view;
+      el[cfg.btn].classList.toggle("active", active);
+      el[cfg.btn].setAttribute("aria-selected", String(active));
+      el[cfg.panel].classList.toggle("hidden", !active);
+    });
+    const cfg = FINALIZE_VIEWS[view];
+    el.finalizeViewHeading.textContent = I18N.t(cfg.heading);
+    el.finalizeViewHint.textContent = I18N.t(cfg.hint);
     renderFinalizeWorkspace();
   }
 
   el.btnViewTree.addEventListener("click", () => setFinalizeView("tree"));
   el.btnViewGrid.addEventListener("click", () => setFinalizeView("grid"));
+  el.btnViewGraph.addEventListener("click", () => setFinalizeView("graph"));
 
   // Sütun/grid: ağaçtan farklı olarak hepsi varsayılan açık — 4 soru+cevap
   // dahil her şey görünür, tıklayarak açma yok (Kaan'ın kararı, 2026-09-14).
   // Kart içeriği ağacın genişlemiş dalıyla birebir aynı alan/düzenleme
   // mantığını kullanıyor, sadece hepsi aynı anda gösteriliyor.
+  // Bağlam/altın çağrışım/4 soru/rapor notu alanlarını, kalem-ikonu
+  // düzenleme kontrolleriyle birlikte bir konteynere basar — Sütun kartı,
+  // ağacın açılmış dalı ve grafın açılmış düğümü aynı alan/düzenleme
+  // mantığını paylaşıyor (üç görünüm de aynı veriyi farklı sunuyor, ayrı
+  // ayrı yazılmış üç kopya bakımı zorlaştırırdı).
+  function renderSymbolFields(container, sym, liveSym, redraw) {
+    const addField = (label, value, muted, onSave) => {
+      if (!value || !String(value).trim()) return;
+      const l = document.createElement("div");
+      l.className = "field-label";
+      l.textContent = label;
+      const v = document.createElement("div");
+      v.className = muted ? "field-value muted" : "field-value";
+      v.textContent = value;
+      if (!onSave) {
+        container.appendChild(l);
+        container.appendChild(v);
+        return;
+      }
+      const fieldRow = document.createElement("div");
+      fieldRow.className = "field-value-row";
+      fieldRow.appendChild(v);
+      fieldRow.appendChild(makeRenameControl(value, onSave, redraw));
+      container.appendChild(l);
+      container.appendChild(fieldRow);
+    };
+
+    addField(I18N.t("worksheet.context"), sym.context, true, (newValue) => {
+      const trimmed = (newValue || "").trim();
+      if (!trimmed) return;
+      liveSym.context = trimmed;
+      saveProgress();
+    });
+    addField(I18N.t("worksheet.goldAssoc"), sym.selected_association, false, (newValue) => {
+      const trimmed = (newValue || "").trim();
+      if (!trimmed) return;
+      const selected = liveSym.associations.find((a) => a.selected);
+      if (selected) selected.text = trimmed;
+      saveProgress();
+    });
+    SymbolMap.questionLabels.forEach(([key, label]) => {
+      addField(label, (sym.questions || {})[key], false, (newValue) => {
+        const trimmed = (newValue || "").trim();
+        if (!trimmed) return;
+        liveSym.questions[key] = trimmed;
+        saveProgress();
+      });
+    });
+    addField(I18N.t("notes.report"), sym.report_note);
+  }
+
+  // Kaan'ın kararı (2026-09-14): Sütun da ağaç gibi tıkla-aç oldu (önceki
+  // "hepsi açık" halinden vazgeçildi). Farkı: ağaçta tek seferde tek dal
+  // açıkken, sütunda birden fazla kart bağımsız açık kalabilir — sütunun
+  // amacı zaten "karşılaştırarak çalışmak", tek karta kilitlemek bunu
+  // engellerdi.
+  const gridOpenIndices = new Set();
+
   function renderFinalizeGrid(record) {
     el.finalizeGrid.innerHTML = "";
+    const n = record.symbols.length;
+    if (n) {
+      const allOpen = gridOpenIndices.size === n;
+      const toolbar = document.createElement("div");
+      toolbar.className = "finalize-grid-toolbar";
+      const toggleAllBtn = document.createElement("button");
+      toggleAllBtn.type = "button";
+      toggleAllBtn.className = "btn-link";
+      toggleAllBtn.textContent = I18N.t(allOpen ? "finalize.gridCloseAll" : "finalize.gridOpenAll");
+      toggleAllBtn.addEventListener("click", () => {
+        if (allOpen) {
+          gridOpenIndices.clear();
+        } else {
+          record.symbols.forEach((_, i) => gridOpenIndices.add(i));
+        }
+        renderFinalizeGrid(buildRecord(""));
+      });
+      toolbar.appendChild(toggleAllBtn);
+      el.finalizeGrid.appendChild(toolbar);
+    }
     record.symbols.forEach((sym, index) => {
       const liveSym = state.symbols[index];
+      const isOpen = gridOpenIndices.has(index);
       const redraw = () => renderFinalizeGrid(buildRecord(""));
 
       const card = document.createElement("article");
-      card.className = "finalize-card";
+      card.className = "finalize-card grid-card" + (isOpen ? " open" : "");
       card.style.setProperty("--i", index);
       card.setAttribute("role", "listitem");
 
       const headingRow = document.createElement("div");
-      headingRow.className = "finalize-card-heading";
+      headingRow.className = "finalize-card-heading grid-card-heading";
+      headingRow.setAttribute("role", "button");
+      headingRow.tabIndex = 0;
+      headingRow.setAttribute("aria-expanded", String(isOpen));
       const h = document.createElement("h4");
       h.textContent = sym.name || "";
       headingRow.appendChild(h);
+      if (sym.selected_association && !isOpen) {
+        const assocPreview = document.createElement("span");
+        assocPreview.className = "grid-card-assoc-preview";
+        assocPreview.textContent = sym.selected_association;
+        headingRow.appendChild(assocPreview);
+      }
       headingRow.appendChild(
         makeRenameControl(sym.name || "", (newName) => renameSymbol(index, newName), redraw)
       );
+      const toggle = () => {
+        if (isOpen) gridOpenIndices.delete(index);
+        else gridOpenIndices.add(index);
+        redraw();
+      };
+      headingRow.addEventListener("click", (e) => {
+        if (e.target.closest(".symbol-rename-btn") || e.target.tagName === "INPUT") return;
+        toggle();
+      });
+      headingRow.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          toggle();
+        }
+      });
       card.appendChild(headingRow);
 
-      const addField = (label, value, muted, onSave) => {
-        if (!value || !String(value).trim()) return;
-        const l = document.createElement("div");
-        l.className = "field-label";
-        l.textContent = label;
-        const v = document.createElement("div");
-        v.className = muted ? "field-value muted" : "field-value";
-        v.textContent = value;
-        if (!onSave) {
-          card.appendChild(l);
-          card.appendChild(v);
-          return;
-        }
-        const fieldRow = document.createElement("div");
-        fieldRow.className = "field-value-row";
-        fieldRow.appendChild(v);
-        fieldRow.appendChild(makeRenameControl(value, onSave, redraw));
-        card.appendChild(l);
-        card.appendChild(fieldRow);
-      };
-
-      addField(I18N.t("worksheet.context"), sym.context, true, (newValue) => {
-        const trimmed = (newValue || "").trim();
-        if (!trimmed) return;
-        liveSym.context = trimmed;
-        saveProgress();
-      });
-      addField(I18N.t("worksheet.goldAssoc"), sym.selected_association, false, (newValue) => {
-        const trimmed = (newValue || "").trim();
-        if (!trimmed) return;
-        const selected = liveSym.associations.find((a) => a.selected);
-        if (selected) selected.text = trimmed;
-        saveProgress();
-      });
-      SymbolMap.questionLabels.forEach(([key, label]) => {
-        addField(label, (sym.questions || {})[key], false, (newValue) => {
-          const trimmed = (newValue || "").trim();
-          if (!trimmed) return;
-          liveSym.questions[key] = trimmed;
-          saveProgress();
-        });
-      });
-      addField(I18N.t("notes.report"), sym.report_note);
+      if (isOpen) {
+        renderSymbolFields(card, sym, liveSym, redraw);
+      }
 
       el.finalizeGrid.appendChild(card);
     });
@@ -1214,56 +1296,186 @@
         const detail = document.createElement("div");
         detail.className = "finalize-card tree-detail";
         detail.setAttribute("role", "group");
-
-        const addField = (label, value, muted, onSave) => {
-          if (!value || !String(value).trim()) return;
-          const l = document.createElement("div");
-          l.className = "field-label";
-          l.textContent = label;
-          const v = document.createElement("div");
-          v.className = muted ? "field-value muted" : "field-value";
-          v.textContent = value;
-          if (!onSave) {
-            detail.appendChild(l);
-            detail.appendChild(v);
-            return;
-          }
-          const fieldRow = document.createElement("div");
-          fieldRow.className = "field-value-row";
-          fieldRow.appendChild(v);
-          fieldRow.appendChild(makeRenameControl(value, onSave, redraw));
-          detail.appendChild(l);
-          detail.appendChild(fieldRow);
-        };
-
-        addField(I18N.t("worksheet.context"), sym.context, true, (newValue) => {
-          const trimmed = (newValue || "").trim();
-          if (!trimmed) return;
-          liveSym.context = trimmed;
-          saveProgress();
-        });
-        addField(I18N.t("worksheet.goldAssoc"), sym.selected_association, false, (newValue) => {
-          const trimmed = (newValue || "").trim();
-          if (!trimmed) return;
-          const selected = liveSym.associations.find((a) => a.selected);
-          if (selected) selected.text = trimmed;
-          saveProgress();
-        });
-        SymbolMap.questionLabels.forEach(([key, label]) => {
-          addField(label, (sym.questions || {})[key], false, (newValue) => {
-            const trimmed = (newValue || "").trim();
-            if (!trimmed) return;
-            liveSym.questions[key] = trimmed;
-            saveProgress();
-          });
-        });
-        addField(I18N.t("notes.report"), sym.report_note);
+        renderSymbolFields(detail, sym, liveSym, redraw);
 
         node.appendChild(detail);
       }
 
       list.appendChild(node);
     });
+  }
+
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function truncateGraphLabel(text, max) {
+    if (!text) return "";
+    return text.length > max ? text.slice(0, max - 1) + "…" : text;
+  }
+
+  // Graf: Cytoscape.js ile render ediliyor, ama pozisyonlar TAMAMEN bizim
+  // hesabımız — merkezde sabit bir "rüya" düğümü, çevresinde 360°/N eşit
+  // açıyla dağıtılmış sabit sembol düğümleri, "preset" layout (Cytoscape'in
+  // kendi otomatik yerleşimini KULLANMIYORUZ). Fizik simülasyonu yok.
+  // Geçmişte denenen D3-force sürümü "çok sorunlu" bulunmuştu (düğümler
+  // titriyor, etiketler birbirine giriyordu, bkz. Kurallar.md) — deterministik
+  // pozisyon bunu tamamen ortadan kaldırıyor. Kalabalık sembol sayısında
+  // (10-22) etiketlerin sıkışması sorununu da elle SVG çizerken çözemedim
+  // (bkz. 2026-09-14 test bulgusu); Cytoscape'in yerleşik pan/zoom'u ile
+  // çözülüyor — halka bol tutuluyor, kullanıcı yakınlaştırıp geziyor (Kaan'ın
+  // kararı, aynı gün). Düğüm etiketi artık sembol adı + altın çağrışım
+  // birlikte (iki satır) gösteriyor (Kaan'ın isteği). Düğüme tıklayınca
+  // grafiğin altında (ağaçtaki gibi) detay paneli açılır, tek seferde bir
+  // düğüm.
+  //
+  // Bilinen sınır: Cytoscape düğümleri canvas'a çiziyor, gerçek DOM elemanı
+  // değil — bu yüzden klavyeyle odaklanıp Enter'la açma (ağaç/sütunda olduğu
+  // gibi) buraya taşınamadı. Klavye kullanan biri aynı veriye Ağaç/Sütun
+  // sekmelerinden erişebiliyor, o yüzden bilerek kabul edilen bir sınır.
+  let cyInstance = null;
+  // Düğüme tıklayınca tüm cy örneği yeniden kuruluyor (elementler değişiyor),
+  // bu yüzden yakınlaştırma/gezinme konumunu burada saklayıp geri
+  // uyguluyoruz — yoksa kullanıcı her tıklamada başa (fit) dönerdi ve
+  // kalabalık sembol sayısında (10-22) pan/zoom'un asıl faydası kaybolurdu.
+  let graphViewport = null;
+
+  function renderFinalizeGraph(record, expandedIndex) {
+    state.workIndex = expandedIndex;
+    if (cyInstance) {
+      graphViewport = { zoom: cyInstance.zoom(), pan: cyInstance.pan() };
+      cyInstance.destroy();
+      cyInstance = null;
+    }
+    el.finalizeGraph.innerHTML =
+      '<div id="finalize-graph-cy" class="finalize-graph-cy"></div><div id="finalize-graph-detail"></div>';
+    const n = record.symbols.length;
+    if (!n) return;
+
+    const ringR = 90 + n * 14;
+    const elements = [
+      {
+        data: { id: "center", label: record.title || I18N.t("finalize.treeRootFallback") },
+        position: { x: 0, y: 0 },
+        classes: "graph-center",
+      },
+    ];
+    record.symbols.forEach((sym, index) => {
+      const angle = (2 * Math.PI * index) / n - Math.PI / 2;
+      const x = ringR * Math.cos(angle);
+      const y = ringR * Math.sin(angle);
+      const assoc = truncateGraphLabel(sym.selected_association || "", 28);
+      const label = assoc ? `${sym.name || ""}\n${assoc}` : sym.name || "";
+      elements.push({
+        data: { id: "sym-" + index, label, index },
+        position: { x, y },
+        classes: "graph-symbol" + (index === expandedIndex ? " open" : ""),
+      });
+      elements.push({ data: { id: "edge-" + index, source: "center", target: "sym-" + index } });
+    });
+
+    const mount = document.getElementById("finalize-graph-cy");
+    cyInstance = cytoscape({
+      container: mount,
+      elements,
+      layout: { name: "preset" },
+      userZoomingEnabled: true,
+      userPanningEnabled: true,
+      boxSelectionEnabled: false,
+      autoungrabify: true,
+      minZoom: 0.4,
+      maxZoom: 3,
+      style: [
+        {
+          selector: "edge",
+          style: { width: 1, "line-color": cssVar("--ring"), "curve-style": "straight" },
+        },
+        {
+          selector: "node",
+          style: {
+            "background-color": cssVar("--card-bg"),
+            "border-width": 2,
+            "border-color": cssVar("--accent"),
+            label: "data(label)",
+            "text-wrap": "wrap",
+            "text-max-width": "140px",
+            "font-family": cssVar("--font-body"),
+            "font-size": "13px",
+            color: cssVar("--muted"),
+            "text-valign": "bottom",
+            "text-margin-y": 8,
+            "text-halign": "center",
+            width: 16,
+            height: 16,
+          },
+        },
+        {
+          selector: "node.graph-symbol",
+          style: { "border-color": cssVar("--accent") },
+        },
+        {
+          selector: "node.graph-symbol.open",
+          style: {
+            "border-color": cssVar("--gold"),
+            "background-color": cssVar("--gold-soft"),
+            color: cssVar("--accent-strong"),
+          },
+        },
+        {
+          selector: "node.graph-center",
+          style: {
+            "background-color": cssVar("--accent-soft"),
+            "border-color": cssVar("--accent-strong"),
+            "border-width": 2,
+            width: 32,
+            height: 32,
+            "font-family": cssVar("--font-heading"),
+            "font-weight": 600,
+            "font-size": "15px",
+            color: cssVar("--accent-strong"),
+          },
+        },
+      ],
+    });
+    if (graphViewport) {
+      cyInstance.zoom(graphViewport.zoom);
+      cyInstance.pan(graphViewport.pan);
+    } else {
+      cyInstance.fit(undefined, 40);
+    }
+    cyInstance.on("mouseover", "node.graph-symbol", () => {
+      mount.style.cursor = "pointer";
+    });
+    cyInstance.on("mouseout", "node.graph-symbol", () => {
+      mount.style.cursor = "";
+    });
+    cyInstance.on("tap", "node.graph-symbol", (evt) => {
+      const index = evt.target.data("index");
+      renderFinalizeGraph(buildRecord(""), index === expandedIndex ? -1 : index);
+    });
+
+    if (expandedIndex >= 0 && expandedIndex < n) {
+      const sym = record.symbols[expandedIndex];
+      const liveSym = state.symbols[expandedIndex];
+      const redraw = () => renderFinalizeGraph(buildRecord(""), expandedIndex);
+
+      const detail = document.createElement("div");
+      detail.className = "finalize-card tree-detail";
+      detail.setAttribute("role", "group");
+
+      const headingRow = document.createElement("div");
+      headingRow.className = "finalize-card-heading";
+      const h = document.createElement("h4");
+      h.textContent = sym.name || "";
+      headingRow.appendChild(h);
+      headingRow.appendChild(
+        makeRenameControl(sym.name || "", (newName) => renameSymbol(expandedIndex, newName), redraw)
+      );
+      detail.appendChild(headingRow);
+      renderSymbolFields(detail, sym, liveSym, redraw);
+
+      document.getElementById("finalize-graph-detail").appendChild(detail);
+    }
   }
 
   function buildRecord(interpretation) {

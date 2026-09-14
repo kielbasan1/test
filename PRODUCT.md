@@ -139,14 +139,69 @@ tek dal genişler). Sol-sağ düz çizgi hiyerarşi, daire/radyal geometri yok
 onaylandı, kodlandı ve doğrulandı (2026-09-14) — bkz. Threads.md.
 
 **Sütun/grid görünümü iskeleti (2026-09-14):** Ağaçtan farklı olarak,
-sütun/grid'deki kartlar **varsayılan olarak tamamen açık** — 4 soru+cevap
-dahil her şey görünür, tıklayarak açma yok. Ağaç "hızlı tara, birini aç"
-işlevini görürken, sütun/grid "hepsini aynı anda karşılaştır/detaylı çalış"
-işlevini görüyor — iki görünüm bilerek farklı amaca hizmet ediyor, aynı
-şeyin iki kez tekrarı değil.
+sütun/grid'deki kartlar başta **hepsi açık** (4 soru+cevap dahil her şey
+görünür) olarak tasarlandı, sonra Kaan aynı gün karar değiştirip **tıkla-aç**
+'a geçirdi (her kart bağımsız açılır/kapanır, ağaçtaki gibi tek dal
+sınırlaması yok — birden fazla kart aynı anda açık kalabilir). Ağaç "hızlı
+tara, birini aç" işlevini görürken, sütun/grid "istediğini aç, karşılaştırarak
+çalış" işlevini görüyor — iki görünüm bilerek farklı amaca hizmet ediyor.
 
 **Sütun/grid + switcher kodlandı ve doğrulandı (2026-09-14).** Bkz.
 Threads.md.
+
+**Node/Graph görünümü: motor seçimi ve doğrulama (2026-09-14).** Node/graph
+switcher'a üçüncü sekme olarak eklendi. İlk hand-rolled SVG denemesinde
+(deterministik, tek halka üzerine açı bazlı yerleşim) n=22'de kutup
+bölgelerinde (halkanın üst/alt uçları) etiketler ciddi şekilde üst üste
+bindi — kendi kurduğum ayrı bir test sayfasıyla doğrulanan gerçek bir kusur,
+kökeni: bir çember üzerinde tüm noktalar birbirine eşit uzaklıkta olsa da,
+kutuplara yakın noktalarda bu mesafe neredeyse tamamen yatay, etiketler ise
+geniş ve ortalanmış — bu yüzden çakışıyor. Bu, Kaan'ın geçmişte reddettiği
+D3-force grafiğindeki "etiketler birbirine giriyordu" sorununa görsel olarak
+çok benziyor, ama kökeni farklı (fizik değil, geometri). Kaan'a bulgu
+raporlandı, motor değişikliği önerildi ve onaylandı: **Cytoscape.js**
+(CDN, v3.33.2) — kendi hesapladığımız deterministik açı-bazlı koordinatları
+`layout: {name: "preset"}` ile kullanıyor (fizik simülasyonu yok), yerleşik
+pan/zoom sağlıyor. Düğüm etiketleri sembol adı + altın çağrışımı birlikte
+(iki satır) gösteriyor.
+
+Motor değişikliğinden sonra n=22 ile gerçek tarayıcıda yeniden test edildi:
+varsayılan (fit-to-container) yakınlıkta kutup kümelerinde etiketler hâlâ
+sıkışık ama okunabilir (eski SVG'deki gibi tam üst üste binme yok);
+kullanıcı fare tekerleğiyle yakınlaştırıp sürükleyerek gezindiğinde etiketler
+tamamen ayrışıyor ve rahatça okunuyor — tasarım gerekçesi ("pan/zoom
+kalabalıkta çözüm sağlar") ampirik olarak doğrulandı. Test sırasında ayrı
+bir kusur bulundu ve aynı oturumda düzeltildi: bir düğüme tıklayınca tüm
+Cytoscape örneği yeniden kurulduğu için (elementler değiştiği için) her
+tıklamada görünüm sıfırlanıp baştan `fit()` oluyordu — kullanıcı
+yakınlaştırıp bir sembole tıkladığında yakınlaştırması kayboluyordu, bu da
+pan/zoom'un asıl faydasını (kalabalıkta okunabilirlik) her tıklamada
+geçersiz kılıyordu. Düzeltme: yeniden çizimden önce mevcut zoom/pan
+konumu saklanıp yeni örneğe uygulanıyor (`graphViewport` state'i), böylece
+tıklama sadece ilgili düğümü açıyor, görünümü sıfırlamıyor. Klavyeyle
+odaklanma sınırlaması bilerek kabul edildi: Cytoscape düğümleri canvas'a
+çiziyor, gerçek DOM elemanı değil, bu yüzden ağaç/sütundaki gibi Tab/Enter
+ile açılamıyor — klavye kullanan biri aynı veriye Ağaç/Sütun sekmelerinden
+erişebiliyor.
+
+**Sütun/grid ince ayar (2026-09-14, aynı gün ikinci tur):** Kapalı kartlar
+artık kare taşlar gibi (`aspect-ratio: 1/1`, sembol adı+altın çağrışım
+ortalanmış) — açılınca kare kısıtlaması kalkıp 4 soru+cevabın sığması için
+doğal yüksekliğe genişliyor. Ayrıca üstte tek bir **"Hepsini Aç"/"Hepsini
+Kapat"** düğmesi eklendi (etiketi mevcut duruma göre değişiyor); bu toplu
+kontrol, kartların bağımsız tek tek açılıp kapanabilme özelliğini
+değiştirmiyor — sadece hızlı bir kısayol.
+
+**Kavramsal çerçeve netleşti (Kaan'ın kendi ifadesiyle, 2026-09-14): "ben bir
+rüya haritası arıyorum, hem küçük ölçekte hem büyük ölçekte."** Küçük ölçek
+= tek bir rüyanın kendi haritası (şu an Ağaç/Sütun/Graf üçlüsü tam olarak bu).
+Büyük ölçek = **tüm rüyalar için** bir harita — yani Rüya Kütüphanesi
+genelinde tekrar eden sembollerin/temaların zaman içindeki örüntüsünü gösteren
+ayrı bir görünüm. Bu, "kuş bakışı" çalışmasının doğal bir sonraki katmanı
+olarak kayda geçti ama henüz kapsamı/tasarımı çalışılmadı — kendi başına bir
+brainstorm/tasarım turu gerektirecek kadar büyük bir ek özellik (Rüya
+Kütüphanesi'nin veri modelini ilgilendiriyor, tek-rüya "Çalışman" adımından
+farklı bir yüzey).
 
 **Kapsam kararı (2026-09-14): ağaç/sütun switcher, mevcut sunburst harita
 (`#finalize-map-svg`) VE "Çalışman" tek-kart görünümünün (`#finalize-cards`)

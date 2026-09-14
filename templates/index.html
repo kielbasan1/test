@@ -321,11 +321,13 @@
           <div class="view-switcher" role="tablist" data-i18n-aria="finalize.viewSwitcherLabel" aria-label="Görünüm">
             <button type="button" id="btn-view-tree" class="view-tab active" data-view="tree" role="tab" aria-selected="true" data-i18n="finalize.viewTree">Ağaç</button>
             <button type="button" id="btn-view-grid" class="view-tab" data-view="grid" role="tab" aria-selected="false" data-i18n="finalize.viewGrid">Sütun</button>
+            <button type="button" id="btn-view-graph" class="view-tab" data-view="graph" role="tab" aria-selected="false" data-i18n="finalize.viewGraph">Graf</button>
           </div>
         </div>
         <p class="hint small" id="finalize-view-hint" data-i18n="finalize.treeHint">Bir sembole tıkla — altın çağrışımı ve dört sorunun cevapları altında açılır. Yazarken buradan bakabilirsin.</p>
         <div id="finalize-tree" class="finalize-tree" role="tree"></div>
         <div id="finalize-grid" class="finalize-grid hidden" role="list"></div>
+        <div id="finalize-graph" class="finalize-graph hidden"></div>
       </div>
 
       <textarea id="my-interpretation" rows="14" data-i18n-placeholder="finalize.placeholder" placeholder="Bu rüya bana şunu söylüyor…"></textarea>
@@ -441,6 +443,7 @@
   <script src="{{ url_for('static', filename='js/symbolmap.js') }}"></script>
   <script src="{{ url_for('static', filename='js/library.js') }}"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.33.2/cytoscape.min.js"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
