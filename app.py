@@ -2,6 +2,7 @@ import os
 import re
 import uuid
 from datetime import datetime, timedelta
+from functools import wraps
 
 from dotenv import load_dotenv
 from flask import (
@@ -33,7 +34,7 @@ def _require_login():
     # şifre girmeden çalıştırıyorsan) giriş ekranını tamamen devre dışı bırak.
     if not APP_PASSWORD:
         return None
-    if request.path == "/login" or request.path.startswith("/static/"):
+    if request.path in ("/login", "/guest-login") or request.path.startswith("/static/"):
         return None
     if session.get("authed"):
         return None
@@ -47,15 +48,42 @@ def login():
         if request.form.get("password", "") == APP_PASSWORD:
             session.permanent = True
             session["authed"] = True
+            session["role"] = "owner"
             return redirect(url_for("index"))
         error = "Yanlış şifre."
     return render_template("login.html", error=error)
+
+
+@app.route("/guest-login", methods=["POST"])
+def guest_login():
+    session.permanent = True
+    session["authed"] = True
+    session["role"] = "guest"
+    return redirect(url_for("index"))
 
 
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+def owner_required(view):
+    """Kayıtlı rüya kütüphanesine sadece şifreyle giriş yapan owner erişebilir.
+
+    Guest oturumları (session["role"] == "guest") 403 alır. Bu alandan
+    önce, rol alanı hiç yoktu (eski oturum çerezleri) — geriye dönük
+    uyumluluk için sadece EXPLICIT "guest" rolü engellenir, rolü eksik olan
+    (eski) oturumlar owner sayılır.
+    """
+
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if session.get("role") == "guest":
+            return jsonify({"error": "Bu özellik guest girişinde kullanılamıyor."}), 403
+        return view(*args, **kwargs)
+
+    return wrapped
 
 
 def _friendly_error(exc: Exception) -> str:
@@ -78,7 +106,7 @@ def _friendly_error(exc: Exception) -> str:
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", is_guest=session.get("role") == "guest")
 
 
 @app.route("/api/extract-symbols", methods=["POST"])
@@ -133,6 +161,8 @@ def save_dream():
     slug = re.sub(r"[^a-zA-Z0-9_-]+", "", str(uuid.uuid4())[:8])
     filename = f"{timestamp}_{slug}.json"
     record = {"saved_at": datetime.now().isoformat(), **payload}
+    if session.get("role") == "guest":
+        record["is_guest"] = True
     dreams_store.insert_record(filename, record)
     return jsonify({"saved_as": filename})
 
@@ -191,12 +221,14 @@ def recurring_symbols(records: list) -> list:
 
 
 @app.route("/api/dreams/recurring-symbols", methods=["GET"])
+@owner_required
 def get_recurring_symbols():
     records = dreams_store.list_records()
     return jsonify({"symbols": recurring_symbols(records)})
 
 
 @app.route("/api/dreams", methods=["GET"])
+@owner_required
 def list_dreams():
     records = dreams_store.list_records()
     dreams = []
@@ -223,6 +255,7 @@ RESONANCE_VALUES = {"", "fit", "partial", "miss"}
 
 
 @app.route("/api/dreams/<fname>", methods=["PATCH"])
+@owner_required
 def patch_dream(fname):
     """Kaydedilmiş bir rüyanın başlığını, rezonans geri bildirimini (Faz 1.3)
     ve/veya ritüel alanlarını (ritual_text/ritual_done — Johnson'ın 4. adımı)
@@ -262,6 +295,7 @@ def patch_dream(fname):
 
 
 @app.route("/api/dreams/<fname>", methods=["DELETE"])
+@owner_required
 def delete_dream(fname):
     safe_name = os.path.basename(fname)
     if not dreams_store.delete_record(safe_name):
@@ -270,12 +304,14 @@ def delete_dream(fname):
 
 
 @app.route("/api/dreams", methods=["DELETE"])
+@owner_required
 def delete_all_dreams():
     deleted = dreams_store.delete_all()
     return jsonify({"deleted": deleted})
 
 
 @app.route("/api/dreams/<fname>", methods=["GET"])
+@owner_required
 def get_dream(fname):
     safe_name = os.path.basename(fname)
     record = dreams_store.get_record(safe_name)

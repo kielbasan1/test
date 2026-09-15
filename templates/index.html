@@ -45,7 +45,7 @@
     <h1 class="brand"><svg class="icon"><use href="#icon-moon"/></svg><span data-i18n="brand.name">Sembol Çarkı</span></h1>
     <p class="subtitle" data-i18n="brand.subtitle">Robert Johnson'ın "Inner Work" yöntemiyle rüya sembol amplifikasyonu</p>
     <div class="header-actions">
-      <button id="btn-show-history" class="btn-link">
+      <button id="btn-show-history" class="btn-link{% if is_guest %} hidden{% endif %}">
         <svg class="icon icon-sm"><use href="#icon-clock"/></svg><span data-i18n="header.history">Geçmiş Rüyalarım</span>
       </button>
       <button id="btn-show-guide" class="btn-link">

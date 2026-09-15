@@ -36,6 +36,11 @@
         {% endif %}
         <button type="submit" class="btn-primary" data-i18n="login.submit">Giriş Yap</button>
       </form>
+      <div class="login-divider" data-i18n="login.orDivider">veya</div>
+      <form method="POST" action="{{ url_for('guest_login') }}">
+        <button type="submit" class="btn-secondary" data-i18n="login.guestButton">Guest olarak devam et</button>
+      </form>
+      <p class="login-guest-note" data-i18n="login.guestNote">Guest girişinde kayıtlı Rüya Kütüphanesi'ne erişim yok.</p>
     </section>
   </main>
 
