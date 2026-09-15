@@ -28,7 +28,7 @@ def _expand_model_name() -> str:
     # model envanteri sık değişiyor — llama-3.3-70b-versatile bu hesapta
     # artık mevcut değildi (2026-09-10), qwen3.6-27b şu an mevcut en güçlü
     # genel-amaçlı (gpt-oss/agentic olmayan) model.
-    return os.environ.get("GROQ_SYNTHESIS_MODEL", "qwen/qwen3.6-27b")
+    return os.environ.get("GROQ_SYNTHESIS_MODEL", "qwen/qwen3.8-27b")
 
 
 def _extract_model_name() -> str:
