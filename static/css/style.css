@@ -755,6 +755,107 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   font-size: 0.85em;
 }
 
+/* ---------- Rüya Konsolu (Aşama 2, 2026-09-16) ---------- */
+.dream-console-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+/* Mobil/dar ekran: üç bölme alt alta, sayfayla birlikte kayıyor — hiç ek
+   kod gerekmiyor, grid'e hiç geçmeden bu zaten doğru davranış. */
+.dream-console-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.dream-console-pane {
+  border: 1px solid var(--ring);
+  border-radius: var(--radius-md);
+  background: var(--card-bg);
+  padding: 14px 16px;
+}
+
+.dream-console-pane h3,
+.dream-console-pane h4 {
+  margin: 0 0 10px;
+  font-family: var(--font-heading);
+  color: var(--accent-strong);
+}
+
+.dream-console-text {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.pane-symbols .view-switcher {
+  margin-bottom: 10px;
+}
+
+.history-symbol-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92em;
+  cursor: pointer;
+}
+
+.history-symbol-row:hover {
+  border-color: var(--ring);
+}
+
+.history-symbol-row.active {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.pane-detail .hint {
+  margin: 0;
+}
+
+.dream-console-tabs {
+  margin-bottom: 18px;
+}
+
+.dream-console-tabs .view-switcher {
+  margin-bottom: 10px;
+}
+
+.dream-console-tab-body {
+  line-height: 1.7;
+}
+
+/* ≥1100px: sol/orta/sağ yan yana, sabit-yükseklikli bağımsız kayan
+   bölgeler — bir sembol seçmek sadece sağ bölmeyi değiştirir, geri kalanı
+   hiç kıpırdamaz (uzamsal kalıcılık). Altında bu blok hiç devreye girmez,
+   yukarıdaki doğrusal akış aynen kalır. */
+@media (min-width: 1100px) {
+  .dream-console-body {
+    display: grid;
+    grid-template-columns: 26% 32% 42%;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .dream-console-pane {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+}
+
 .history-symbol-list {
   list-style: none;
   margin: 0 0 20px;
@@ -783,6 +884,48 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 
 .history-symbol-assoc {
   color: var(--gold);
+}
+
+/* 4-nokta tamlık damgası (Aşama 1, 2026-09-16) — Johnson'ın 4 sorusundan
+   kaçı cevaplanmış. Boyut cevap uzunluğunu kodluyor ama renk her zaman
+   aynı kalıyor (--accent) — "büyük=iyi" okumasını bilerek zayıflatıyoruz,
+   bu sadece kısa/uzun bilgisi, bir değer yargısı değil. */
+.completeness-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.stamp-dot {
+  display: inline-block;
+  border-radius: 50%;
+}
+
+.stamp-empty {
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--ring);
+  background: transparent;
+}
+
+.stamp-filled {
+  background: var(--accent);
+}
+
+.stamp-filled.stamp-sm {
+  width: 6px;
+  height: 6px;
+}
+
+.stamp-filled.stamp-md {
+  width: 8px;
+  height: 8px;
+}
+
+.stamp-filled.stamp-lg {
+  width: 10px;
+  height: 10px;
 }
 
 .library-controls {
@@ -1325,6 +1468,32 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   color: var(--muted);
   font-size: 0.94em;
   line-height: 1.65;
+}
+
+.finalize-context {
+  margin: 0 0 22px;
+  padding: 14px 18px;
+  border: 1px solid var(--ring);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+}
+
+.finalize-context summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  color: var(--accent-strong);
+}
+
+.finalize-context .finalize-card {
+  margin-top: 14px;
+}
+
+.finalize-context .field-value.dream-text {
+  white-space: pre-wrap;
+  line-height: 1.6;
 }
 
 /* ---------- Rehber (Jungcu sözlük + Johnson'ın 4 adımı) ---------- */

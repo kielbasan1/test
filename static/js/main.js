@@ -77,6 +77,7 @@
     finalizeTree: document.getElementById("finalize-tree"),
     finalizeGrid: document.getElementById("finalize-grid"),
     finalizeGraph: document.getElementById("finalize-graph"),
+    finalizeContextBody: document.getElementById("finalize-context-body"),
     finalizeStatus: document.getElementById("finalize-status"),
     stepResult: document.getElementById("step-result"),
     myInterpBlock: document.getElementById("my-interpretation-block"),
@@ -1044,7 +1045,77 @@
   // çıkan gerçek kullanımda ikisi de "bütünü tek bakışta gör" hedefini
   // karşılamıyordu (bkz. PRODUCT.md, 2026-09-14 kararları) — ikisinin yerine
   // bu ağaç geçti.
+  // Aşama 1 (2026-09-16): 4-nokta tamlık damgası — Johnson'ın 4 sorusundan
+  // kaçı cevaplanmış, satıra bakmadan görünür olsun. six-hats debate'in
+  // kararı: sadece dolu/boş değil, dolu noktanın boyutu da cevap uzunluğunu
+  // kodluyor (Opus'un 700 gerçek cevaptan ölçtüğü dağılıma göre eşikler:
+  // medyan 61, p90 261 karakter) — ama "büyük=iyi/önemli" okumasını
+  // zayıflatmak için boyut farkı ince tutuluyor, renk her zaman aynı.
+  function completenessSizeClass(len) {
+    if (len > 250) return "stamp-lg";
+    if (len >= 80) return "stamp-md";
+    return "stamp-sm";
+  }
+
+  function buildCompletenessStampHtml(sym) {
+    const q = (sym && sym.questions) || {};
+    const keys = ["q1", "q2", "q3", "q4"];
+    let done = 0;
+    const dots = keys
+      .map((key) => {
+        const answer = (q[key] || "").trim();
+        if (!answer) return `<span class="stamp-dot stamp-empty" aria-hidden="true"></span>`;
+        done += 1;
+        return `<span class="stamp-dot stamp-filled ${completenessSizeClass(answer.length)}" aria-hidden="true"></span>`;
+      })
+      .join("");
+    const label = I18N.t("stamp.completeness", { done, total: keys.length });
+    return `<span class="completeness-stamp" role="img" aria-label="${escapeHtml(label)}">${dots}</span>`;
+  }
+
+  // Aşama 0 (2026-09-16): Çalışman adımında rüya metni hiç yoktu, yorum
+  // yazarken kullanıcı sembollere bakabiliyordu ama rüyanın kendisine
+  // dönemiyordu. Kapalı başlayan details, mevcut johnson-rules deseniyle
+  // aynı görsel dilde — yeni bir bileşen değil, var olan .finalize-card
+  // stilinin (field-label/field-value) yeniden kullanımı.
+  function renderFinalizeContext() {
+    if (!el.finalizeContextBody) return;
+    const parts = [];
+    parts.push(
+      `<div class="field-label">${escapeHtml(I18N.t("report.dreamHeading"))}</div>`
+    );
+    parts.push(
+      `<div class="field-value dream-text">${escapeHtml(state.dreamText || "")}</div>`
+    );
+    if (state.dreamContext) {
+      parts.push(
+        `<div class="field-label">${escapeHtml(I18N.t("report.contextHeading"))}</div>`
+      );
+      parts.push(`<div class="field-value">${escapeHtml(state.dreamContext)}</div>`);
+    }
+    if (state.dreamAttitude) {
+      parts.push(
+        `<div class="field-label">${escapeHtml(I18N.t("report.attitudeHeading"))}</div>`
+      );
+      parts.push(`<div class="field-value">${escapeHtml(state.dreamAttitude)}</div>`);
+    }
+    if (state.dreamEmotion) {
+      parts.push(
+        `<div class="field-label">${escapeHtml(I18N.t("report.emotionHeading"))}</div>`
+      );
+      parts.push(`<div class="field-value">${escapeHtml(state.dreamEmotion)}</div>`);
+    }
+    if (state.dreamArc) {
+      parts.push(
+        `<div class="field-label">${escapeHtml(I18N.t("report.arcHeading"))}</div>`
+      );
+      parts.push(`<div class="field-value">${escapeHtml(state.dreamArc)}</div>`);
+    }
+    el.finalizeContextBody.innerHTML = parts.join("");
+  }
+
   function renderFinalizeWorkspace() {
+    renderFinalizeContext();
     const record = buildRecord("");
     if (!record.symbols.length) return;
     if (!(state.workIndex >= 0 && state.workIndex < record.symbols.length)) {
@@ -1157,6 +1228,30 @@
   // engellerdi.
   const gridOpenIndices = new Set();
 
+  // Aşama 2 (2026-09-16): Rüya Konsolu'nun sağ bölmesi — renderSymbolFields'ın
+  // salt-okunur ikizi. O fonksiyon düzenleme callback'leri (makeRenameControl,
+  // saveProgress) taşıyor çünkü canlı state üzerinde çalışıyor; burada
+  // geçmiş, kapanmış bir kayıt gösteriliyor — 2026-09-13'teki "geri dönüp
+  // düzenleme yok" kararı gereği hiçbir edit kontrolü eklenmiyor.
+  function renderSymbolFieldsReadonly(container, sym) {
+    const addField = (label, value) => {
+      if (!value || !String(value).trim()) return;
+      const l = document.createElement("div");
+      l.className = "field-label";
+      l.textContent = label;
+      const v = document.createElement("div");
+      v.className = "field-value";
+      v.textContent = value;
+      container.appendChild(l);
+      container.appendChild(v);
+    };
+    addField(I18N.t("worksheet.context"), sym.context);
+    addField(I18N.t("worksheet.goldAssoc"), sym.selected_association);
+    SymbolMap.questionLabels.forEach(([key, label]) => {
+      addField(label, (sym.questions || {})[key]);
+    });
+  }
+
   function renderFinalizeGrid(record) {
     el.finalizeGrid.innerHTML = "";
     const n = record.symbols.length;
@@ -1267,6 +1362,10 @@
       nameEl.className = "tree-row-name";
       nameEl.textContent = sym.name || "";
       row.appendChild(nameEl);
+
+      const stampWrap = document.createElement("span");
+      stampWrap.innerHTML = buildCompletenessStampHtml(liveSym || sym);
+      row.appendChild(stampWrap.firstElementChild);
 
       if (sym.selected_association) {
         const assocEl = document.createElement("span");
@@ -2852,55 +2951,11 @@
         fieldsList.appendChild(row);
       });
 
-      const symbolList = document.createElement("ul");
-      symbolList.className = "history-symbol-list";
-      (record.symbols || []).forEach((sym) => {
-        const li = document.createElement("li");
-        const nameSpan = document.createElement("span");
-        nameSpan.className = "history-symbol-name";
-        nameSpan.textContent = sym.name || "";
-        li.appendChild(nameSpan);
-        if ((sym.selected_association || "").trim()) {
-          const arrow = document.createElement("span");
-          arrow.className = "history-symbol-arrow";
-          arrow.textContent = "→";
-          const assocSpan = document.createElement("span");
-          assocSpan.className = "history-symbol-assoc";
-          assocSpan.textContent = sym.selected_association;
-          li.appendChild(arrow);
-          li.appendChild(assocSpan);
-        }
-        symbolList.appendChild(li);
-      });
-
-      el.historyDetailContent.appendChild(titleHeading);
-      el.historyDetailContent.appendChild(metaRow);
-      if (fieldsList.children.length) el.historyDetailContent.appendChild(fieldsList);
-      if (symbolList.children.length) el.historyDetailContent.appendChild(symbolList);
-
-      const dreamHeading = document.createElement("h3");
-      dreamHeading.textContent = I18N.t("history.dreamHeading");
-      const dreamPara = document.createElement("p");
-      dreamPara.textContent = record.dream_text || "";
-
-      const ownHeading = document.createElement("h3");
-      ownHeading.textContent = I18N.t("result.myHeading");
-      const ownPara = document.createElement("div");
-      ownPara.textContent = record.my_interpretation || "";
-      ownPara.style.whiteSpace = "pre-wrap";
-
-      const interpHeading = document.createElement("h3");
-      interpHeading.textContent = I18N.t("result.aiHeading");
-      const interpPara = document.createElement("div");
-      interpPara.textContent = record.interpretation || "";
-      interpPara.style.whiteSpace = "pre-wrap";
-
       // Geçmişteki bir kayıt için de aynı iki çıktı — burada menü yerine iki
       // ayrı düğme, çünkü panel zaten dar ve kayıt sabit.
       const mdBtn = document.createElement("button");
       mdBtn.type = "button";
       mdBtn.className = "btn-secondary";
-      mdBtn.style.marginBottom = "14px";
       mdBtn.appendChild(makeIcon("file-text", "icon-sm"));
       mdBtn.append(I18N.t("report.downloadMd"));
       mdBtn.addEventListener("click", () =>
@@ -2910,8 +2965,6 @@
       const downloadBtn = document.createElement("button");
       downloadBtn.type = "button";
       downloadBtn.className = "btn-secondary";
-      downloadBtn.style.marginBottom = "14px";
-      downloadBtn.style.marginLeft = "8px";
       downloadBtn.appendChild(makeIcon("print", "icon-sm"));
       downloadBtn.append(I18N.t("report.print"));
       downloadBtn.addEventListener("click", () => openReport(record));
@@ -2919,8 +2972,6 @@
       const downloadJsonBtn = document.createElement("button");
       downloadJsonBtn.type = "button";
       downloadJsonBtn.className = "btn-secondary";
-      downloadJsonBtn.style.marginBottom = "14px";
-      downloadJsonBtn.style.marginLeft = "8px";
       downloadJsonBtn.appendChild(makeIcon("download", "icon-sm"));
       downloadJsonBtn.append(I18N.t("result.downloadJson"));
       downloadJsonBtn.addEventListener("click", () => {
@@ -2928,34 +2979,198 @@
         downloadJSON(`ruya-${slug}.json`, record);
       });
 
-      el.historyDetailContent.appendChild(mdBtn);
-      el.historyDetailContent.appendChild(downloadBtn);
-      el.historyDetailContent.appendChild(downloadJsonBtn);
-      el.historyDetailContent.appendChild(dreamHeading);
-      el.historyDetailContent.appendChild(dreamPara);
+      const actionsRow = document.createElement("div");
+      actionsRow.className = "dream-console-actions";
+      actionsRow.append(mdBtn, downloadBtn, downloadJsonBtn);
 
-      if (record.symbols && record.symbols.length) {
-        const mapHeading = document.createElement("h3");
-        mapHeading.textContent = I18N.t("result.mapHeading");
-        const mapWrap = document.createElement("div");
-        mapWrap.className = "symbol-map-wrap";
+      el.historyDetailContent.appendChild(titleHeading);
+      el.historyDetailContent.appendChild(metaRow);
+      el.historyDetailContent.appendChild(actionsRow);
+
+      // ---------- Rüya Konsolu (Aşama 2, 2026-09-16) ----------
+      // showHistoryDetail'in bugüne kadarki doğrusal belgesi burada 3
+      // bölmeye ayrılıyor: sol=rüya bağlamı, orta=sembol listesi/haritası,
+      // sağ=seçili sembolün tam detayı. ≥1100px'te CSS Grid ile yan yana,
+      // altında (.dream-console-body kendi başına) doğrusal/alt-alta akıyor
+      // — mobilde sıfır ek kod, sadece CSS. Sembol seçmek SADECE sağ
+      // bölmeyi değiştirir, sol/orta hiç kıpırdamaz (uzamsal kalıcılık,
+      // six-hats + Opus planının ana gerekçesi). Salt-okunur: hiçbir
+      // düzenleme kontrolü yok (2026-09-13 "geri dönüp düzenleme yok"
+      // kararı korunuyor).
+      const consoleBody = document.createElement("div");
+      consoleBody.className = "dream-console-body";
+
+      // B — rüya metni + rüya-düzeyi alanlar
+      const paneDream = document.createElement("div");
+      paneDream.className = "dream-console-pane pane-dream";
+      const dreamHeading = document.createElement("h3");
+      dreamHeading.textContent = I18N.t("history.dreamHeading");
+      const dreamPara = document.createElement("p");
+      dreamPara.className = "dream-console-text";
+      dreamPara.textContent = record.dream_text || "";
+      paneDream.appendChild(dreamHeading);
+      paneDream.appendChild(dreamPara);
+      if (fieldsList.children.length) paneDream.appendChild(fieldsList);
+
+      // C — sembol listesi (varsayılan) / harita geçişli
+      const paneSymbols = document.createElement("div");
+      paneSymbols.className = "dream-console-pane pane-symbols";
+      const symbolsSwitcher = document.createElement("div");
+      symbolsSwitcher.className = "view-switcher";
+      symbolsSwitcher.setAttribute("role", "tablist");
+      const btnPaneList = document.createElement("button");
+      btnPaneList.type = "button";
+      btnPaneList.className = "view-tab active";
+      btnPaneList.setAttribute("role", "tab");
+      btnPaneList.setAttribute("aria-selected", "true");
+      btnPaneList.textContent = I18N.t("console.viewList");
+      const btnPaneMap = document.createElement("button");
+      btnPaneMap.type = "button";
+      btnPaneMap.className = "view-tab";
+      btnPaneMap.setAttribute("role", "tab");
+      btnPaneMap.setAttribute("aria-selected", "false");
+      btnPaneMap.textContent = I18N.t("console.viewMap");
+      symbolsSwitcher.append(btnPaneList, btnPaneMap);
+      paneSymbols.appendChild(symbolsSwitcher);
+
+      const symbolListWrap = document.createElement("div");
+      const mapWrap = document.createElement("div");
+      mapWrap.className = "symbol-map-wrap hidden";
+      paneSymbols.appendChild(symbolListWrap);
+      paneSymbols.appendChild(mapWrap);
+
+      // D — seçili sembolün tam detayı (salt-okunur)
+      const paneDetail = document.createElement("div");
+      paneDetail.className = "dream-console-pane pane-detail finalize-card";
+      const detailPlaceholder = document.createElement("p");
+      detailPlaceholder.className = "hint small";
+      detailPlaceholder.textContent = I18N.t("console.pickSymbol");
+      paneDetail.appendChild(detailPlaceholder);
+
+      const selectSymbol = (sym, rowEl) => {
+        symbolListWrap.querySelectorAll(".history-symbol-row").forEach((row) => {
+          row.classList.toggle("active", row === rowEl);
+        });
+        paneDetail.innerHTML = "";
+        const nameHeading = document.createElement("h4");
+        nameHeading.textContent = sym.name || "";
+        paneDetail.appendChild(nameHeading);
+        renderSymbolFieldsReadonly(paneDetail, sym);
+      };
+
+      const symbols = record.symbols || [];
+      if (symbols.length) {
+        const symbolList = document.createElement("ul");
+        symbolList.className = "history-symbol-list";
+        symbols.forEach((sym) => {
+          const li = document.createElement("li");
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className = "history-symbol-row";
+          const nameSpan = document.createElement("span");
+          nameSpan.className = "history-symbol-name";
+          nameSpan.textContent = sym.name || "";
+          row.appendChild(nameSpan);
+          const stampWrap = document.createElement("span");
+          stampWrap.innerHTML = buildCompletenessStampHtml(sym);
+          row.appendChild(stampWrap.firstElementChild);
+          if ((sym.selected_association || "").trim()) {
+            const arrow = document.createElement("span");
+            arrow.className = "history-symbol-arrow";
+            arrow.textContent = "→";
+            const assocSpan = document.createElement("span");
+            assocSpan.className = "history-symbol-assoc";
+            assocSpan.textContent = sym.selected_association;
+            row.appendChild(arrow);
+            row.appendChild(assocSpan);
+          }
+          row.addEventListener("click", () => selectSymbol(sym, row));
+          li.appendChild(row);
+          symbolList.appendChild(li);
+        });
+        symbolListWrap.appendChild(symbolList);
+
         const mapSvg = document.createElementNS(SVG_NS, "svg");
         mapSvg.setAttribute("class", "history-map-svg");
         mapSvg.setAttribute("viewBox", "0 0 640 640");
         mapWrap.appendChild(mapSvg);
+        let mapRendered = false;
 
-        el.historyDetailContent.appendChild(mapHeading);
-        el.historyDetailContent.appendChild(mapWrap);
-        SymbolMap.render(mapSvg, record);
+        btnPaneList.addEventListener("click", () => {
+          btnPaneList.classList.add("active");
+          btnPaneList.setAttribute("aria-selected", "true");
+          btnPaneMap.classList.remove("active");
+          btnPaneMap.setAttribute("aria-selected", "false");
+          symbolListWrap.classList.remove("hidden");
+          mapWrap.classList.add("hidden");
+        });
+        btnPaneMap.addEventListener("click", () => {
+          btnPaneMap.classList.add("active");
+          btnPaneMap.setAttribute("aria-selected", "true");
+          btnPaneList.classList.remove("active");
+          btnPaneList.setAttribute("aria-selected", "false");
+          symbolListWrap.classList.add("hidden");
+          mapWrap.classList.remove("hidden");
+          if (!mapRendered) {
+            SymbolMap.render(mapSvg, record);
+            mapRendered = true;
+          }
+        });
       }
 
+      consoleBody.append(paneDream, paneSymbols, paneDetail);
+      el.historyDetailContent.appendChild(consoleBody);
+
+      // E — alt bant: Kendi Yorumun / Kör Nokta (AI) / Ritüel — sadece
+      // içeriği olan sekmeler görünür.
+      const tabDefs = [];
       if (record.my_interpretation) {
-        el.historyDetailContent.appendChild(ownHeading);
-        el.historyDetailContent.appendChild(ownPara);
+        tabDefs.push({ key: "own", label: I18N.t("result.myHeading"), text: record.my_interpretation });
       }
       if (record.interpretation) {
-        el.historyDetailContent.appendChild(interpHeading);
-        el.historyDetailContent.appendChild(interpPara);
+        tabDefs.push({ key: "ai", label: I18N.t("result.aiHeading"), text: record.interpretation });
+      }
+      if ((record.ritual_text || "").trim()) {
+        const status = I18N.t(record.ritual_done ? "ritual.reportDone" : "ritual.reportPending");
+        tabDefs.push({
+          key: "ritual",
+          label: I18N.t("ritual.heading"),
+          text: `${record.ritual_text}\n\n${status}`,
+        });
+      }
+
+      if (tabDefs.length) {
+        const tabsWrap = document.createElement("div");
+        tabsWrap.className = "dream-console-tabs";
+        const tabSwitcher = document.createElement("div");
+        tabSwitcher.className = "view-switcher";
+        tabSwitcher.setAttribute("role", "tablist");
+        const tabBody = document.createElement("div");
+        tabBody.className = "dream-console-tab-body";
+        tabBody.style.whiteSpace = "pre-wrap";
+
+        const showTab = (def, btn) => {
+          tabSwitcher.querySelectorAll(".view-tab").forEach((b) => {
+            b.classList.toggle("active", b === btn);
+            b.setAttribute("aria-selected", String(b === btn));
+          });
+          tabBody.textContent = def.text;
+        };
+
+        tabDefs.forEach((def, i) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "view-tab" + (i === 0 ? " active" : "");
+          btn.setAttribute("role", "tab");
+          btn.setAttribute("aria-selected", String(i === 0));
+          btn.textContent = def.label;
+          btn.addEventListener("click", () => showTab(def, btn));
+          tabSwitcher.appendChild(btn);
+        });
+        showTab(tabDefs[0], tabSwitcher.firstElementChild);
+
+        tabsWrap.append(tabSwitcher, tabBody);
+        el.historyDetailContent.appendChild(tabsWrap);
       }
     } catch (err) {
       el.historyDetailContent.textContent = err.message;
