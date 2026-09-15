@@ -248,9 +248,22 @@ yapmak değil, kullanıcıyı kendi analiz eylemine sokmaktır.
 
 Personal, often late-night/just-woken dream-journaling moment. Flask web
 app, Jinja2 templates, vanilla JS frontend; local dev via `python app.py`
-on `localhost:5000`. Deployed to Render's free tier. The whole app
-currently sits behind one shared password (`APP_PASSWORD` in `.env`), not
-per-user accounts.
+on `localhost:5000`. Deployed to Render's free tier.
+
+**İki girişli erişim modeli — uygulandı (Kaan'ın kararı, 2026-09-15).**
+Şifreli giriş (`APP_PASSWORD`, `session["role"]="owner"`) tam erişim verir.
+Ayrıca şifresiz bir **guest girişi** eklendi (`session["role"]="guest"`) —
+interaktif akışın tamamına (sembol çıkarımı, çark, yorum genişletme,
+amplifikasyon) erişebiliyor ama kayıtlı rüya kütüphanesine
+(`/api/dreams*` — liste, tekil kayıt, tekrar eden semboller, düzenleme,
+silme) erişemiyor (`owner_required` decorator, 403). Guest'in kaydettiği
+rüyalar `is_guest:true` ile işaretleniyor, owner kütüphanesinde ayırt
+edilebiliyor. Hassas kişisel veri (rüya kayıtları) tek paylaşımlı şifrenin
+arkasında olduğu için login'e brute-force koruması eklendi: sabit-zamanlı
+karşılaştırma (`hmac.compare_digest`), IP başına 15 dakikada 5 deneme sınırı,
+Render'da Secure+SameSite=Lax oturum çerezi. Kaan'ın kararı: mevcut şifre
+(`.env`'de `APP_PASSWORD`) bu korumalarla birlikte yeterli, güçlendirmeye
+gerek yok.
 
 **Depolama yönü kararı — çözüldü (Kaan'ın kendi ifadesiyle karar, 2026-09-15
 uygulandı).** Render'ın kalıcı olmayan diski (`ruyalar/` JSON dosyaları
