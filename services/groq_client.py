@@ -3,7 +3,7 @@ import os
 
 from groq import Groq
 
-from services.gemini_client import AMPLIFY_PROMPT, EXPAND_PROMPT
+from services.gemini_client import EXPAND_PROMPT, build_amplify_prompt
 
 _client = None
 
@@ -83,11 +83,7 @@ def expand_interpretation(payload: dict) -> str:
 
 def amplify_symbol(name: str, name_en: str, context: str) -> str:
     client = _get_client()
-    prompt = (
-        AMPLIFY_PROMPT.replace("{symbol_name}", name)
-        .replace("{symbol_name_en}", name_en or name)
-        .replace("{symbol_context}", context or "—")
-    )
+    prompt = build_amplify_prompt(name, name_en, context)
     try:
         response = client.chat.completions.create(
             model=_extract_model_name(),

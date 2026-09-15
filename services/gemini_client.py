@@ -4,6 +4,8 @@ import os
 from google import genai
 from google.genai import types
 
+from services import duckduckgo_client
+
 _client = None
 
 
@@ -261,6 +263,28 @@ def expand_interpretation(payload: dict) -> str:
     return _extract_text(response)
 
 
+def build_amplify_prompt(name: str, name_en: str, context: str) -> str:
+    """AMPLIFY_PROMPT'u doldurur, bulunabilirse DuckDuckGo'dan 1-3 destekleyici
+    snippet ekler. DuckDuckGo engellenir/başarısız olursa (bkz.
+    duckduckgo_client) prompt sessizce hiç değişmeden döner — takviye kaynak,
+    bağımlılık değil.
+    """
+    prompt = (
+        AMPLIFY_PROMPT.replace("{symbol_name}", name)
+        .replace("{symbol_name_en}", name_en or name)
+        .replace("{symbol_context}", context or "—")
+    )
+    snippets = duckduckgo_client.search_symbol(f"{name_en or name} symbolism mythology")
+    if snippets:
+        joined = "\n".join(f"- {s}" for s in snippets[:3])
+        prompt += (
+            "\n\nWeb'den bulunan ek referans snippet'leri (sadece destekleyici "
+            "bilgi olarak kullan; emin olmadığın, tutarsız ya da alakasız "
+            "görünen bir snippet'i yok say):\n" + joined
+        )
+    return prompt
+
+
 def amplify_symbol(name: str, name_en: str, context: str) -> str:
     """Tek bir sembol için kısa bir amplifikasyon (mitolojik/kültürel paralel)
     döndürür — kullanıcı o sembol için kendi çağrışımını bulamadığında, çark
@@ -278,11 +302,7 @@ def amplify_symbol(name: str, name_en: str, context: str) -> str:
         return groq_client.amplify_symbol(name, name_en, context)
 
     client = _get_client()
-    prompt = (
-        AMPLIFY_PROMPT.replace("{symbol_name}", name)
-        .replace("{symbol_name_en}", name_en or name)
-        .replace("{symbol_context}", context or "—")
-    )
+    prompt = build_amplify_prompt(name, name_en, context)
     response = client.models.generate_content(
         model=_extract_model_name(),
         contents=prompt,
