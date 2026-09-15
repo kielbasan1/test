@@ -1,6 +1,9 @@
+import hmac
 import os
 import re
+import time
 import uuid
+from collections import defaultdict
 from datetime import datetime, timedelta
 from functools import wraps
 
@@ -22,10 +25,41 @@ from services import dreams_store, gemini_client  # noqa: E402
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "").strip() or os.urandom(24)
 app.permanent_session_lifetime = timedelta(days=30)
+# Render HTTPS arkasında (RENDER env var'ı otomatik set edilir); localde http
+# olduğu için Secure bayrağı orada kapalı kalmalı, yoksa çerez hiç set olmaz.
+app.config["SESSION_COOKIE_SECURE"] = bool(os.environ.get("RENDER"))
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "").strip()
 
 dreams_store.init_db()
+
+# --- Login brute-force koruması -------------------------------------------
+# Hassas kişisel veri (rüya kaydı) tek bir paylaşımlı şifrenin arkasında
+# olduğu için deneme sayısı IP başına sınırlanıyor. Bellek-içi, süreç
+# yeniden başlayınca sıfırlanır — tek instance'lık küçük bir kişisel uygulama
+# için yeterli, ayrı bir depoya (Redis vb.) gerek yok.
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 15 * 60
+_login_attempts: dict = defaultdict(list)
+
+
+def _client_ip() -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def _is_login_rate_limited(ip: str) -> bool:
+    now = time.time()
+    recent = [t for t in _login_attempts[ip] if now - t < LOGIN_WINDOW_SECONDS]
+    _login_attempts[ip] = recent
+    return len(recent) >= LOGIN_MAX_ATTEMPTS
+
+
+def _record_failed_login(ip: str) -> None:
+    _login_attempts[ip].append(time.time())
 
 
 @app.before_request
@@ -45,12 +79,17 @@ def _require_login():
 def login():
     error = None
     if request.method == "POST":
-        if request.form.get("password", "") == APP_PASSWORD:
+        ip = _client_ip()
+        if _is_login_rate_limited(ip):
+            error = "Çok fazla başarısız deneme. Birkaç dakika sonra tekrar dene."
+        elif APP_PASSWORD and hmac.compare_digest(request.form.get("password", ""), APP_PASSWORD):
             session.permanent = True
             session["authed"] = True
             session["role"] = "owner"
             return redirect(url_for("index"))
-        error = "Yanlış şifre."
+        else:
+            _record_failed_login(ip)
+            error = "Yanlış şifre."
     return render_template("login.html", error=error)
 
 
