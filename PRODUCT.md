@@ -248,11 +248,30 @@ yapmak değil, kullanıcıyı kendi analiz eylemine sokmaktır.
 
 Personal, often late-night/just-woken dream-journaling moment. Flask web
 app, Jinja2 templates, vanilla JS frontend; local dev via `python app.py`
-on `localhost:5000`. Deployed to Render's free tier, whose disk is
-**not persistent** — the `ruyalar/` JSON store can be wiped on restart,
-which is why a client-side ".txt indir" export exists as the user's only
-guaranteed copy. The whole app currently sits behind one shared password
-(`APP_PASSWORD` in `.env`), not per-user accounts.
+on `localhost:5000`. Deployed to Render's free tier. The whole app
+currently sits behind one shared password (`APP_PASSWORD` in `.env`), not
+per-user accounts.
+
+**Depolama yönü kararı — çözüldü (Kaan'ın kendi ifadesiyle karar, 2026-09-15
+uygulandı).** Render'ın kalıcı olmayan diski (`ruyalar/` JSON dosyaları
+restart'ta uçabiliyordu) altı-şapka debate'inde (bkz. `debate-2026-09-15.md`)
+temel risk olarak işaretlendi. Kaan'ın ilk yönelimi tamamen istemci-taraflı
+(tarayıcı) yerel kayıta geçmekti, ama araştırma sonucu ücretsiz ve kalıcı
+bir alternatif bulundu ve o uygulandı: **Neon (ücretsiz Postgres, duraklamıyor)**.
+`services/dreams_store.py` artık tüm rüya CRUD'unu (`dreams` tablosu,
+`fname` birincil anahtar + `record` JSONB kolonu) buradan yapıyor,
+`app.py`'daki dosya-sistemi kodu tamamen kaldırıldı. 26 gerçek rüya kaydı
+`scripts/migrate_to_neon.py` ile taşındı ve doğrulandı (Flask test client
+üzerinden `/api/dreams`, tekil kayıt, `/api/dreams/recurring-symbols`
+endpoint'leri canlı Neon verisiyle test edildi). Yerel `ruyalar/*.json`
+dosyaları silinmedi, geçiş güveni tazelenene kadar yedek olarak duruyor.
+Bağlantı bilgisi `.env`'de `DATABASE_URL` (gitignore'da). Neon MCP entegrasyonu
+da kuruldu, önce hesap-geneli bir API key mint edilmişti (iptal edildi),
+şimdi sadece bu projeye (`withered-salad-76373883`) sabitlenmiş, sadece
+Claude Code'a kurulu proje-seviyeli bir key kullanılıyor.
+".txt indir" ihracatı hâlâ elde tutuluyor — Neon'un kendisi de tek başına
+"asla kaybolmaz" garantisi değil, ek bir kullanıcı-taraflı yedek olarak
+değerli.
 
 ## Capabilities and Constraints
 

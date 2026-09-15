@@ -1,4 +1,3 @@
-import json
 import os
 import re
 import uuid
@@ -17,7 +16,7 @@ from flask import (
 
 load_dotenv(override=True)
 
-from services import gemini_client  # noqa: E402
+from services import dreams_store, gemini_client  # noqa: E402
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "").strip() or os.urandom(24)
@@ -25,8 +24,7 @@ app.permanent_session_lifetime = timedelta(days=30)
 
 APP_PASSWORD = os.environ.get("APP_PASSWORD", "").strip()
 
-DREAMS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ruyalar")
-os.makedirs(DREAMS_DIR, exist_ok=True)
+dreams_store.init_db()
 
 
 @app.before_request
@@ -134,10 +132,8 @@ def save_dream():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     slug = re.sub(r"[^a-zA-Z0-9_-]+", "", str(uuid.uuid4())[:8])
     filename = f"{timestamp}_{slug}.json"
-    path = os.path.join(DREAMS_DIR, filename)
     record = {"saved_at": datetime.now().isoformat(), **payload}
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(record, f, ensure_ascii=False, indent=2)
+    dreams_store.insert_record(filename, record)
     return jsonify({"saved_as": filename})
 
 
@@ -196,30 +192,18 @@ def recurring_symbols(records: list) -> list:
 
 @app.route("/api/dreams/recurring-symbols", methods=["GET"])
 def get_recurring_symbols():
-    files = sorted(os.listdir(DREAMS_DIR), reverse=True)
-    records = []
-    for fname in files:
-        if not fname.endswith(".json"):
-            continue
-        with open(os.path.join(DREAMS_DIR, fname), encoding="utf-8") as f:
-            record = json.load(f)
-        record["file"] = fname
-        records.append(record)
+    records = dreams_store.list_records()
     return jsonify({"symbols": recurring_symbols(records)})
 
 
 @app.route("/api/dreams", methods=["GET"])
 def list_dreams():
-    files = sorted(os.listdir(DREAMS_DIR), reverse=True)
+    records = dreams_store.list_records()
     dreams = []
-    for fname in files:
-        if not fname.endswith(".json"):
-            continue
-        with open(os.path.join(DREAMS_DIR, fname), encoding="utf-8") as f:
-            record = json.load(f)
+    for record in records:
         dreams.append(
             {
-                "file": fname,
+                "file": record.get("file"),
                 "saved_at": record.get("saved_at"),
                 "dream_text": record.get("dream_text", "")[:120],
                 "symbol_count": len(record.get("symbols") or []),
@@ -248,16 +232,13 @@ def patch_dream(fname):
     (resonance'ın aksine) — ritüel günler sonra yapılabilir.
     """
     safe_name = os.path.basename(fname)
-    path = os.path.join(DREAMS_DIR, safe_name)
-    if not os.path.isfile(path):
+    record = dreams_store.get_record(safe_name)
+    if record is None:
         return jsonify({"error": "Kayıt bulunamadı."}), 404
     payload = request.get_json(force=True) or {}
 
     if "resonance" in payload and str(payload.get("resonance") or "").strip() not in RESONANCE_VALUES:
         return jsonify({"error": "Geçersiz rezonans değeri."}), 400
-
-    with open(path, encoding="utf-8") as f:
-        record = json.load(f)
 
     response = {"file": safe_name}
     if "title" in payload:
@@ -276,40 +257,30 @@ def patch_dream(fname):
         record["ritual_done"] = bool(payload.get("ritual_done"))
         response["ritual_done"] = record["ritual_done"]
 
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(record, f, ensure_ascii=False, indent=2)
+    dreams_store.save_record(safe_name, record)
     return jsonify(response)
 
 
 @app.route("/api/dreams/<fname>", methods=["DELETE"])
 def delete_dream(fname):
     safe_name = os.path.basename(fname)
-    path = os.path.join(DREAMS_DIR, safe_name)
-    if not os.path.isfile(path):
+    if not dreams_store.delete_record(safe_name):
         return jsonify({"error": "Kayıt bulunamadı."}), 404
-    os.remove(path)
     return jsonify({"file": safe_name})
 
 
 @app.route("/api/dreams", methods=["DELETE"])
 def delete_all_dreams():
-    deleted = 0
-    for fname in os.listdir(DREAMS_DIR):
-        if not fname.endswith(".json"):
-            continue
-        os.remove(os.path.join(DREAMS_DIR, fname))
-        deleted += 1
+    deleted = dreams_store.delete_all()
     return jsonify({"deleted": deleted})
 
 
 @app.route("/api/dreams/<fname>", methods=["GET"])
 def get_dream(fname):
     safe_name = os.path.basename(fname)
-    path = os.path.join(DREAMS_DIR, safe_name)
-    if not os.path.isfile(path):
+    record = dreams_store.get_record(safe_name)
+    if record is None:
         return jsonify({"error": "Kayıt bulunamadı."}), 404
-    with open(path, encoding="utf-8") as f:
-        record = json.load(f)
     return jsonify(record)
 
 

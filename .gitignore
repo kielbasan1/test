@@ -11,3 +11,6 @@ scripts/test_ruya.json
 
 # Önizleme için üretilen geçici çember görselleri (paylaşım/kontrol amaçlı)
 scripts/cember-*.svg
+.neon
+node_modules/
+.mcp.json
