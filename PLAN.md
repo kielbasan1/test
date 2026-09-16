@@ -597,3 +597,31 @@ olmaz, buton pasifleşmez. Bu, mevcut silme onaylarıyla (`window.confirm`,
 Rüya silme özelliği) aynı deseni kullanıyor. Geri dönüp düzenleme
 özelliği bu kararla YAPILMAYACAK olarak kapatıldı — PRODUCT.md'deki
 ilgili ilke buna göre güncellendi.
+
+**Yeni özellik yönü — six-hats debate'i, henüz başlanmadı (2026-09-16/17).**
+Kaan "yeni ne ekleyebiliriz" diye açık uçlu sorunca çalıştırılan six-hats
+debate'inin (`debate-2026-09-16-yeni-ozellik-onerileri.md`) tam çıktısı.
+Kapanışta Mavi Şapka'nın sorduğu "hangisiyle başlayalım" sorusuna Kaan
+cevabı: **hepsi backlog'a yazılsın, hiçbiri şimdi başlanmasın.** Dört fikir:
+
+1. **Duygu-rengi kodlaması** — her rüyaya `dream_emotion` alanından türetilen
+   otomatik bir renk atanıp kütüphane kartlarında küçük bir renk noktasıyla
+   gösterilsin. En düşük efor (veri zaten var), en hızlı kazanılan görsel
+   fayda.
+2. **Sembol × zaman ısı haritası** — bir sembolün ay/yıl bazında ne sıklıkta
+   geri geldiğini gösteren tablo; mevcut "Tekrar Eden Semboller" panelinin
+   zaman boyutlu genişlemesi. Düşük risk ama mevcut panel ihtiyacın çoğunu
+   zaten karşılıyor olabilir — marjinal değer.
+3. **Sesli rüya girişi** — Kaan'ın ayrı bir dikte aracı var (`Desktop/
+   dikte.py`); rüyayı uyanır uyanmaz sesli anlatıp otomatik metne çevirme.
+   Muhtemelen en yüksek gerçek ihtiyaç ama önce mevcut dikte aracıyla manuel
+   bir akış denenip gerçek sürtünme var mı görülmeli, entegrasyona hemen
+   atlamadan.
+4. **"Bu ay hangi arketip baskındı" kartı** — kütüphaneye, aylık en çok
+   işlenen sembolü vault'un `knowledge/concepts/` Jungiyen bilgi tabanıyla
+   eşleştirip özetleyen tek kartlık bir görünüm. En yüksek stratejik/özgün
+   değer (rüya verisiyle bilgi tabanını ilk kez gerçekten birleştiriyor) ama
+   en çok yeni mühendislik gerektiren (concepts eşlemesi + yeni sorgu).
+
+Dördü de tasarlanmadı, hiçbiri için brainstorm/plan turu yapılmadı — sıradaki
+adım Kaan bunlardan birini seçtiğinde ayrı bir brainstorm/plan oturumu.
