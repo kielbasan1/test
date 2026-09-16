@@ -10,8 +10,7 @@
     symbols: [], // { name, name_en, context, associations: [{id,text,selected}], questions: {q1..q4},
     //            meditation (rapora girmez), report_note (rapora girer) }
     activeIndex: null,
-    workIndex: -1, // Ağaç görünümünde hangi sembol dalının açık olduğu, -1 = hiçbiri (kapalı varsayılan)
-    finalizeView: "tree", // "Çalışman" adımında aktif görünüm: "tree" (hızlı tara) | "grid" (hepsi açık, karşılaştır)
+    workIndex: -1, // Ağaç/Graf görünümünde hangi sembol dalının açık olduğu, -1 = hiçbiri (kapalı varsayılan)
     resultReady: false,
     lastMainStep: null, // geçmiş ekranından geri dönülecek adım
     currentStepMeta: null, // { index, name } — ilerleme etiketi için
@@ -69,13 +68,7 @@
     btnFinish: document.getElementById("btn-finish"),
     myInterpretation: document.getElementById("my-interpretation"),
     finalizeGate: document.getElementById("finalize-gate"),
-    finalizeViewHeading: document.getElementById("finalize-view-heading"),
-    finalizeViewHint: document.getElementById("finalize-view-hint"),
-    btnViewTree: document.getElementById("btn-view-tree"),
-    btnViewGrid: document.getElementById("btn-view-grid"),
-    btnViewGraph: document.getElementById("btn-view-graph"),
     finalizeTree: document.getElementById("finalize-tree"),
-    finalizeGrid: document.getElementById("finalize-grid"),
     finalizeGraph: document.getElementById("finalize-graph"),
     finalizeContextBody: document.getElementById("finalize-context-body"),
     finalizeStatus: document.getElementById("finalize-status"),
@@ -100,7 +93,10 @@
     btnReportMd: document.getElementById("btn-report-md"),
     btnReportPrint: document.getElementById("btn-report-print"),
     btnDownloadJson: document.getElementById("btn-download-json"),
-    symbolMapSvg: document.getElementById("symbol-map-svg"),
+    resultGraph: document.getElementById("result-graph"),
+    resultTree: document.getElementById("result-tree"),
+    resultMapBody: document.getElementById("result-map-body"),
+    btnResultMapToggle: document.getElementById("btn-result-map-toggle"),
     btnShowHistory: document.getElementById("btn-show-history"),
     btnShowGuide: document.getElementById("btn-show-guide"),
     stepGuide: document.getElementById("step-guide"),
@@ -1121,60 +1117,26 @@
     if (!(state.workIndex >= 0 && state.workIndex < record.symbols.length)) {
       state.workIndex = -1;
     }
-    if (state.finalizeView === "grid") {
-      renderFinalizeGrid(record);
-    } else if (state.finalizeView === "graph") {
-      renderFinalizeGraph(record, state.workIndex);
-    } else {
-      renderFinalizeTree(record, state.workIndex);
-    }
+    renderFinalizeGraph(record, state.workIndex);
+    renderFinalizeTree(record, state.workIndex);
   }
 
-  // Ağaç = hızlı tara, tek dal aç; Sütun = hepsi açık, karşılaştırarak
-  // çalış; Graf = merkez-rüya + çevresinde eşit açıyla dağıtılmış sabit
-  // düğümler, tek düğüm aç (Kaan'ın kararları, 2026-09-14) — üçü de aynı
-  // verinin farklı amaçlara hizmet eden ayrı sunumları. Görünüm
-  // değiştiğinde sadece o an aktif olan görünüm yeniden çizilir, diğerleri
-  // bir sonraki geçişte tazelenir.
-  const FINALIZE_VIEWS = {
-    tree: { btn: "btnViewTree", panel: "finalizeTree", heading: "finalize.treeHeading", hint: "finalize.treeHint" },
-    grid: { btn: "btnViewGrid", panel: "finalizeGrid", heading: "finalize.gridHeading", hint: "finalize.gridHint" },
-    graph: { btn: "btnViewGraph", panel: "finalizeGraph", heading: "finalize.graphHeading", hint: "finalize.graphHint" },
-  };
-
-  function setFinalizeView(view) {
-    if (view !== "graph" && cyInstance) {
-      cyInstance.destroy();
-      cyInstance = null;
-      graphViewport = null;
-    }
-    state.finalizeView = view;
-    Object.keys(FINALIZE_VIEWS).forEach((key) => {
-      const cfg = FINALIZE_VIEWS[key];
-      const active = key === view;
-      el[cfg.btn].classList.toggle("active", active);
-      el[cfg.btn].setAttribute("aria-selected", String(active));
-      el[cfg.panel].classList.toggle("hidden", !active);
-    });
-    const cfg = FINALIZE_VIEWS[view];
-    el.finalizeViewHeading.textContent = I18N.t(cfg.heading);
-    el.finalizeViewHint.textContent = I18N.t(cfg.hint);
-    renderFinalizeWorkspace();
+  // Graf üstte + Ağaç altta, ikisi de her zaman görünür (Kaan'ın kararı,
+  // 2026-09-16) — önceki Ağaç/Sütun/Graf sekme anahtarı kaldırıldı, Sütun
+  // görünümü tamamen elendi. Tek bir sembol açılınca her iki görünümde de
+  // aynı anda açılsın diye ortak bir index (`state.workIndex`) üzerinden
+  // ikisi birlikte yeniden çiziliyor.
+  function setFinalizeWorkIndex(index) {
+    const record = buildRecord("");
+    renderFinalizeGraph(record, index);
+    renderFinalizeTree(record, index);
   }
 
-  el.btnViewTree.addEventListener("click", () => setFinalizeView("tree"));
-  el.btnViewGrid.addEventListener("click", () => setFinalizeView("grid"));
-  el.btnViewGraph.addEventListener("click", () => setFinalizeView("graph"));
-
-  // Sütun/grid: ağaçtan farklı olarak hepsi varsayılan açık — 4 soru+cevap
-  // dahil her şey görünür, tıklayarak açma yok (Kaan'ın kararı, 2026-09-14).
-  // Kart içeriği ağacın genişlemiş dalıyla birebir aynı alan/düzenleme
-  // mantığını kullanıyor, sadece hepsi aynı anda gösteriliyor.
   // Bağlam/altın çağrışım/4 soru/rapor notu alanlarını, kalem-ikonu
-  // düzenleme kontrolleriyle birlikte bir konteynere basar — Sütun kartı,
-  // ağacın açılmış dalı ve grafın açılmış düğümü aynı alan/düzenleme
-  // mantığını paylaşıyor (üç görünüm de aynı veriyi farklı sunuyor, ayrı
-  // ayrı yazılmış üç kopya bakımı zorlaştırırdı).
+  // düzenleme kontrolleriyle birlikte bir konteynere basar — Ağacın açılmış
+  // dalı ve Grafın açılmış düğümü aynı alan/düzenleme mantığını paylaşıyor
+  // (ikisi de aynı veriyi farklı sunuyor, ayrı yazılmış iki kopya bakımı
+  // zorlaştırırdı).
   function renderSymbolFields(container, sym, liveSym, redraw) {
     const addField = (label, value, muted, onSave) => {
       if (!value || !String(value).trim()) return;
@@ -1221,13 +1183,6 @@
     addField(I18N.t("notes.report"), sym.report_note);
   }
 
-  // Kaan'ın kararı (2026-09-14): Sütun da ağaç gibi tıkla-aç oldu (önceki
-  // "hepsi açık" halinden vazgeçildi). Farkı: ağaçta tek seferde tek dal
-  // açıkken, sütunda birden fazla kart bağımsız açık kalabilir — sütunun
-  // amacı zaten "karşılaştırarak çalışmak", tek karta kilitlemek bunu
-  // engellerdi.
-  const gridOpenIndices = new Set();
-
   // Aşama 2 (2026-09-16): Rüya Konsolu'nun sağ bölmesi — renderSymbolFields'ın
   // salt-okunur ikizi. O fonksiyon düzenleme callback'leri (makeRenameControl,
   // saveProgress) taşıyor çünkü canlı state üzerinde çalışıyor; burada
@@ -1252,80 +1207,6 @@
     });
   }
 
-  function renderFinalizeGrid(record) {
-    el.finalizeGrid.innerHTML = "";
-    const n = record.symbols.length;
-    if (n) {
-      const allOpen = gridOpenIndices.size === n;
-      const toolbar = document.createElement("div");
-      toolbar.className = "finalize-grid-toolbar";
-      const toggleAllBtn = document.createElement("button");
-      toggleAllBtn.type = "button";
-      toggleAllBtn.className = "btn-link";
-      toggleAllBtn.textContent = I18N.t(allOpen ? "finalize.gridCloseAll" : "finalize.gridOpenAll");
-      toggleAllBtn.addEventListener("click", () => {
-        if (allOpen) {
-          gridOpenIndices.clear();
-        } else {
-          record.symbols.forEach((_, i) => gridOpenIndices.add(i));
-        }
-        renderFinalizeGrid(buildRecord(""));
-      });
-      toolbar.appendChild(toggleAllBtn);
-      el.finalizeGrid.appendChild(toolbar);
-    }
-    record.symbols.forEach((sym, index) => {
-      const liveSym = state.symbols[index];
-      const isOpen = gridOpenIndices.has(index);
-      const redraw = () => renderFinalizeGrid(buildRecord(""));
-
-      const card = document.createElement("article");
-      card.className = "finalize-card grid-card" + (isOpen ? " open" : "");
-      card.style.setProperty("--i", index);
-      card.setAttribute("role", "listitem");
-
-      const headingRow = document.createElement("div");
-      headingRow.className = "finalize-card-heading grid-card-heading";
-      headingRow.setAttribute("role", "button");
-      headingRow.tabIndex = 0;
-      headingRow.setAttribute("aria-expanded", String(isOpen));
-      const h = document.createElement("h4");
-      h.textContent = sym.name || "";
-      headingRow.appendChild(h);
-      if (sym.selected_association && !isOpen) {
-        const assocPreview = document.createElement("span");
-        assocPreview.className = "grid-card-assoc-preview";
-        assocPreview.textContent = sym.selected_association;
-        headingRow.appendChild(assocPreview);
-      }
-      headingRow.appendChild(
-        makeRenameControl(sym.name || "", (newName) => renameSymbol(index, newName), redraw)
-      );
-      const toggle = () => {
-        if (isOpen) gridOpenIndices.delete(index);
-        else gridOpenIndices.add(index);
-        redraw();
-      };
-      headingRow.addEventListener("click", (e) => {
-        if (e.target.closest(".symbol-rename-btn") || e.target.tagName === "INPUT") return;
-        toggle();
-      });
-      headingRow.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          toggle();
-        }
-      });
-      card.appendChild(headingRow);
-
-      if (isOpen) {
-        renderSymbolFields(card, sym, liveSym, redraw);
-      }
-
-      el.finalizeGrid.appendChild(card);
-    });
-  }
-
   // liveSym = state.symbols[i]: buildRecord() sembolleri kopyalayarak yeni
   // nesneler ürettiği için (bkz. buildRecord) `record` parametresi
   // salt-okunur bir anlık görüntü — düzenleme geri yazmaları her zaman
@@ -1346,7 +1227,7 @@
     record.symbols.forEach((sym, index) => {
       const liveSym = state.symbols[index];
       const isOpen = index === expandedIndex;
-      const redraw = () => renderFinalizeTree(buildRecord(""), index);
+      const redraw = () => setFinalizeWorkIndex(index);
 
       const node = document.createElement("div");
       node.className = "tree-node";
@@ -1380,7 +1261,7 @@
 
       row.addEventListener("click", (e) => {
         if (e.target.closest(".symbol-rename-btn") || e.target.tagName === "INPUT") return;
-        renderFinalizeTree(buildRecord(""), isOpen ? -1 : index);
+        setFinalizeWorkIndex(isOpen ? -1 : index);
       });
 
       node.appendChild(row);
@@ -1429,9 +1310,9 @@
   // düğüm.
   //
   // Bilinen sınır: Cytoscape düğümleri canvas'a çiziyor, gerçek DOM elemanı
-  // değil — bu yüzden klavyeyle odaklanıp Enter'la açma (ağaç/sütunda olduğu
-  // gibi) buraya taşınamadı. Klavye kullanan biri aynı veriye Ağaç/Sütun
-  // sekmelerinden erişebiliyor, o yüzden bilerek kabul edilen bir sınır.
+  // değil — bu yüzden klavyeyle odaklanıp Enter'la açma (ağaçta olduğu gibi)
+  // buraya taşınamadı. Klavye kullanan biri aynı veriye altındaki Ağaç
+  // görünümünden erişebiliyor, o yüzden bilerek kabul edilen bir sınır.
   let cyInstance = null;
   // Düğüme tıklayınca tüm cy örneği yeniden kuruluyor (elementler değişiyor),
   // bu yüzden yakınlaştırma/gezinme konumunu burada saklayıp geri
@@ -1550,13 +1431,13 @@
     });
     cyInstance.on("tap", "node.graph-symbol", (evt) => {
       const index = evt.target.data("index");
-      renderFinalizeGraph(buildRecord(""), index === expandedIndex ? -1 : index);
+      setFinalizeWorkIndex(index === expandedIndex ? -1 : index);
     });
 
     if (expandedIndex >= 0 && expandedIndex < n) {
       const sym = record.symbols[expandedIndex];
       const liveSym = state.symbols[expandedIndex];
-      const redraw = () => renderFinalizeGraph(buildRecord(""), expandedIndex);
+      const redraw = () => setFinalizeWorkIndex(expandedIndex);
 
       const detail = document.createElement("div");
       detail.className = "finalize-card tree-detail";
@@ -1575,6 +1456,307 @@
 
       document.getElementById("finalize-graph-detail").appendChild(detail);
     }
+  }
+
+  // Sonuç sayfasındaki harita: aynı Graf+Ağaç sistemi ama salt-okunur
+  // (renderSymbolFieldsReadonly ile) — sonuçtan finalize/wheel'e dönüş yok
+  // (PLAN.md, "Modüler akış" kararı), bu yüzden burada state.symbols'a hiç
+  // dokunulmuyor, sadece kayıttaki (rec) veriyle çiziliyor. Kaan'ın isteği
+  // (2026-09-16): sonuç sayfasının mevcut düzeni asla bozulmasın — bu yüzden
+  // bilerek renderFinalizeTree/Graph'tan ayrı, izole fonksiyonlar; onların
+  // canlı state'e yazan (rename/saveProgress) davranışını miras almıyor.
+  let resultWorkIndex = -1;
+  let resultCyInstance = null;
+  let resultGraphViewport = null;
+
+  function renderResultTree(record, expandedIndex) {
+    resultWorkIndex = expandedIndex;
+    el.resultTree.innerHTML = "";
+
+    const root = document.createElement("div");
+    root.className = "tree-root";
+    root.textContent = record.title || I18N.t("finalize.treeRootFallback");
+    el.resultTree.appendChild(root);
+
+    const list = document.createElement("div");
+    list.className = "tree-list";
+    el.resultTree.appendChild(list);
+
+    (record.symbols || []).forEach((sym, index) => {
+      const isOpen = index === expandedIndex;
+
+      const node = document.createElement("div");
+      node.className = "tree-node";
+      node.style.setProperty("--i", index);
+
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "tree-row";
+      row.setAttribute("role", "treeitem");
+      row.setAttribute("aria-expanded", String(isOpen));
+
+      const nameEl = document.createElement("span");
+      nameEl.className = "tree-row-name";
+      nameEl.textContent = sym.name || "";
+      row.appendChild(nameEl);
+
+      if (sym.selected_association) {
+        const assocEl = document.createElement("span");
+        assocEl.className = "tree-row-assoc";
+        assocEl.textContent = sym.selected_association;
+        row.appendChild(assocEl);
+      }
+
+      row.addEventListener("click", () => {
+        const next = isOpen ? -1 : index;
+        renderResultTree(record, next);
+        renderResultGraph(record, next);
+      });
+
+      node.appendChild(row);
+
+      if (isOpen) {
+        const detail = document.createElement("div");
+        detail.className = "finalize-card tree-detail";
+        detail.setAttribute("role", "group");
+        renderSymbolFieldsReadonly(detail, sym);
+        node.appendChild(detail);
+      }
+
+      list.appendChild(node);
+    });
+  }
+
+  function renderResultGraph(record, expandedIndex) {
+    resultWorkIndex = expandedIndex;
+    if (resultCyInstance) {
+      resultGraphViewport = { zoom: resultCyInstance.zoom(), pan: resultCyInstance.pan() };
+      resultCyInstance.destroy();
+      resultCyInstance = null;
+    }
+    el.resultGraph.innerHTML =
+      '<div id="result-graph-cy" class="finalize-graph-cy"></div><div id="result-graph-detail"></div>';
+    const symbols = record.symbols || [];
+    const n = symbols.length;
+    if (!n) return;
+
+    const ringR = 90 + n * 14;
+    const elements = [
+      {
+        data: { id: "center", label: record.title || I18N.t("finalize.treeRootFallback") },
+        position: { x: 0, y: 0 },
+        classes: "graph-center",
+      },
+    ];
+    symbols.forEach((sym, index) => {
+      const angle = (2 * Math.PI * index) / n - Math.PI / 2;
+      const x = ringR * Math.cos(angle);
+      const y = ringR * Math.sin(angle);
+      const assoc = truncateGraphLabel(sym.selected_association || "", 28);
+      const label = assoc ? `${sym.name || ""}\n${assoc}` : sym.name || "";
+      elements.push({
+        data: { id: "sym-" + index, label, index },
+        position: { x, y },
+        classes: "graph-symbol" + (index === expandedIndex ? " open" : ""),
+      });
+      elements.push({ data: { id: "edge-" + index, source: "center", target: "sym-" + index } });
+    });
+
+    const mount = document.getElementById("result-graph-cy");
+    resultCyInstance = cytoscape({
+      container: mount,
+      elements,
+      layout: { name: "preset" },
+      userZoomingEnabled: true,
+      userPanningEnabled: true,
+      boxSelectionEnabled: false,
+      autoungrabify: true,
+      minZoom: 0.4,
+      maxZoom: 3,
+      style: [
+        { selector: "edge", style: { width: 1, "line-color": cssVar("--ring"), "curve-style": "straight" } },
+        {
+          selector: "node",
+          style: {
+            "background-color": cssVar("--card-bg"),
+            "border-width": 2,
+            "border-color": cssVar("--accent"),
+            label: "data(label)",
+            "text-wrap": "wrap",
+            "text-max-width": "140px",
+            "font-family": cssVar("--font-body"),
+            "font-size": "13px",
+            color: cssVar("--muted"),
+            "text-valign": "bottom",
+            "text-margin-y": 8,
+            "text-halign": "center",
+            width: 16,
+            height: 16,
+          },
+        },
+        { selector: "node.graph-symbol", style: { "border-color": cssVar("--accent") } },
+        {
+          selector: "node.graph-symbol.open",
+          style: {
+            "border-color": cssVar("--gold"),
+            "background-color": cssVar("--gold-soft"),
+            color: cssVar("--accent-strong"),
+          },
+        },
+        {
+          selector: "node.graph-center",
+          style: {
+            "background-color": cssVar("--accent-soft"),
+            "border-color": cssVar("--accent-strong"),
+            "border-width": 2,
+            width: 32,
+            height: 32,
+            "font-family": cssVar("--font-heading"),
+            "font-weight": 600,
+            "font-size": "15px",
+            color: cssVar("--accent-strong"),
+          },
+        },
+      ],
+    });
+    if (resultGraphViewport) {
+      resultCyInstance.zoom(resultGraphViewport.zoom);
+      resultCyInstance.pan(resultGraphViewport.pan);
+    } else {
+      resultCyInstance.fit(undefined, 40);
+    }
+    resultCyInstance.on("mouseover", "node.graph-symbol", () => {
+      mount.style.cursor = "pointer";
+    });
+    resultCyInstance.on("mouseout", "node.graph-symbol", () => {
+      mount.style.cursor = "";
+    });
+    resultCyInstance.on("tap", "node.graph-symbol", (evt) => {
+      const index = evt.target.data("index");
+      const next = index === expandedIndex ? -1 : index;
+      renderResultGraph(record, next);
+      renderResultTree(record, next);
+    });
+
+    if (expandedIndex >= 0 && expandedIndex < n) {
+      const sym = symbols[expandedIndex];
+      const detail = document.createElement("div");
+      detail.className = "finalize-card tree-detail";
+      detail.setAttribute("role", "group");
+      const headingRow = document.createElement("div");
+      headingRow.className = "finalize-card-heading";
+      const h = document.createElement("h4");
+      h.textContent = sym.name || "";
+      headingRow.appendChild(h);
+      detail.appendChild(headingRow);
+      renderSymbolFieldsReadonly(detail, sym);
+      document.getElementById("result-graph-detail").appendChild(detail);
+    }
+  }
+
+  // Rüya Konsolu'nun (geçmiş kayıt) göster/gizle haritası — kayda özgü,
+  // tam salt-okunur (renderSymbolFieldsReadonly'siz, sadece grafik). Kendi
+  // cy örneğini kapanış içinde tutar (module-scope değil), çünkü konsol her
+  // rüya açılışında sıfırdan kuruluyor ve harita sadece istenirse (tıklanınca)
+  // bir kere çiziliyor — sekme/tur arası viewport hatırlamaya gerek yok.
+  function renderConsoleGraph(mount, record, onSelect) {
+    mount.innerHTML = '<div class="finalize-graph-cy"></div>';
+    const symbols = record.symbols || [];
+    const n = symbols.length;
+    if (!n) return;
+
+    const cyMount = mount.querySelector(".finalize-graph-cy");
+    const ringR = 90 + n * 14;
+    const elements = [
+      {
+        data: { id: "center", label: record.title || I18N.t("finalize.treeRootFallback") },
+        position: { x: 0, y: 0 },
+        classes: "graph-center",
+      },
+    ];
+    symbols.forEach((sym, index) => {
+      const angle = (2 * Math.PI * index) / n - Math.PI / 2;
+      const x = ringR * Math.cos(angle);
+      const y = ringR * Math.sin(angle);
+      const assoc = truncateGraphLabel(sym.selected_association || "", 28);
+      const label = assoc ? `${sym.name || ""}\n${assoc}` : sym.name || "";
+      elements.push({
+        data: { id: "sym-" + index, label, index },
+        position: { x, y },
+        classes: "graph-symbol",
+      });
+      elements.push({ data: { id: "edge-" + index, source: "center", target: "sym-" + index } });
+    });
+
+    const cy = cytoscape({
+      container: cyMount,
+      elements,
+      layout: { name: "preset" },
+      userZoomingEnabled: true,
+      userPanningEnabled: true,
+      boxSelectionEnabled: false,
+      autoungrabify: true,
+      minZoom: 0.4,
+      maxZoom: 3,
+      style: [
+        { selector: "edge", style: { width: 1, "line-color": cssVar("--ring"), "curve-style": "straight" } },
+        {
+          selector: "node",
+          style: {
+            "background-color": cssVar("--card-bg"),
+            "border-width": 2,
+            "border-color": cssVar("--accent"),
+            label: "data(label)",
+            "text-wrap": "wrap",
+            "text-max-width": "140px",
+            "font-family": cssVar("--font-body"),
+            "font-size": "13px",
+            color: cssVar("--muted"),
+            "text-valign": "bottom",
+            "text-margin-y": 8,
+            "text-halign": "center",
+            width: 16,
+            height: 16,
+          },
+        },
+        { selector: "node.graph-symbol", style: { "border-color": cssVar("--accent") } },
+        {
+          selector: "node.graph-symbol.open",
+          style: {
+            "border-color": cssVar("--gold"),
+            "background-color": cssVar("--gold-soft"),
+            color: cssVar("--accent-strong"),
+          },
+        },
+        {
+          selector: "node.graph-center",
+          style: {
+            "background-color": cssVar("--accent-soft"),
+            "border-color": cssVar("--accent-strong"),
+            "border-width": 2,
+            width: 32,
+            height: 32,
+            "font-family": cssVar("--font-heading"),
+            "font-weight": 600,
+            "font-size": "15px",
+            color: cssVar("--accent-strong"),
+          },
+        },
+      ],
+    });
+    cy.fit(undefined, 40);
+    cy.on("mouseover", "node.graph-symbol", () => {
+      cyMount.style.cursor = "pointer";
+    });
+    cy.on("mouseout", "node.graph-symbol", () => {
+      cyMount.style.cursor = "";
+    });
+    cy.on("tap", "node.graph-symbol", (evt) => {
+      cy.nodes(".graph-symbol.open").removeClass("open");
+      evt.target.addClass("open");
+      const index = evt.target.data("index");
+      onSelect(symbols[index], index);
+    });
   }
 
   function buildRecord(interpretation) {
@@ -1682,7 +1864,8 @@
 
   function renderResult(record) {
     const rec = record && typeof record === "object" ? record : state.lastRecord || {};
-    SymbolMap.render(el.symbolMapSvg, rec);
+    renderResultGraph(rec, -1);
+    renderResultTree(rec, -1);
 
     const own = (rec.my_interpretation || "").trim();
     el.myInterpText.textContent = own;
@@ -1701,6 +1884,17 @@
 
     showOnlyStep(el.stepResult);
   }
+
+  // Harita/ağaç bloğunu göster/gizle — Kaan'ın isteği (2026-09-16): sonuç
+  // sayfasının geri kalanı bundan hiç etkilenmesin diye tek bir CSS class
+  // toggle'ı, herhangi bir yeniden çizim tetiklemiyor.
+  el.btnResultMapToggle.addEventListener("click", () => {
+    const nowHidden = el.resultMapBody.classList.toggle("hidden");
+    el.btnResultMapToggle.setAttribute("aria-expanded", String(!nowHidden));
+    el.btnResultMapToggle.querySelector("span").textContent = I18N.t(
+      nowHidden ? "result.mapToggleShow" : "result.mapToggleHide"
+    );
+  });
 
   // ---------- Rezonans geri bildirimi (Faz 1.3) ----------
   // Johnson'ın rezonans testi: bir yorum ancak bedensel bir tanıma
@@ -2005,7 +2199,17 @@
     const dateStr = new Date().toLocaleString(locale);
     const dreamSnippet = (record.dream_text || "").replace(/\s+/g, " ").trim().slice(0, 220);
     const symbols = record.symbols || [];
-    const mapSvgString = symbols.length ? SymbolMap.svgToString(SymbolMap.buildMapSvg(record, "paper")) : "";
+    // Harita raporda sadece sembol adı + altın çağrışım olarak yer alıyor
+    // (Kaan'ın kararı, 2026-09-16) — ekrandaki Ağaç/Graf'ın tam görsel
+    // karşılığı değil, markdown raporundaki özet listesiyle aynı sade liste.
+    const mapListHtml = symbols.length
+      ? `<ul class="report-map-list">${symbols
+          .map((sym) => {
+            const assoc = (sym.selected_association || "").trim();
+            return `<li><strong>${escapeHtml(sym.name || "")}</strong>${assoc ? ` → ${escapeHtml(assoc)}` : ""}</li>`;
+          })
+          .join("")}</ul>`
+      : "";
     const contextBlock = record.personal_context
       ? `<div class="field-label">${escapeHtml(I18N.t("report.contextHeading"))}</div><p class="context-text">${escapeHtml(record.personal_context)}</p>`
       : "";
@@ -2069,8 +2273,9 @@
   .section { break-before: page; padding-top:8px; }
   .section:first-of-type { break-before: auto; }
   .dream-text, .context-text, .interpretation-text { white-space:pre-wrap; }
-  .map-wrap { display:flex; justify-content:center; margin-top:12px; }
-  .map-wrap svg { width:100%; max-width:600px; height:auto; }
+  .report-map-list { list-style:none; margin:12px 0 0; padding:0; }
+  .report-map-list li { padding:6px 0; border-bottom:1px solid var(--ring); }
+  .report-map-list li:last-child { border-bottom:none; }
   .report-card {
     break-inside: avoid; border:1px solid var(--ring); border-radius:10px;
     padding:18px 22px; margin-bottom:16px; background:var(--card);
@@ -2109,7 +2314,7 @@
     ${arcBlock}
   </section>
 
-  ${mapSvgString ? `<section class="section"><h2>${escapeHtml(I18N.t("report.mapHeading"))}</h2><div class="map-wrap">${mapSvgString}</div></section>` : ""}
+  ${mapListHtml ? `<section class="section"><h2>${escapeHtml(I18N.t("report.mapHeading"))}</h2>${mapListHtml}</section>` : ""}
 
   ${cardsHtml ? `<section class="section"><h2>${escapeHtml(I18N.t("report.cardsHeading"))}</h2>${cardsHtml}</section>` : ""}
 
@@ -3012,32 +3217,12 @@
       paneDream.appendChild(dreamPara);
       if (fieldsList.children.length) paneDream.appendChild(fieldsList);
 
-      // C — sembol listesi (varsayılan) / harita geçişli
+      // C — sembol listesi (ağaç)
       const paneSymbols = document.createElement("div");
       paneSymbols.className = "dream-console-pane pane-symbols";
-      const symbolsSwitcher = document.createElement("div");
-      symbolsSwitcher.className = "view-switcher";
-      symbolsSwitcher.setAttribute("role", "tablist");
-      const btnPaneList = document.createElement("button");
-      btnPaneList.type = "button";
-      btnPaneList.className = "view-tab active";
-      btnPaneList.setAttribute("role", "tab");
-      btnPaneList.setAttribute("aria-selected", "true");
-      btnPaneList.textContent = I18N.t("console.viewList");
-      const btnPaneMap = document.createElement("button");
-      btnPaneMap.type = "button";
-      btnPaneMap.className = "view-tab";
-      btnPaneMap.setAttribute("role", "tab");
-      btnPaneMap.setAttribute("aria-selected", "false");
-      btnPaneMap.textContent = I18N.t("console.viewMap");
-      symbolsSwitcher.append(btnPaneList, btnPaneMap);
-      paneSymbols.appendChild(symbolsSwitcher);
 
       const symbolListWrap = document.createElement("div");
-      const mapWrap = document.createElement("div");
-      mapWrap.className = "symbol-map-wrap hidden";
       paneSymbols.appendChild(symbolListWrap);
-      paneSymbols.appendChild(mapWrap);
 
       // D — seçili sembolün tam detayı (salt-okunur)
       const paneDetail = document.createElement("div");
@@ -3059,10 +3244,11 @@
       };
 
       const symbols = record.symbols || [];
+      const symbolRowsByIndex = [];
       if (symbols.length) {
         const symbolList = document.createElement("ul");
         symbolList.className = "history-symbol-list";
-        symbols.forEach((sym) => {
+        symbols.forEach((sym, index) => {
           const li = document.createElement("li");
           const row = document.createElement("button");
           row.type = "button";
@@ -3085,37 +3271,57 @@
             row.appendChild(assocSpan);
           }
           row.addEventListener("click", () => selectSymbol(sym, row));
+          symbolRowsByIndex[index] = row;
           li.appendChild(row);
           symbolList.appendChild(li);
         });
         symbolListWrap.appendChild(symbolList);
+      }
 
-        const mapSvg = document.createElementNS(SVG_NS, "svg");
-        mapSvg.setAttribute("class", "history-map-svg");
-        mapSvg.setAttribute("viewBox", "0 0 640 640");
-        mapWrap.appendChild(mapSvg);
+      // A — üstte harita (Graf), göster/gizle — tam genişlik, varsayılan
+      // gizli/render edilmemiş (Kaan, 2026-09-17: 3 bölmenin üstüne eklensin,
+      // mevcut bölmelere dokunmasın). Sembole tıklamak listedeki gibi sağ
+      // detay bölmesini seçer, grafın kendi "open" vurgusunu da günceller.
+      if (symbols.length) {
+        const mapCard = document.createElement("div");
+        mapCard.className = "result-map-card";
+        const mapToggleRow = document.createElement("div");
+        mapToggleRow.className = "result-map-toggle-row";
+        const mapHeading = document.createElement("h3");
+        mapHeading.textContent = I18N.t("result.mapHeading");
+        const btnMapToggle = document.createElement("button");
+        btnMapToggle.type = "button";
+        btnMapToggle.className = "btn-link";
+        btnMapToggle.setAttribute("aria-expanded", "false");
+        const btnMapToggleLabel = document.createElement("span");
+        btnMapToggleLabel.textContent = I18N.t("result.mapToggleShow");
+        btnMapToggle.appendChild(btnMapToggleLabel);
+        mapToggleRow.append(mapHeading, btnMapToggle);
+        mapCard.appendChild(mapToggleRow);
+
+        const mapBody = document.createElement("div");
+        mapBody.className = "hidden";
+        const mapMount = document.createElement("div");
+        mapMount.className = "finalize-graph";
+        mapBody.appendChild(mapMount);
+        mapCard.appendChild(mapBody);
+
         let mapRendered = false;
-
-        btnPaneList.addEventListener("click", () => {
-          btnPaneList.classList.add("active");
-          btnPaneList.setAttribute("aria-selected", "true");
-          btnPaneMap.classList.remove("active");
-          btnPaneMap.setAttribute("aria-selected", "false");
-          symbolListWrap.classList.remove("hidden");
-          mapWrap.classList.add("hidden");
-        });
-        btnPaneMap.addEventListener("click", () => {
-          btnPaneMap.classList.add("active");
-          btnPaneMap.setAttribute("aria-selected", "true");
-          btnPaneList.classList.remove("active");
-          btnPaneList.setAttribute("aria-selected", "false");
-          symbolListWrap.classList.add("hidden");
-          mapWrap.classList.remove("hidden");
-          if (!mapRendered) {
-            SymbolMap.render(mapSvg, record);
+        btnMapToggle.addEventListener("click", () => {
+          const nowHidden = mapBody.classList.toggle("hidden");
+          btnMapToggle.setAttribute("aria-expanded", String(!nowHidden));
+          btnMapToggleLabel.textContent = I18N.t(
+            nowHidden ? "result.mapToggleShow" : "result.mapToggleHide"
+          );
+          if (!nowHidden && !mapRendered) {
+            renderConsoleGraph(mapMount, record, (sym, index) =>
+              selectSymbol(sym, symbolRowsByIndex[index])
+            );
             mapRendered = true;
           }
         });
+
+        el.historyDetailContent.appendChild(mapCard);
       }
 
       consoleBody.append(paneDream, paneSymbols, paneDetail);

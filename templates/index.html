@@ -321,18 +321,11 @@
       </details>
 
       <div class="finalize-tree-wrap">
-        <div class="view-switcher-row">
-          <h3 id="finalize-view-heading" data-i18n="finalize.treeHeading">Bu Rüyanın Ağacı</h3>
-          <div class="view-switcher" role="tablist" data-i18n-aria="finalize.viewSwitcherLabel" aria-label="Görünüm">
-            <button type="button" id="btn-view-tree" class="view-tab active" data-view="tree" role="tab" aria-selected="true" data-i18n="finalize.viewTree">Ağaç</button>
-            <button type="button" id="btn-view-grid" class="view-tab" data-view="grid" role="tab" aria-selected="false" data-i18n="finalize.viewGrid">Sütun</button>
-            <button type="button" id="btn-view-graph" class="view-tab" data-view="graph" role="tab" aria-selected="false" data-i18n="finalize.viewGraph">Graf</button>
-          </div>
-        </div>
-        <p class="hint small" id="finalize-view-hint" data-i18n="finalize.treeHint">Bir sembole tıkla — altın çağrışımı ve dört sorunun cevapları altında açılır. Yazarken buradan bakabilirsin.</p>
+        <h3 data-i18n="finalize.graphHeading">Bu Rüyanın Grafiği</h3>
+        <div id="finalize-graph" class="finalize-graph"></div>
+        <h3 data-i18n="finalize.treeHeading">Bu Rüyanın Ağacı</h3>
+        <p class="hint small" data-i18n="finalize.treeHint">Bir sembole tıkla — altın çağrışımı ve dört sorunun cevapları altında açılır. Yazarken buradan bakabilirsin.</p>
         <div id="finalize-tree" class="finalize-tree" role="tree"></div>
-        <div id="finalize-grid" class="finalize-grid hidden" role="list"></div>
-        <div id="finalize-graph" class="finalize-graph hidden"></div>
       </div>
 
       <textarea id="my-interpretation" rows="14" data-i18n-placeholder="finalize.placeholder" placeholder="Bu rüya bana şunu söylüyor…"></textarea>
@@ -384,11 +377,16 @@
           </button>
         </div>
       </div>
-      <div class="symbol-map-card">
-        <h3 data-i18n="result.mapHeading">Sembol Haritası</h3>
-        <p class="hint small" data-i18n="result.mapHint">Her sembol kendi dilimi: dışta sembol adı, içte altın çağrışım. Altın çağrışıma tıkla — o sembolün 4 sorusu ve tam cevapları dışarıda açılır. Sürükleyerek kaydır, tekerlek/iki parmakla yakınlaştır.</p>
-        <div class="symbol-map-wrap">
-          <svg id="symbol-map-svg" viewBox="0 0 640 640" width="640" height="640"></svg>
+      <div class="result-map-card">
+        <div class="result-map-toggle-row">
+          <h3 data-i18n="result.mapHeading">Sembol Haritası</h3>
+          <button type="button" id="btn-result-map-toggle" class="btn-link" aria-expanded="true" aria-controls="result-map-body">
+            <span data-i18n="result.mapToggleHide">Haritayı gizle</span>
+          </button>
+        </div>
+        <div id="result-map-body">
+          <div id="result-graph" class="finalize-graph"></div>
+          <div id="result-tree" class="finalize-tree" role="tree"></div>
         </div>
       </div>
 

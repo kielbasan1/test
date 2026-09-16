@@ -190,8 +190,7 @@ a { color: var(--accent-strong); }
   .assoc-list li,
   .history-list li,
   .map-qa-card,
-  .tree-node,
-  .finalize-grid .finalize-card {
+  .tree-node {
     animation: itemIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) backwards;
     animation-delay: calc(var(--i, 0) * 40ms);
   }
@@ -790,10 +789,6 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   white-space: pre-wrap;
   line-height: 1.6;
   margin: 0 0 12px;
-}
-
-.pane-symbols .view-switcher {
-  margin-bottom: 10px;
 }
 
 .history-symbol-row {
@@ -1545,20 +1540,9 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   margin-bottom: 6px;
 }
 
-.view-switcher-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.view-switcher-row h3 {
-  margin-bottom: 0;
-}
-
-/* Ağaç = hızlı tara / birini aç; Sütun = hepsi açık, karşılaştırarak
-   çalış — iki görünüm bilerek farklı amaca hizmet ediyor (2026-09-14). */
+/* .view-switcher/.view-tab: Rüya Konsolu'nun liste/harita ve kendi-yorum/
+   AI/ritüel sekmeleri hâlâ bunu kullanıyor — Çalışman'ın Ağaç/Sütun/Graf
+   anahtarı kaldırıldı (2026-09-16) ama bu paylaşılan sekme stili kaldı. */
 .view-switcher {
   display: flex;
   gap: 4px;
@@ -1588,70 +1572,6 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 .view-tab.active {
   background: var(--accent-soft);
   color: var(--accent-strong);
-}
-
-.finalize-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 14px;
-  margin-top: 14px;
-}
-
-.finalize-grid-toolbar {
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* Kaan'ın kararı (2026-09-14): kapalı kartlar kare taşlar gibi görünsün —
-   açılınca (4 soru+cevap sığması için) kare kısıtlaması kalkıp doğal
-   yüksekliğe genişliyor. */
-.grid-card {
-  aspect-ratio: 1 / 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.grid-card.open {
-  aspect-ratio: auto;
-  overflow: visible;
-}
-
-.grid-card-heading {
-  cursor: pointer;
-  gap: 8px;
-}
-
-.grid-card:not(.open) .grid-card-heading {
-  flex: 1;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-  margin: 0;
-}
-
-.grid-card-heading:hover h4 {
-  color: var(--gold);
-}
-
-.grid-card-assoc-preview {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-.grid-card:not(.open) .grid-card-assoc-preview {
-  flex: none;
-  max-width: 100%;
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
 
 /* Graf: Cytoscape.js ile render ediliyor (pozisyonlar bizim deterministik
@@ -2078,30 +1998,21 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   text-anchor: middle;
 }
 
-/* ---------- Sembol Haritası: bütün + parça görünümü ---------- */
-.symbol-map-card {
+/* ---------- Sonuç sayfasının Ağaç+Graf haritası ---------- */
+.result-map-card {
   margin-top: 4px;
 }
 
-.symbol-map-wrap {
-  position: relative;
-  width: 100%;
-  max-width: 640px;
-  margin: 12px auto 0;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--bg-sunken);
+.result-map-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-#symbol-map-svg,
-.history-map-svg {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  height: auto;
-  touch-action: none;
-  cursor: grab;
-  user-select: none;
+.result-map-toggle-row h3 {
+  margin-bottom: 0;
 }
 
 .map-pannable.panning {
