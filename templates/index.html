@@ -258,6 +258,15 @@
         </div>
       </div>
 
+      <!-- ADIM 3b-öncesi: rapora girmeyecek karalama/meditasyon notu, 4 sorunun ÜSTÜNDE (Kaan'ın isteği, 2026-09-17) -->
+      <div id="symbol-notes-meditation" class="symbol-notes hidden">
+        <label class="notes-private">
+          <span data-i18n="notes.meditation">Meditasyonlar / notlar</span>
+          <span class="notes-tag" data-i18n="notes.privateTag">rapora girmez</span>
+          <textarea data-note="meditation" rows="4" data-i18n-placeholder="notes.meditationPlaceholder" placeholder="Bu sembolle otururken aklına ne geldiyse — yarım düşünceler, hatırladıkların, hislerin…"></textarea>
+        </label>
+      </div>
+
       <!-- ADIM 3b: 4 soru -->
       <div id="four-questions" class="four-questions hidden">
         <h3 data-i18n="fourQ.heading">Seçtiğin çağrışımı derinleştir</h3>
@@ -276,13 +285,8 @@
         </label>
       </div>
 
-      <!-- ADIM 3c: sembol üzerine serbest notlar -->
-      <div id="symbol-notes" class="symbol-notes hidden">
-        <label class="notes-private">
-          <span data-i18n="notes.meditation">Meditasyonlar / notlar</span>
-          <span class="notes-tag" data-i18n="notes.privateTag">rapora girmez</span>
-          <textarea data-note="meditation" rows="4" data-i18n-placeholder="notes.meditationPlaceholder" placeholder="Bu sembolle otururken aklına ne geldiyse — yarım düşünceler, hatırladıkların, hislerin…"></textarea>
-        </label>
+      <!-- ADIM 3c: rapora girecek not, 4 sorunun ALTINDA -->
+      <div id="symbol-notes-report" class="symbol-notes hidden">
         <label class="notes-public">
           <span data-i18n="notes.report">Rapora eklenmesini istediğin şey</span>
           <span class="notes-tag notes-tag-in" data-i18n="notes.publicTag">rapora girer</span>
@@ -321,11 +325,13 @@
       </details>
 
       <div class="finalize-tree-wrap">
-        <h3 data-i18n="finalize.graphHeading">Bu Rüyanın Grafiği</h3>
-        <div id="finalize-graph" class="finalize-graph"></div>
-        <h3 data-i18n="finalize.treeHeading">Bu Rüyanın Ağacı</h3>
+        <div class="view-switcher" role="tablist" aria-label="Ağaç / Harita">
+          <button id="btn-finalize-view-tree" type="button" class="view-tab active" role="tab" aria-selected="true" data-i18n="finalize.treeHeading">Bu Rüyanın Ağacı</button>
+          <button id="btn-finalize-view-graph" type="button" class="view-tab" role="tab" aria-selected="false" data-i18n="finalize.graphHeading">Bu Rüyanın Grafiği</button>
+        </div>
         <p class="hint small" data-i18n="finalize.treeHint">Bir sembole tıkla — altın çağrışımı ve dört sorunun cevapları altında açılır. Yazarken buradan bakabilirsin.</p>
         <div id="finalize-tree" class="finalize-tree" role="tree"></div>
+        <div id="finalize-graph" class="finalize-graph hidden"></div>
       </div>
 
       <textarea id="my-interpretation" rows="14" data-i18n-placeholder="finalize.placeholder" placeholder="Bu rüya bana şunu söylüyor…"></textarea>

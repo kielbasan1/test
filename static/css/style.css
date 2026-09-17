@@ -1386,9 +1386,10 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
 }
 
 /* ---------- Sembol notları (çark adımı) ----------
-   İki kutu, farklı sözleşmeyle: üstteki kişiye özel kalır, alttaki rapora
-   girer. Ayrımın görünür olması şart — insanın "bunu yazarsam nereye
-   gidiyor" sorusu cevapsız kalmamalı. */
+   İki ayrı kutu, farklı sözleşmeyle ve farklı konumda: meditasyon/karalama
+   notu (kişiye özel, rapora girmez) 4 sorunun ÜSTÜNDE, rapora eklenecek not
+   4 sorunun ALTINDA (Kaan'ın isteği, 2026-09-17). Ayrımın görünür olması
+   şart — insanın "bunu yazarsam nereye gidiyor" sorusu cevapsız kalmamalı. */
 .symbol-notes {
   margin-top: 20px;
   padding-top: 18px;
@@ -1536,7 +1537,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   margin-bottom: 20px;
 }
 
-.finalize-tree-wrap h3 {
+.finalize-tree-wrap .view-switcher {
   margin-bottom: 6px;
 }
 

@@ -196,12 +196,18 @@ def amplify_symbol():
 @app.route("/api/save-dream", methods=["POST"])
 def save_dream():
     payload = request.get_json(force=True) or {}
+    if session.get("role") == "guest":
+        # Misafir kayıtları paylaşımlı sunucu deposuna (Neon) hiç yazılmıyor
+        # (Kaan'ın kararı, 2026-09-17) — misafirin erişemediği owner-only
+        # kütüphanede görünmeyen, kimsenin okuyamadığı ölü kayıt biriktirmek
+        # yerine, bitirme yalnızca istemci tarafında (JSON indir / tarayıcı
+        # localStorage) tamamlanıyor. Eskiden `is_guest=True` etiketiyle yine
+        # de insert ediliyordu; artık hiç insert edilmiyor.
+        return jsonify({"saved_as": None, "guest": True})
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     slug = re.sub(r"[^a-zA-Z0-9_-]+", "", str(uuid.uuid4())[:8])
     filename = f"{timestamp}_{slug}.json"
     record = {"saved_at": datetime.now().isoformat(), **payload}
-    if session.get("role") == "guest":
-        record["is_guest"] = True
     dreams_store.insert_record(filename, record)
     return jsonify({"saved_as": filename})
 

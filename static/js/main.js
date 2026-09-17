@@ -60,7 +60,8 @@
     btnAmplify: document.getElementById("btn-amplify"),
     amplifyResult: document.getElementById("amplify-result"),
     fourQuestions: document.getElementById("four-questions"),
-    symbolNotes: document.getElementById("symbol-notes"),
+    symbolNotesMeditation: document.getElementById("symbol-notes-meditation"),
+    symbolNotesReport: document.getElementById("symbol-notes-report"),
     btnNextSymbol: document.getElementById("btn-next-symbol"),
     stepFinalize: document.getElementById("step-finalize"),
     btnFinalizeBack: document.getElementById("btn-finalize-back"),
@@ -70,6 +71,8 @@
     finalizeGate: document.getElementById("finalize-gate"),
     finalizeTree: document.getElementById("finalize-tree"),
     finalizeGraph: document.getElementById("finalize-graph"),
+    btnFinalizeViewTree: document.getElementById("btn-finalize-view-tree"),
+    btnFinalizeViewGraph: document.getElementById("btn-finalize-view-graph"),
     finalizeContextBody: document.getElementById("finalize-context-body"),
     finalizeStatus: document.getElementById("finalize-status"),
     stepResult: document.getElementById("step-result"),
@@ -377,6 +380,23 @@
   // (Kaan'ın tercihi) — yani başka cihazdan görünmez, tarayıcı verisi
   // silinirse gider. Kalıcı kopya hâlâ .json yedeği / rapor.
   const PROGRESS_KEY = "symbolcarki:inprogress";
+  // Misafir modunda bitmiş rüyalar sunucuya hiç yazılmıyor (2026-09-17,
+  // Kaan'ın kararı — bkz. app.py save_dream): PROGRESS_KEY'in aksine bu,
+  // TAMAMLANMIŞ kayıtların kalıcı olarak biriktiği ayrı bir anahtar, sonuç
+  // ekranına gelince silinmiyor. Sadece bu tarayıcı/cihazda kalır — kalıcı
+  // asıl kopya yine "Yedek İndir (.json)" ile alınan dosya.
+  const GUEST_LIBRARY_KEY = "symbolcarki:guest-dreams";
+
+  function saveGuestLocally(record) {
+    try {
+      const list = JSON.parse(localStorage.getItem(GUEST_LIBRARY_KEY) || "[]");
+      list.push(Object.assign({ saved_at: new Date().toISOString() }, record));
+      localStorage.setItem(GUEST_LIBRARY_KEY, JSON.stringify(list));
+    } catch (_e) {
+      /* gizli mod / kapalı depolama: yapacak bir şey yok, .json indirmesi kalıyor */
+    }
+  }
+
   const STEP_KEYS = { stepDream: "dream", stepSymbols: "symbols", stepWheel: "wheel", stepFinalize: "finalize" };
   let progressSaveTimer = null;
   let restoringProgress = false;
@@ -968,14 +988,18 @@
     const sym = currentSymbol();
     const hasSelection = sym && sym.associations.some((a) => a.selected);
     el.fourQuestions.classList.toggle("hidden", !hasSelection);
-    el.symbolNotes.classList.toggle("hidden", !hasSelection);
+    el.symbolNotesMeditation.classList.toggle("hidden", !hasSelection);
+    el.symbolNotesReport.classList.toggle("hidden", !hasSelection);
     el.btnNextSymbol.classList.toggle("hidden", !hasSelection);
     if (!hasSelection) return;
 
     el.fourQuestions.querySelectorAll("textarea[data-q]").forEach((ta) => {
       ta.value = sym.questions[ta.dataset.q] || "";
     });
-    el.symbolNotes.querySelectorAll("textarea[data-note]").forEach((ta) => {
+    el.symbolNotesMeditation.querySelectorAll("textarea[data-note]").forEach((ta) => {
+      ta.value = sym[ta.dataset.note] || "";
+    });
+    el.symbolNotesReport.querySelectorAll("textarea[data-note]").forEach((ta) => {
       ta.value = sym[ta.dataset.note] || "";
     });
 
@@ -1000,12 +1024,14 @@
   // "report_note" rapora girer. Ayrım bilinçli — kullanıcı sembolle otururken
   // yazdığı her şeyi paylaşmak zorunda kalmasın, ama işine yarayan kısmı
   // rapora taşıyabilsin (Kaan'ın isteği, 2026-09-11).
-  el.symbolNotes.querySelectorAll("textarea[data-note]").forEach((ta) => {
-    ta.addEventListener("input", () => {
-      const sym = currentSymbol();
-      if (!sym) return;
-      sym[ta.dataset.note] = ta.value;
-      saveProgress();
+  [el.symbolNotesMeditation, el.symbolNotesReport].forEach((container) => {
+    container.querySelectorAll("textarea[data-note]").forEach((ta) => {
+      ta.addEventListener("input", () => {
+        const sym = currentSymbol();
+        if (!sym) return;
+        sym[ta.dataset.note] = ta.value;
+        saveProgress();
+      });
     });
   });
 
@@ -1110,6 +1136,17 @@
     el.finalizeContextBody.innerHTML = parts.join("");
   }
 
+  // Ağaç / Harita (Graf) arasında switch — Kaan'ın kararı, 2026-09-17,
+  // 2026-09-16'daki "ikisi de her zaman görünür" kararının YERİNE geçiyor
+  // (o da kendisinden önceki Ağaç/Sütun/Graf üçlü sekmesini kaldırmıştı;
+  // Sütun görünümü hâlâ elenmiş durumda, geri gelmiyor). Tek bir sembol
+  // açılınca her iki görünümde de aynı index'te (`state.workIndex`) açık
+  // kalsın diye ikisi de aynı veriyle çiziliyor, ama Graf SADECE görünürken
+  // çiziliyor: Cytoscape `display:none` bir konteynerde kurulursa 0×0 canvas
+  // alır ve sekme açılınca boş görünür — bu yüzden "Grafiği"ye geçildiğinde
+  // önce hidden class kaldırılıyor, SONRA render ediliyor (bkz. setFinalizeView).
+  let finalizeView = "tree";
+
   function renderFinalizeWorkspace() {
     renderFinalizeContext();
     const record = buildRecord("");
@@ -1117,19 +1154,31 @@
     if (!(state.workIndex >= 0 && state.workIndex < record.symbols.length)) {
       state.workIndex = -1;
     }
-    renderFinalizeGraph(record, state.workIndex);
     renderFinalizeTree(record, state.workIndex);
+    if (finalizeView === "graph") renderFinalizeGraph(record, state.workIndex);
   }
 
-  // Graf üstte + Ağaç altta, ikisi de her zaman görünür (Kaan'ın kararı,
-  // 2026-09-16) — önceki Ağaç/Sütun/Graf sekme anahtarı kaldırıldı, Sütun
-  // görünümü tamamen elendi. Tek bir sembol açılınca her iki görünümde de
-  // aynı anda açılsın diye ortak bir index (`state.workIndex`) üzerinden
-  // ikisi birlikte yeniden çiziliyor.
+  function setFinalizeView(view) {
+    finalizeView = view;
+    const treeActive = view === "tree";
+    el.finalizeTree.classList.toggle("hidden", !treeActive);
+    el.finalizeGraph.classList.toggle("hidden", treeActive);
+    el.btnFinalizeViewTree.classList.toggle("active", treeActive);
+    el.btnFinalizeViewTree.setAttribute("aria-selected", String(treeActive));
+    el.btnFinalizeViewGraph.classList.toggle("active", !treeActive);
+    el.btnFinalizeViewGraph.setAttribute("aria-selected", String(!treeActive));
+    // Konteyner artık görünür oldu, Graf'ı şimdi (yeniden) çiz — doğru
+    // boyutla kurulsun diye gizliyken hiç render edilmiyordu.
+    if (!treeActive) renderFinalizeGraph(buildRecord(""), state.workIndex);
+  }
+
+  el.btnFinalizeViewTree.addEventListener("click", () => setFinalizeView("tree"));
+  el.btnFinalizeViewGraph.addEventListener("click", () => setFinalizeView("graph"));
+
   function setFinalizeWorkIndex(index) {
     const record = buildRecord("");
-    renderFinalizeGraph(record, index);
     renderFinalizeTree(record, index);
+    if (finalizeView === "graph") renderFinalizeGraph(record, index);
   }
 
   // Bağlam/altın çağrışım/4 soru/rapor notu alanlarını, kalem-ikonu
@@ -1793,8 +1842,13 @@
     el.btnNewDream.classList.remove("hidden");
     try {
       const saveRes = await postJSON("/api/save-dream", state.lastRecord);
-      state.lastSavedFile = saveRes.saved_as || null;
-      setStatus(el.finalizeStatus, I18N.t("finalize.status.saved"));
+      if (saveRes.guest) {
+        saveGuestLocally(state.lastRecord);
+        setStatus(el.finalizeStatus, I18N.t("finalize.status.savedGuest"));
+      } else {
+        state.lastSavedFile = saveRes.saved_as || null;
+        setStatus(el.finalizeStatus, I18N.t("finalize.status.saved"));
+      }
     } catch (err) {
       // Sunucuya yazamamak akışı bozmamalı — .json yedeği zaten asıl kopya.
       setStatus(el.finalizeStatus, err.message, true);
@@ -1831,8 +1885,13 @@
       el.btnNewDream.classList.remove("hidden");
 
       const saveRes = await postJSON("/api/save-dream", state.lastRecord);
-      state.lastSavedFile = saveRes.saved_as || null;
-      setStatus(statusNode, I18N.t("finalize.status.done"));
+      if (saveRes.guest) {
+        saveGuestLocally(state.lastRecord);
+        setStatus(statusNode, I18N.t("finalize.status.savedGuest"));
+      } else {
+        state.lastSavedFile = saveRes.saved_as || null;
+        setStatus(statusNode, I18N.t("finalize.status.done"));
+      }
     } catch (err) {
       setStatus(statusNode, err.message, true);
     } finally {
@@ -2199,9 +2258,18 @@
     const dateStr = new Date().toLocaleString(locale);
     const dreamSnippet = (record.dream_text || "").replace(/\s+/g, " ").trim().slice(0, 220);
     const symbols = record.symbols || [];
-    // Harita raporda sadece sembol adı + altın çağrışım olarak yer alıyor
-    // (Kaan'ın kararı, 2026-09-16) — ekrandaki Ağaç/Graf'ın tam görsel
-    // karşılığı değil, markdown raporundaki özet listesiyle aynı sade liste.
+    // Görsel harita — 2026-09-16'da PDF'ten çıkarılmıştı (sadece liste
+    // kalmıştı), Kaan'ın isteğiyle 2026-09-17'de geri kondu: gerçek sunburst
+    // SVG'si "paper" temasıyla ("export" mod, interactive:false) çiziliyor.
+    // Bu mod zaten hiçbir hücrede metni kesmiyor / üst üste bindirmiyor —
+    // sığmayan etiket fitCellText ile kademeli küçültülüyor (bkz.
+    // symbolmap.js başındaki "değişmez kural"); burada ek bir şey yapmaya
+    // gerek yok, sadece SVG'yi olduğu gibi gömüp CSS'te sayfa genişliğine
+    // sığdırıyoruz. Metin listesi haritanın altında, yazdırılabilir/renksiz
+    // bir yedek özet olarak duruyor.
+    const mapSvgHtml = symbols.length
+      ? `<div class="report-map-visual">${SymbolMap.svgToString(SymbolMap.buildMapSvg(record, "paper"))}</div>`
+      : "";
     const mapListHtml = symbols.length
       ? `<ul class="report-map-list">${symbols
           .map((sym) => {
@@ -2273,6 +2341,8 @@
   .section { break-before: page; padding-top:8px; }
   .section:first-of-type { break-before: auto; }
   .dream-text, .context-text, .interpretation-text { white-space:pre-wrap; }
+  .report-map-visual { margin:8px 0 4px; text-align:center; }
+  .report-map-visual svg { max-width:100%; height:auto; display:inline-block; }
   .report-map-list { list-style:none; margin:12px 0 0; padding:0; }
   .report-map-list li { padding:6px 0; border-bottom:1px solid var(--ring); }
   .report-map-list li:last-child { border-bottom:none; }
@@ -2314,7 +2384,7 @@
     ${arcBlock}
   </section>
 
-  ${mapListHtml ? `<section class="section"><h2>${escapeHtml(I18N.t("report.mapHeading"))}</h2>${mapListHtml}</section>` : ""}
+  ${mapListHtml ? `<section class="section"><h2>${escapeHtml(I18N.t("report.mapHeading"))}</h2>${mapSvgHtml}${mapListHtml}</section>` : ""}
 
   ${cardsHtml ? `<section class="section"><h2>${escapeHtml(I18N.t("report.cardsHeading"))}</h2>${cardsHtml}</section>` : ""}
 

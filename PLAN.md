@@ -1,7 +1,7 @@
 ---
 title: Sembol Çarkı — Geliştirme Planı
 created: 2026-09-07
-modified: 2026-09-07
+modified: 2026-09-17
 type: plan
 status: active
 tags: [jung, ruya, proje]
@@ -625,3 +625,142 @@ cevabı: **hepsi backlog'a yazılsın, hiçbiri şimdi başlanmasın.** Dört fi
 
 Dördü de tasarlanmadı, hiçbiri için brainstorm/plan turu yapılmadı — sıradaki
 adım Kaan bunlardan birini seçtiğinde ayrı bir brainstorm/plan oturumu.
+
+## Kaan'ın dikte planı — genel akış özeti + istenen değişiklikler (2026-09-17)
+
+Kaan sesli notla tüm akışı özetledi ve içine birkaç somut değişiklik talebi
+ekledi. Kaan'ın tercihiyle önce bu liste PLAN.md'ye işlendi, kodlamaya hangi
+maddeyle başlanacağı **henüz önceliklendirilmedi** — ayrı bir oturumda karar
+verilecek.
+
+### Genel akış (mevcut + hedeflenen, Kaan'ın özeti)
+
+Rüya girdisi → sembol ayıklama → sembol ekleme/editleme (mevcut) → sembol
+çarkını doldurma → içsel dinamiklere bağlama + meditasyonlar → yorum sayfası
+(rüya konsolü: ağaç + harita, switch ile) → yorumu kaydetme → AI uzman
+görüşü/kör nokta analizi → kayıt → rüya kütüphanesi (geri dönük izleme,
+statlar) → PDF rapor (haritalı) / MD çıktı (haritasız) → misafir kullanıcılar
+için JSON/lokal kayıt → ek: duygu/renk/tema takibi + aylık arketipal özet →
+beta testi.
+
+### Somut değişiklik istekleri (öncelik sırası henüz belirlenmedi)
+
+1. **Meditasyon alanı ikiye ayrılacak — Faz 3.7'deki karar kısmen değişiyor.**
+   Faz 3.7'de "meditasyon notu hiçbir yere girmiyor" denmişti (ne rapora ne
+   AI'a). Kaan'ın netleştirmesi (2026-09-17): *"meditasyonlar bölümünde iki
+   şey var, ya bi rapora girecekler bir de girmeyecekler; girmeyecekler
+   karalama olarak üstte kalsın, girecekler altta dursun."* Yani bundan sonra
+   iki tür meditasyon notu olacak:
+   - **Rapora girmeyecek olanlar** (karalama/taslak) — 4 sorunun **üstünde**.
+   - **Rapora girecek olanlar** — 4 sorunun **altında**.
+   Henüz tasarlanmadı: rapora giren alanın md'ye mi, PDF'e mi, ikisine mi
+   gireceği belirlenmedi.
+
+2. **Yorum sayfasında rüya konsolü: ağaç + yeni harita arasında switch.**
+   Mevcut rüya konsolünde (bkz. `knowledge/concepts/ruya-konsolu.md`) bir
+   harita göster/gizle toggle'ı var; Kaan bunun yerine/üstüne **ağaç görünümü
+   ile yeni bir harita görünümü arasında** açık bir switch istiyor. **Node'a
+   tıklayınca anlam açılması özelliği korunacak** — Kaan bunu özellikle "çok
+   iyi olmuş" diyerek vurguladı, dokunulmayacak. Yorum yazma kutusu sayfada
+   aynen kalıyor.
+
+3. **"Yorumu Genişlet" promptu geliştirilecek (uzman görüşü + kör nokta
+   analizi).** Kaan'ın netleştirmesi (2026-09-17): yeni ayrı bir özellik
+   DEĞİL, mevcut `EXPAND_PROMPT`'un güçlendirilmesi. Prompt tasarımı ayrı
+   bir iş olarak ele alınacak.
+
+4. **PDF rapor: yeni harita eklenecek, metin çakışması düzeltilecek.**
+   Rapora (yazdır/PDF) mevcut haritanın yerine/yanına yeni harita girecek;
+   önemli kısıt: **node/etiket metinleri üst üste binmeyecek, hepsi okunur
+   olacak** — gerekirse font küçültülsün. MD çıktısı **haritasız** kalmaya
+   devam edecek (mevcut davranış, değişmiyor).
+
+5. **Misafir kullanıcılar için kayıt kısıtlaması.** Giriş yapmamış/misafir
+   kullanıcılar rüyalarını yalnızca **JSON indirerek** ya da **kendi
+   cihazlarında (telefon vb.) lokal olarak** bitirebilecek — sunucu tarafı
+   kütüphaneye/DB'ye kayıt yok. Şu an tüm kullanıcılar aynı sunucu akışını
+   kullanıyor (`ruyalar/` + Neon) — bu, misafir/üye ayrımı gerektiren yeni bir
+   mimari karar; giriş sistemi zaten var (`templates/login.html`), misafir
+   modu için ayrı bir akış tasarlanması gerekecek.
+
+6. **Ek/backlog — yukarıdaki "Backlog" bölümüyle örtüşüyor, yeni bir şey
+   eklemiyor.** Duygu-renk kodlaması, tema takibi, aylık arketipal tema
+   özeti — mevcut 4 maddelik backlog'u teyit ediyor.
+
+7. **Beta testi** — tüm bu değişiklikler bittikten sonraki aşama olarak not
+   edildi, henüz tarih/kapsam belirlenmedi.
+
+### Sıradaki adım
+
+Kaan'ın tercihi: önce bu liste PLAN.md'ye işlensin (yapıldı), kodlamaya hangi
+maddeyle başlanacağı ayrı bir oturumda önceliklendirilecek.
+
+### Uygulandı (2026-09-17, aynı gün, "şimdi kodla")
+
+Kaan önceliklendirmeyi beklemeden hepsini kodlamamı istedi. 1, 3, 4, 5 ve 2
+kodlandı; 6 zaten mevcut backlog'un teyidiydi, 7 (beta testi) bu oturumun işi
+değil. **Gerçek tarayıcıda hiçbiri test edilmedi — bu ortamda Chrome uzantısı
+yok, ayrıca `DATABASE_URL` üzerinden Neon'a ağ erişimi de yoktu (bağlantı
+denemesi 8 saniyede bile TCP açamadı), o yüzden `scripts/test_dream_*.py`
+gibi DB'ye bağlanan testler de çalıştırılamadı.** Sadece `python -m
+py_compile` (app.py, gemini_client.py, groq_client.py) ve `node --check`
+(main.js, symbolmap.js, i18n.js) ile sözdizimi doğrulandı, kod elle satır
+satır okunarak kontrol edildi. **Kaan'ın kendi ortamında hem test
+scriptlerini hem tarayıcıda gerçek akışı denemesi gerekiyor.**
+
+1. **Meditasyon/rapor notu ayrımı — yapıldı.** `#symbol-notes` tek div'i
+   ikiye bölündü: `#symbol-notes-meditation` (rapora girmez) artık
+   `#four-questions`'ın ÜSTÜNDE, `#symbol-notes-report` (rapora girer) ALTINDA.
+   `main.js`'te `el.symbolNotes` → `el.symbolNotesMeditation` +
+   `el.symbolNotesReport`, üç kullanım yeri de (`syncFourQuestionsPanel` göster/
+   gizle + değer doldurma, input listener) güncellendi. Veri modeli/rapor
+   mantığına dokunulmadı (`meditation` hâlâ hiçbir yere girmiyor, `report_note`
+   hâlâ rapora giriyor) — sadece DOM konumu değişti.
+
+2. **Yorum sayfasında Ağaç/Harita switch — yapıldı, 2026-09-16 kararını
+   tersine çeviriyor.** O gün "Graf üstte + Ağaç altta, ikisi de her zaman
+   görünür" kararı verilmişti (kendisi de daha eski bir Ağaç/Sütun/Graf üçlü
+   sekmesini kaldırmıştı). Şimdi ikili bir sekme geri geldi (Sütun hâlâ yok):
+   `.view-switcher`/`.view-tab` (Rüya Konsolü'nün zaten kullandığı paylaşılan
+   sekme stili) ile "Ağaç" / "Grafiği" arasında seçim. Varsayılan: Ağaç.
+   Node'a tıklayınca anlamın açılması davranışı dokunulmadan korundu (her iki
+   görünüm de aynı `state.workIndex`'i paylaşıyor). **Önemli düzeltme:** Graf
+   Cytoscape.js ile çiziliyor; `display:none` bir kapta kurulursa 0×0 canvas
+   alıp sekme açılınca boş görünür — bu yüzden Graf artık SADECE sekme
+   "Grafiği" iken render ediliyor (`renderFinalizeWorkspace`/
+   `setFinalizeWorkIndex` içinde koşullu, `setFinalizeView`de sekmeye geçerken
+   yeniden çiziliyor). Bu hem switch'i hem olası bir Cytoscape boş-render
+   hatasını aynı anda çözdü.
+
+3. **"Yorumu Genişlet" promptu — yapıldı, minimal.** Kaan'ın netleştirmesiyle
+   ayrı bir özellik değil: `EXPAND_PROMPT`'un açılış cümlesi "Sen deneyimli,
+   kıdemli bir Jungiyen analistsin — verdiğin şey bir uzman görüşü, ikinci bir
+   gözün okuması" oldu. Bilerek tek cümlelik bir ekleme — Pareto/less-is-more
+   tercihi (bkz. Kaan'ın genel prompt yazma kuralı) + PRODUCT.md'nin zaten
+   "ne bir profesyonel Jungiyen analistin fark edeceği" çerçevesini taşıması
+   nedeniyle büyük bir yeniden yazıma gerek yoktu. `groq_client.py` aynı
+   `EXPAND_PROMPT`'u import ettiği için iki provider'da da otomatik geçerli.
+
+4. **PDF raporuna görsel harita — yapıldı, 2026-09-16 kararını tersine
+   çeviriyor.** O gün harita PDF'ten çıkarılıp sadece düz liste bırakılmıştı;
+   şimdi `SymbolMap.buildMapSvg(record, "paper")` (var olan "export" modu,
+   `interactive:false`, zaten metni hiç kesmeyen/üst üste bindirmeyen
+   `fitCellText` mekanizmasını kullanıyor) SVG olarak doğrudan rapora
+   gömülüyor, `.report-map-visual svg { max-width:100%; height:auto }` ile
+   sayfa genişliğine sığdırılıyor. Metin listesi (`report-map-list`) haritanın
+   altında, renksiz/yedek özet olarak duruyor, kaldırılmadı.
+
+5. **Misafir kaydı — yapıldı.** `/api/save-dream`, `session.role == "guest"`
+   ise artık Neon'a HİÇ yazmıyor (`dreams_store.insert_record` çağrılmıyor),
+   `{"saved_as": null, "guest": true}` dönüyor. Frontend bu `guest` bayrağını
+   görünce `saveGuestLocally()` ile kaydı `localStorage`'a
+   (`symbolcarki:guest-dreams` anahtarı, PROGRESS_KEY'den farklı — sonuç
+   ekranına gelince silinmiyor) ekliyor ve kullanıcıya "sunucuya girmedi, bu
+   tarayıcıya kaydedildi, ayrıca .json da indir" mesajı gösteriyor
+   (`finalize.status.savedGuest`). Zaten var olan "Yedek İndir (.json)"
+   düğmesi (`#btn-download-json`, herkese açık) manuel JSON indirmeyi
+   karşılıyor. **Yapılmadı/backlog:** `symbolcarki:guest-dreams` içindeki
+   kayıtları tarayan bir arayüz (mini "misafir kütüphanesi") yok — şimdilik
+   sadece sessizce biriken bir yedek dizi. Kaan isterse ayrı bir iş.
+
+6-7. Değişiklik yok, yukarıdaki notlar geçerli.

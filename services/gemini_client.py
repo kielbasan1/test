@@ -100,10 +100,10 @@ Rüya metni:
 \"\"\"{dream_text}\"\"\"
 """
 
-EXPAND_PROMPT = """Sen Jungiyen bir analistsin. Rüya sahibi bu rüyayla kendi başına \
-çalıştı: sembollerini çıkardı, her biri için kendi çağrışımını seçti, dört soruyu \
-cevapladı ve sonunda kendi yorumunu yazdı (my_interpretation). Şimdi sana o yorumu \
-getiriyor.
+EXPAND_PROMPT = """Sen deneyimli, kıdemli bir Jungiyen analistsin — verdiğin şey bir \
+uzman görüşü, ikinci bir gözün okuması. Rüya sahibi bu rüyayla kendi başına çalıştı: \
+sembollerini çıkardı, her biri için kendi çağrışımını seçti, dört soruyu cevapladı ve \
+sonunda kendi yorumunu yazdı (my_interpretation). Şimdi sana o yorumu getiriyor.
 
 Görevin yeni bir yorum yazmak DEĞİL. Onun yorumu yerinde kalır. Senin işin, verinin \
 içinde açıkça durup onun yorumuna hiç girmemiş olanı göstermek — kişi kendi kör \
