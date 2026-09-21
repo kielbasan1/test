@@ -743,7 +743,7 @@
     // döner — burada elle DOM geri alma yok.
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "symbol-rename-btn";
+    btn.className = "icon-btn";
     btn.setAttribute("aria-label", I18N.t("symbols.chipRename", { name }));
     btn.appendChild(makeIcon("edit", "icon-sm"));
     btn.addEventListener("click", (e) => {
@@ -1309,7 +1309,7 @@
       );
 
       row.addEventListener("click", (e) => {
-        if (e.target.closest(".symbol-rename-btn") || e.target.tagName === "INPUT") return;
+        if (e.target.closest(".icon-btn") || e.target.tagName === "INPUT") return;
         setFinalizeWorkIndex(isOpen ? -1 : index);
       });
 
@@ -2808,8 +2808,11 @@
       const li = document.createElement("li");
       li.className = "history-card";
       li.style.setProperty("--i", i);
+      li.setAttribute("role", "button");
+      li.setAttribute("tabindex", "0");
 
       const displayName = d.title || dreamSnippet(d);
+      li.setAttribute("aria-label", displayName);
 
       const titleRow = document.createElement("div");
       titleRow.className = "history-card-title-row";
@@ -2824,7 +2827,7 @@
           renderLibrary
         )
       );
-      titleRow.querySelector(".symbol-rename-btn").setAttribute(
+      titleRow.querySelector(".icon-btn").setAttribute(
         "aria-label",
         I18N.t("library.renameTitle", { name: displayName })
       );
@@ -2861,7 +2864,7 @@
       countSpan.textContent = I18N.t("library.symbolCount", { count: d.symbol_count ?? 0 });
       const downloadBtn = document.createElement("button");
       downloadBtn.type = "button";
-      downloadBtn.className = "symbol-rename-btn";
+      downloadBtn.className = "icon-btn";
       downloadBtn.setAttribute("aria-label", I18N.t("library.download", { name: displayName }));
       downloadBtn.appendChild(makeIcon("download", "icon-sm"));
       downloadBtn.addEventListener("click", (e) => {
@@ -2870,7 +2873,7 @@
       });
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
-      deleteBtn.className = "symbol-rename-btn danger";
+      deleteBtn.className = "icon-btn danger";
       deleteBtn.setAttribute("aria-label", I18N.t("library.delete", { name: displayName }));
       deleteBtn.appendChild(makeIcon("trash", "icon-sm"));
       deleteBtn.addEventListener("click", (e) => {
@@ -2886,7 +2889,7 @@
       if (d.has_ritual) {
         const ritualBtn = document.createElement("button");
         ritualBtn.type = "button";
-        ritualBtn.className = "symbol-rename-btn ritual-toggle" + (d.ritual_done ? " active" : "");
+        ritualBtn.className = "icon-btn ritual-toggle" + (d.ritual_done ? " active" : "");
         ritualBtn.setAttribute(
           "aria-label",
           I18N.t(d.ritual_done ? "library.ritualUndo" : "library.ritualMark", { name: displayName })
@@ -2904,6 +2907,13 @@
       li.appendChild(textSpan);
       li.appendChild(footerRow);
       li.addEventListener("click", () => showHistoryDetail(d.file));
+      li.addEventListener("keydown", (e) => {
+        if (e.target !== li) return; // kart içindeki butonlardan gelen tuşu tekrar tetikleme
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+          e.preventDefault();
+          showHistoryDetail(d.file);
+        }
+      });
       el.historyList.appendChild(li);
     });
   }

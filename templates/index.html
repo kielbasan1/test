@@ -45,17 +45,17 @@
     <h1 class="brand"><svg class="icon"><use href="#icon-moon"/></svg><span data-i18n="brand.name">Sembol Çarkı</span></h1>
     <p class="subtitle" data-i18n="brand.subtitle">Robert Johnson'ın "Inner Work" yöntemiyle rüya sembol amplifikasyonu</p>
     <div class="header-actions">
-      <button id="btn-show-history" class="btn-link{% if is_guest %} hidden{% endif %}">
+      <button type="button" id="btn-show-history" class="btn-link{% if is_guest %} hidden{% endif %}">
         <svg class="icon icon-sm"><use href="#icon-clock"/></svg><span data-i18n="header.history">Geçmiş Rüyalarım</span>
       </button>
-      <button id="btn-show-guide" class="btn-link">
+      <button type="button" id="btn-show-guide" class="btn-link">
         <svg class="icon icon-sm"><use href="#icon-file-text"/></svg><span data-i18n="header.guide">Rehber</span>
       </button>
-      <button id="btn-import" class="btn-link" data-i18n-title="header.importTitle" title="Dosyadan bir rüya kaydı (.json ya da .txt) aç">
+      <button type="button" id="btn-import" class="btn-link" data-i18n-title="header.importTitle" title="Dosyadan bir rüya kaydı (.json ya da .txt) aç">
         <svg class="icon icon-sm"><use href="#icon-upload"/></svg><span data-i18n="header.import">Dosyadan Aç</span>
       </button>
       <input id="import-file-input" type="file" accept="application/json,.json,.txt,text/plain" class="hidden" />
-      <button id="btn-new-dream" class="btn-link hidden">
+      <button type="button" id="btn-new-dream" class="btn-link hidden">
         <svg class="icon icon-sm"><use href="#icon-sparkle"/></svg><span data-i18n="header.newDream">Yeni Rüya Başlat</span>
       </button>
       <button id="btn-lang-toggle" type="button" class="btn-link lang-toggle">EN</button>
@@ -64,7 +64,7 @@
         <button type="submit" class="btn-link" data-i18n="header.logout">Çıkış Yap</button>
       </form>
       {% endif %}
-      <button id="btn-load-draft" class="btn-link btn-link-dev" data-i18n-title="header.loadDraftTitle" title="Yorumlanmamış bir taslak (.json) yükle — sembolleri/çağrışımları yeniden yazmadan Yorum adımına geçersin">
+      <button type="button" id="btn-load-draft" class="btn-link btn-link-dev" data-i18n-title="header.loadDraftTitle" title="Yorumlanmamış bir taslak (.json) yükle — sembolleri/çağrışımları yeniden yazmadan Yorum adımına geçersin">
         <svg class="icon icon-sm"><use href="#icon-edit"/></svg><span data-i18n="header.loadDraft">Taslak Yükle</span>
       </button>
       <input id="draft-file-input" type="file" accept="application/json,.json" class="hidden" />
@@ -120,7 +120,7 @@
       <p id="history-empty" class="hint hidden" data-i18n="history.empty">Henüz kaydedilmiş bir rüya yok.</p>
       <ul id="history-list" class="history-grid"></ul>
       <div id="history-detail" class="history-detail hidden">
-        <button id="btn-history-back" class="btn-secondary">
+        <button type="button" id="btn-history-back" class="btn-secondary">
           <svg class="icon icon-sm"><use href="#icon-chevron-left"/></svg><span data-i18n="history.backToList">Listeye dön</span>
         </button>
         <div id="history-detail-content"></div>
@@ -131,7 +131,7 @@
          uygulamadaki karşılığı. Geçmiş paneliyle aynı desen: STEP_ORDER'a
          dahil değil, "lastMainStep" akışı dışı bir taşma ekranı. -->
     <section id="step-guide" class="card hidden">
-      <button id="btn-guide-back" class="btn-link">
+      <button type="button" id="btn-guide-back" class="btn-link">
         <svg class="icon icon-sm"><use href="#icon-chevron-left"/></svg><span data-i18n="guide.back">Geri dön</span>
       </button>
       <h2 data-i18n="guide.heading">Jungcu Rehber</h2>
@@ -187,7 +187,7 @@
         <textarea id="dream-arc" rows="2" data-i18n-placeholder="dream.arcPlaceholder" placeholder="Örn: karanlıkta başladı, kapı açılınca bitti — ama içeri girmedim..."></textarea>
       </label>
       <div class="row">
-        <button id="btn-extract" class="btn-primary">
+        <button type="button" id="btn-extract" class="btn-primary">
           <svg class="icon icon-sm"><use href="#icon-sparkle"/></svg><span data-i18n="dream.extract">Sembolleri Çıkar</span>
         </button>
         <span id="extract-status" class="status"></span>
@@ -196,7 +196,7 @@
 
     <!-- ADIM 2: Sembol listesi -->
     <section id="step-symbols" class="card hidden">
-      <button id="btn-symbols-back" class="btn-link">
+      <button type="button" id="btn-symbols-back" class="btn-link">
         <svg class="icon icon-sm"><use href="#icon-chevron-left"/></svg><span data-i18n="symbols.back">Rüyaya dön</span>
       </button>
       <h2 data-i18n="symbols.heading">Semboller</h2>
@@ -207,7 +207,7 @@
       </div>
       <p id="symbol-progress" class="hint small"></p>
       <div class="row">
-        <button id="btn-start-symbols" class="btn-primary" data-i18n="symbols.start">Sembollerle Başla →</button>
+        <button type="button" id="btn-start-symbols" class="btn-primary" data-i18n="symbols.start">Sembollerle Başla →</button>
       </div>
       <div id="symbol-chips" class="chip-row"></div>
       <div id="remove-symbol-toast" class="toast hidden" role="status" aria-live="polite">
@@ -215,8 +215,8 @@
         <button id="btn-undo-remove-symbol" type="button" class="btn-link" data-i18n="symbols.undo">Geri Al</button>
       </div>
       <div class="add-association manual-symbol-row">
-        <input id="manual-symbol-input" type="text" data-i18n-placeholder="symbols.manualPlaceholder" placeholder="Atlanan bir sembol varsa buraya yaz (örn. saat)" />
-        <button id="btn-add-symbol" class="btn-secondary">
+        <input id="manual-symbol-input" type="text" data-i18n-placeholder="symbols.manualPlaceholder" data-i18n-aria="symbols.manualPlaceholder" placeholder="Atlanan bir sembol varsa buraya yaz (örn. saat)" />
+        <button type="button" id="btn-add-symbol" class="btn-secondary">
           <svg class="icon icon-sm"><use href="#icon-plus"/></svg><span data-i18n="symbols.addSymbol">Sembol Ekle</span>
         </button>
       </div>
@@ -224,7 +224,7 @@
 
     <!-- ADIM 3: Çark çalışma alanı -->
     <section id="step-wheel" class="card hidden">
-      <button id="btn-wheel-back" class="btn-link">
+      <button type="button" id="btn-wheel-back" class="btn-link">
         <svg class="icon icon-sm"><use href="#icon-chevron-left"/></svg><span data-i18n="wheel.back">Tüm sembollere dön</span>
       </button>
       <div class="symbol-cycle-nav">
@@ -241,8 +241,8 @@
         </div>
         <div class="wheel-side">
           <div class="add-association">
-            <input id="assoc-input" type="text" data-i18n-placeholder="wheel.assocPlaceholder" placeholder="Bu sembol seni neye götürüyor? (çağrışımını yaz)" />
-            <button id="btn-add-assoc" class="btn-secondary">
+            <input id="assoc-input" type="text" data-i18n-placeholder="wheel.assocPlaceholder" data-i18n-aria="wheel.assocPlaceholder" placeholder="Bu sembol seni neye götürüyor? (çağrışımını yaz)" />
+            <button type="button" id="btn-add-assoc" class="btn-secondary">
               <svg class="icon icon-sm"><use href="#icon-plus"/></svg><span data-i18n="wheel.addAssoc">Ok Ekle</span>
             </button>
           </div>
@@ -295,13 +295,13 @@
       </div>
 
       <div class="row">
-        <button id="btn-next-symbol" class="btn-primary hidden" data-i18n="wheel.nextSymbol">Sonraki Sembol →</button>
+        <button type="button" id="btn-next-symbol" class="btn-primary hidden" data-i18n="wheel.nextSymbol">Sonraki Sembol →</button>
       </div>
     </section>
 
     <!-- ADIM 4: Sonuç -->
     <section id="step-finalize" class="card hidden">
-      <button id="btn-finalize-back" class="btn-link">
+      <button type="button" id="btn-finalize-back" class="btn-link">
         <svg class="icon icon-sm"><use href="#icon-chevron-left"/></svg><span data-i18n="finalize.back">Sembollere dön</span>
       </button>
       <h2 data-i18n="finalize.heading">Kendi Yorumun</h2>
@@ -337,13 +337,13 @@
       <textarea id="my-interpretation" rows="14" data-i18n-placeholder="finalize.placeholder" placeholder="Bu rüya bana şunu söylüyor…"></textarea>
       <p class="hint small" id="finalize-gate" data-i18n="finalize.gate">Yapay zeka yardımı ancak kendi yorumunu yazdıktan sonra açılır — sonra ne göremediğine bakar, senin yerine yorumlamaz.</p>
       <div class="row">
-        <button id="btn-finish" class="btn-primary" disabled>
+        <button type="button" id="btn-finish" class="btn-primary" disabled>
           <svg class="icon icon-sm"><use href="#icon-check"/></svg><span data-i18n="finalize.finish">Yorumumu Kaydet</span>
         </button>
-        <button id="btn-finalize" class="btn-secondary" disabled>
+        <button type="button" id="btn-finalize" class="btn-secondary" disabled>
           <svg class="icon icon-sm"><use href="#icon-sparkle"/></svg><span data-i18n="finalize.expand">Yorumu Genişlet</span>
         </button>
-        <button id="btn-save-draft" class="btn-secondary">
+        <button type="button" id="btn-save-draft" class="btn-secondary">
           <svg class="icon icon-sm"><use href="#icon-download"/></svg><span data-i18n="finalize.saveDraft">Taslak Kaydet (.json)</span>
         </button>
         <span id="finalize-status" class="status"></span>
@@ -356,7 +356,7 @@
         <h2 data-i18n="result.heading">Yorum</h2>
         <div class="result-header-actions">
           <div class="report-menu-wrap">
-            <button id="btn-report" class="btn-secondary" aria-haspopup="dialog" aria-expanded="false" aria-controls="report-menu">
+            <button type="button" id="btn-report" class="btn-secondary" aria-haspopup="dialog" aria-expanded="false" aria-controls="report-menu">
               <svg class="icon icon-sm"><use href="#icon-file-text"/></svg><span data-i18n="result.report">Rapor</span>
             </button>
             <div id="report-menu" class="report-menu hidden" role="dialog" aria-labelledby="report-menu-title">
@@ -366,19 +366,19 @@
                 <span data-i18n="report.includeAi">Yapay zeka genişletmesi de girsin</span>
               </label>
               <div class="report-menu-actions">
-                <button id="btn-report-md" class="btn-secondary">
+                <button type="button" id="btn-report-md" class="btn-secondary">
                   <svg class="icon icon-sm"><use href="#icon-download"/></svg><span data-i18n="report.downloadMd">.md indir</span>
                 </button>
-                <button id="btn-report-print" class="btn-secondary">
+                <button type="button" id="btn-report-print" class="btn-secondary">
                   <svg class="icon icon-sm"><use href="#icon-print"/></svg><span data-i18n="report.print">Yazdır / PDF</span>
                 </button>
               </div>
             </div>
           </div>
-          <button id="btn-download-json" class="btn-secondary">
+          <button type="button" id="btn-download-json" class="btn-secondary">
             <svg class="icon icon-sm"><use href="#icon-download"/></svg><span data-i18n="result.downloadJson">Yedek İndir (.json)</span>
           </button>
-          <button id="btn-copy-result" class="btn-secondary">
+          <button type="button" id="btn-copy-result" class="btn-secondary">
             <svg class="icon icon-sm"><use href="#icon-copy"/></svg><span data-i18n="result.copy">Kopyala</span>
           </button>
         </div>
@@ -403,7 +403,7 @@
 
       <div id="expand-offer" class="expand-offer hidden">
         <p class="hint small" data-i18n="result.expandOffer">Hazır hissettiğinde yapay zekadan yorumunu genişletmesini isteyebilirsin — senin yerine yorumlamaz, göremediğin yere bakar.</p>
-        <button id="btn-expand-later" class="btn-secondary">
+        <button type="button" id="btn-expand-later" class="btn-secondary">
           <svg class="icon icon-sm"><use href="#icon-sparkle"/></svg><span data-i18n="finalize.expand">Yorumu Genişlet</span>
         </button>
         <span id="expand-status" class="status"></span>

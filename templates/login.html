@@ -29,7 +29,7 @@
       <form method="POST" class="login-form">
         <div class="login-input-row">
           <svg class="icon"><use href="#icon-lock"/></svg>
-          <input type="password" name="password" data-i18n-placeholder="login.password" placeholder="Şifre" autofocus required autocomplete="current-password" />
+          <input type="password" name="password" data-i18n-placeholder="login.password" data-i18n-aria="login.password" placeholder="Şifre" autofocus required autocomplete="current-password" />
         </div>
         {% if error %}
           <p class="error-text">{{ error }}</p>

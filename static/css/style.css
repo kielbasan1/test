@@ -189,7 +189,6 @@ a { color: var(--accent-strong); }
   .chip,
   .assoc-list li,
   .history-list li,
-  .map-qa-card,
   .tree-node {
     animation: itemIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) backwards;
     animation-delay: calc(var(--i, 0) * 40ms);
@@ -610,7 +609,7 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   background: var(--danger-soft);
 }
 
-.symbol-rename-btn {
+.icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -624,24 +623,24 @@ textarea:focus, input[type="text"]:focus, input[type="password"]:focus {
   transition: color 0.15s ease, background-color 0.15s ease;
 }
 
-.symbol-rename-btn:hover {
+.icon-btn:hover {
   color: var(--accent);
   background: var(--accent-soft);
 }
 
-.symbol-rename-btn.danger:hover {
+.icon-btn.danger:hover {
   color: var(--danger);
   background: var(--danger-soft);
 }
 
 /* Ritüel işareti: rezonanstan farklı olarak kütüphaneden HER ZAMAN
    açılıp kapatılabilir bir "yaptım" düğmesi (bkz. toggleRitualDone). */
-.symbol-rename-btn.ritual-toggle:hover {
+.icon-btn.ritual-toggle:hover {
   color: var(--gold);
   background: var(--gold-soft);
 }
 
-.symbol-rename-btn.ritual-toggle.active {
+.icon-btn.ritual-toggle.active {
   color: var(--gold);
 }
 
