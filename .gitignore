@@ -14,3 +14,5 @@ scripts/cember-*.svg
 .neon
 node_modules/
 .mcp.json
+app_log.txt
+.claude/settings.local.json
