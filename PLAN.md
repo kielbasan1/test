@@ -244,29 +244,37 @@ yeniden anlatıyordu — Kaan'ın gözlemi. Free tier'de flash-lite en yüksek g
 kotaya sahip ama en zayıf muhakemeye; flash bir üst kademe, hâlâ ücretsiz, günlük
 kota kişisel kullanım için fazlasıyla yeterli.
 
-**3.3b AI çağrı haritası (2026-09-10 eklendi, 2026-09-10 aynı gün ayrı oturumda
-güncellendi — provider değişince bu tablo da güncellenmeli).** `extract_symbols`
-artık `SYNTHESIS_PROVIDER`'ı hiç okumuyor, her zaman native Gemini kullanıyor —
-bkz. aşağıdaki "Kota testi doğrulandı" bulgusu. `expand_interpretation` ve
-`amplify_symbol` hâlâ aynı değişkeni kontrol ediyor (merkezi tek bir yönlendirme
-yok, bilerek — tek bir yerde toplamak istenirse `services/gemini_client.py`'de
-ortak bir `_resolve_provider()` helper'ı düşünülebilir, henüz yapılmadı):
+**3.3b AI çağrı haritası (2026-09-10 eklendi; 2026-10-14'te sağlayıcı
+yönlendirmesi tamamen kaldırıldı).** Groq API anahtarı geçersiz hale geldi
+(401 `expired_api_key`, gerçek istekle doğrulandı) ve Kaan "yorumu genişlet
+adımını Gemini'ye çevir" dedi; `expand_interpretation` ile birlikte aynı
+istemciyi kullanan `amplify_symbol` da Gemini'ye alındı, `services/groq_client.py`
+ve `requirements.txt`'teki `groq` bağımlılığı silindi. Artık **hiçbir çağrı
+`SYNTHESIS_PROVIDER` okumuyor**:
 
-| Çağrı | Dosya | Provider |
+| Çağrı | Dosya | Model |
 | --- | --- | --- |
-| `extract_symbols` | `services/gemini_client.py` | **Her zaman Gemini**, `GEMINI_MODEL` (flash-lite) — `SYNTHESIS_PROVIDER` etkisiz |
-| `expand_interpretation` | `services/gemini_client.py` → `groq_client.py` | `SYNTHESIS_PROVIDER=groq` ise Groq/`GROQ_SYNTHESIS_MODEL`, değilse Gemini/`GEMINI_SYNTHESIS_MODEL` |
-| `amplify_symbol` | aynı | `SYNTHESIS_PROVIDER=groq` ise Groq/`GROQ_EXTRACT_MODEL` (yoksa sentez modeliyle aynı), değilse Gemini/`GEMINI_MODEL` |
+| `extract_symbols` | `services/gemini_client.py` | `GEMINI_MODEL` (flash-lite) |
+| `expand_interpretation` | aynı | `GEMINI_SYNTHESIS_MODEL` (flash-lite) |
+| `amplify_symbol` | aynı | `GEMINI_MODEL` (flash-lite) |
 
-`groq_client.extract_symbols` (ve sadece onun kullandığı `_parse_symbols_json`/
-`_strip_json_fence` OTPM-kesilme kurtarma mantığı) artık hiçbir yerden
-çağrılmadığı için silindi — geçmişi git'te duruyor, tekrar gerekirse commit
-`02663a4` civarından geri alınabilir.
+Yorumu genişlet adımının modeli de flash'a değil flash-lite'a alındı: göç
+sırasında `gemini-flash-latest` ile yapılan gerçek istek 503 UNAVAILABLE
+döndü (adımın 2026-09-09'da Groq'a taşınma sebebinin hâlâ geçerli olduğu
+kanıtı). Aynı göçte `amplify_symbol`'ın `max_output_tokens=1024` bütçesi
+yetersiz çıktı: thinking ile paylaşıldığı için 5 denemenin 3'ü cümle
+ortasında kesiliyordu (`finish_reason=MAX_TOKENS`), 2048'e çıkarıldı
+(2048 ile 5/5 temiz `STOP`).
 
-Not: local `.env`'de `SYNTHESIS_PROVIDER=groq` tanımlı (bir önceki oturumda
-eklendi), Render dashboard'unda da `groq` set edilmiş durumda — ikisi artık
-tutarlı, ama bu ayrımı unutmamak hâlâ gerekiyor (local ile canlı env'in
-birbirinden bağımsız olduğu daha önce iki kez bulunmuştu).
+`groq_client.extract_symbols` daha önce (2026-09-10) silinmişti, `groq_client.py`
+kalan iki fonksiyonuyla birlikte 2026-10-14'te tamamen kaldırıldı — geçmişi
+git'te duruyor (`a617798` ve öncesi).
+
+Not: Render dashboard'unda hâlâ `SYNTHESIS_PROVIDER` / `GROQ_API_KEY` /
+`GROQ_SYNTHESIS_MODEL` tanımlı olabilir; kod bunları artık hiç okumuyor, ama
+temizlenmesi gerekiyor. Local ile canlı env'in birbirinden bağımsız olduğu
+daha önce iki kez bulunmuştu (o yüzden bu değişiklik kodda varsayılanı
+değiştiriyor, env'e bağımlı değil).
 
 **Model seçimi tercihi (2026-09-10):** Pareto/less-is-more'a göre sıfırdan
 yazılan yeni `SYNTHESIS_PROMPT`, Groq/`qwen3.6-27b` (reasoning modeli) ile
@@ -274,6 +282,9 @@ test edilince Kaan sonuçları "çok beğendim" dedi. Buradan çıkan kural:
 **ileride sentez için başka bir model değerlendirilecekse, ya aynı model
 ailesinden (Qwen serisi) ya da reasoning yapabilen bir model olsun** — düz,
 reasoning'siz modellerle karşılaştırma yapılmayacak.
+**(2026-10-14 güncellemesi)** Qwen/Groq tarafı tamamen kalktı (bkz. 3.3b).
+Kuralın özü hâlâ geçerli: genişletme adımında reasoning yapabilen bir model
+tercih edilir — flash-lite orada `thinking_level="high"` ile kullanılıyor.
 
 ## Faz 3.4 — Sembol Haritası (eklendi)
 

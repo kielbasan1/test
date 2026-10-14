@@ -316,15 +316,19 @@ değerli.
   It stays locked until the user's own reading reaches a minimum length,
   because an instant-answer box pulls people past the waiting the method
   depends on.
-- LLM providers: symbol extraction always runs on native Gemini
-  (`GEMINI_MODEL`, flash-lite — quota measured healthy in a real 25-request
-  test). The expansion call routes through `SYNTHESIS_PROVIDER`; it is set
-  to Groq (`qwen/qwen3.6-27b`) in both local and live environments, because
-  Gemini's flash tier repeatedly failed with 429/503. A stronger-looking
-  Groq alternative (`gpt-oss-120b`) was deliberately rejected for a
-  documented over-refusal pattern specifically on psychological-analysis
-  content, which conflicts with the kind of sensitive material real dream
-  work routinely surfaces.
+- LLM providers: every call runs on native Gemini (`GEMINI_MODEL`,
+  flash-lite — quota measured healthy in a real 25-request test). Symbol
+  expansion and single-symbol amplification were routed through Groq
+  (first `llama-3.3-70b-versatile`, later `qwen/qwen3.x-27b`) while
+  Gemini's flash tier kept failing with 429/503; that route was removed on
+  2026-10-14, when the stored Groq key stopped working (401
+  `expired_api_key`). Expansion now runs on `GEMINI_SYNTHESIS_MODEL`, also
+  flash-lite: `gemini-flash-latest` was retried during the migration and
+  returned 503 again, so plain flash is not a safe default for this step.
+  A stronger-looking Groq alternative (`gpt-oss-120b`) had been
+  deliberately rejected for a documented over-refusal pattern specifically
+  on psychological-analysis content, which conflicts with the kind of
+  sensitive material real dream work routinely surfaces.
 
 ## Brand Commitments
 

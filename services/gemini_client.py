@@ -31,13 +31,14 @@ def _expand_model_name() -> str:
     # Kör nokta bulmak gerçek bağ kurma ve hipotez üretme gerektiriyor. Prompt
     # flash-lite için yeniden yapılandırıldı (tek amaç cümlesi, daha az
     # eşzamanlı kısıt, soyut kural yerine somut örnek) ve gerçek bir rüyayla
-    # test edilince belirgin bir iyileşme gösterdi — ama artık elimizde
-    # gerçek bir test rüyası (scripts/test_ruya.json) olduğu için modeli de
-    # flash'a çıkarıp aynı prompt üzerinde daha da iyi bir sonuç arıyoruz.
-    # flash-lite'ın günlük kotası çok daha yüksek (~500/gün); flash'ınki
-    # düşünülenden düşük olabilir (~20/gün rapor edildi) — kota sorun
-    # çıkarırsa GEMINI_SYNTHESIS_MODEL ile flash-lite'a geri dönülebilir.
-    return os.environ.get("GEMINI_SYNTHESIS_MODEL", "gemini-flash-latest")
+    # test edilince belirgin bir iyileşme gösterdi. 2026-09-08'de kalite için
+    # flash'a çıkarılmıştı, ama flash bu adımda güvenilir değil: 2026-10-14'te
+    # aynı istekle denendiğinde 503 UNAVAILABLE döndü (Groq'un bu adımdan
+    # çıkarılmasının ardından yapılan ilk gerçek test). Varsayılan bu yüzden
+    # flash-lite — extraction ve amplifikasyonla aynı, test edilmiş sağlıklı
+    # kota havuzu. Kalite denemesi için GEMINI_SYNTHESIS_MODEL ile
+    # gemini-flash-latest'e çıkılabilir, ama 503/429 riski göze alınarak.
+    return os.environ.get("GEMINI_SYNTHESIS_MODEL", "gemini-flash-lite-latest")
 
 
 def _extract_text(response) -> str:
@@ -189,14 +190,11 @@ sonrasında hiçbir açıklama yazma.
 
 
 def extract_symbols(dream_text: str) -> list[dict]:
-    # Groq'a yönlendirilmiyor (SYNTHESIS_PROVIDER burada okunmuyor) — bilerek:
     # 2026-09-10'da gerçek test (scripts/test_gemini_quota.py, 25 art arda
-    # istek) flash-lite'ın kotasının artık sağlıklı olduğunu (~500/gün, eski
+    # istek) flash-lite'ın kotasının sağlıklı olduğunu (~500/gün, eski
     # "20/gün paylaşımlı" bulgusu bu modelde geçersiz hale gelmiş) doğruladı.
-    # Yan fayda: Groq'un dar dakikalık çıktı-token sınırı artık sadece
-    # sentezle paylaşılıyor, zengin rüyalarda extraction'ın onu tüketip
-    # JSON'u yarıda kesmesi riski azalıyor. expand_interpretation hâlâ
-    # Groq'ta kalıyor — Gemini flash aynı testte 503+429 ile başarısız oldu.
+    # expand_interpretation ve amplify_symbol de 2026-10-14'ten beri her zaman
+    # Gemini kullanıyor (Groq yolu tamamen kaldırıldı, bkz. aşağıdaki notlar).
     client = _get_client()
     prompt = EXTRACT_PROMPT.replace("{dream_text}", dream_text)
     response = client.models.generate_content(
@@ -229,16 +227,12 @@ def expand_interpretation(payload: dict) -> str:
     "her zaman çalışan sentez" adımının yerini alan, istek üzerine çağrılan
     adımdır (bkz. PRODUCT.md: AI birincil değil, yorumu genişleten yardımcı).
 
-    Gemini'nin ücretsiz kotası bu adımda tekrar tekrar 429/503 verdiği için
-    Groq'a kaçış yolu var (bkz. Threads.md, 2026-09-09/10 kararı). Varsayılan
-    hâlâ Gemini; SYNTHESIS_PROVIDER=groq ile devre dışı bırakılır.
+    Gemini'nin ücretsiz kotası bu adımda eskiden tekrar tekrar 429/503 verdiği
+    için (bkz. Threads.md, 2026-09-09/10 kararı) adım bir ara Groq'a
+    yönlendirilmişti; 2026-10-14'te Groq API anahtarı geçersiz hale geldiği
+    (401 `expired_api_key`) için o yol ve `SYNTHESIS_PROVIDER` yönlendirmesi
+    tamamen kaldırıldı — adım artık koşulsuz Gemini kullanıyor.
     """
-    provider = os.environ.get("SYNTHESIS_PROVIDER", "gemini").strip().lower()
-    if provider == "groq":
-        from services import groq_client
-
-        return groq_client.expand_interpretation(payload)
-
     client = _get_client()
     prompt = EXPAND_PROMPT.replace(
         "{payload_json}", json.dumps(payload, ensure_ascii=False, indent=2)
@@ -291,23 +285,20 @@ def amplify_symbol(name: str, name_en: str, context: str) -> str:
     ekranında kullanılır. expand_interpretation'dan farkı: burada kişisel
     çağrışım YOK, amplifikasyon tek girdi, o yüzden ayrı ve daha hafif bir
     istek. Extraction modelini kullanıyor — basit bir bilgi hatırlama
-    görevi, genişletmedeki gibi çok adımlı muhakeme gerekmiyor; ayrı tutulmasının
-    sebebi artık kota değil (ikisi de flash-lite), thinking_level="low" ile
-    tek sembollük hafif bir istek olarak kalması.
+    görevi, genişletmedeki gibi çok adımlı muhakeme gerekmiyor. Groq yolu
+    2026-10-14'te expand_interpretation ile birlikte kaldırıldı.
     """
-    provider = os.environ.get("SYNTHESIS_PROVIDER", "gemini").strip().lower()
-    if provider == "groq":
-        from services import groq_client
-
-        return groq_client.amplify_symbol(name, name_en, context)
-
     client = _get_client()
     prompt = build_amplify_prompt(name, name_en, context)
     response = client.models.generate_content(
         model=_extract_model_name(),
         contents=prompt,
         config=types.GenerateContentConfig(
-            max_output_tokens=1024,
+            # 1024 yetmiyor: thinking bütçesiyle paylaşıldığı için flash-lite
+            # 5 denemenin 3'ünde cümle ortasında kesiliyordu (finish_reason
+            # MAX_TOKENS). 2048 ile 5/5 temiz STOP (ölçüm: 2026-10-14,
+            # amplify Groq'tan Gemini'ye alınırken yapılan gerçek test).
+            max_output_tokens=2048,
             thinking_config=types.ThinkingConfig(thinking_level="low"),
         ),
     )

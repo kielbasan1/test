@@ -4,9 +4,10 @@
 Kaan AI Studio dashboard'unda "gemini 3.5 flash lite: 28/500" gordu.
 2026-09-10'daki onceki bulgu ise bu anahtarda flash/flash-lite/2.5-flash-lite'in
 ucunun de aynı 20/gun paylasimli kovaya dustugunu soyluyordu (Threads.md).
-Bu script SYNTHESIS_PROVIDER'i gecici olarak (sadece bu process icinde,
-.env'e dokunmadan) gemini'ye zorlayip extract_symbols ve expand_interpretation'i
-art arda cagirip kacinci istekte (varsa) 429/RESOURCE_EXHAUSTED aldigini sayar.
+Bu script extract_symbols ve expand_interpretation'i art arda cagirip kacinci
+istekte (varsa) 429/RESOURCE_EXHAUSTED aldigini sayar (SYNTHESIS_PROVIDER
+gecici olarak gemini'ye zorlamaya gerek kalmadi: 2026-10-14'ten beri iki cagri
+da zaten kosulsuz Gemini).
 
 Kisisel/gercek ruya verisi (test_ruya.json) kullanmiyor - sadece sayim
 yaptigimiz icin sentetik ornek (test_ruya.example.json) yeterli ve daha
@@ -15,7 +16,6 @@ az veri paylasimi anlamina geliyor.
 Kullanim: python scripts/test_gemini_quota.py
 """
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -28,7 +28,6 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(PROJECT_ROOT / ".env", override=True)
-os.environ["SYNTHESIS_PROVIDER"] = "gemini"  # bu process icinde gecici, .env degismiyor
 
 from services import gemini_client  # noqa: E402
 
